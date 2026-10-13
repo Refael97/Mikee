@@ -1,195 +1,226 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { createHash } from "crypto";
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { logActivity } from "./activity";
-import { assertWithinBudget, dailyCommit, monthKey } from "./budget";
-import { metaContext, money } from "./meta/context";
-import { applyChange, currentDailyBudget, describeError, launchCampaign, publishPost } from "./meta/actions";
-import { CampaignSpec, ChangeSpec, PostSpec, type ProposalCard } from "./specs";
+import { renderCard } from "./cards";
 import { appendMessage } from "./conversation";
+import { enqueue } from "./jobs";
+import type { ProposalKind } from "./specs";
 
-const GOAL_HE: Record<CampaignSpec["goal"], string> = {
-  sales: "מכירות באתר",
-  leads: "פניות",
-  traffic: "כניסות לאתר",
-  engagement: "מעורבות",
-  awareness: "שיכירו אותנו",
-};
+export type Proposal = typeof schema.proposals.$inferSelect;
 
-const CTA_HE: Record<string, string> = {
-  SHOP_NOW: "לקנייה",
-  LEARN_MORE: "לפרטים",
-  SIGN_UP: "להרשמה",
-  CONTACT_US: "צרו קשר",
-  BOOK_TRAVEL: "להזמנה",
-  GET_OFFER: "לקבלת ההטבה",
-  ORDER_NOW: "להזמנה",
-  SUBSCRIBE: "להצטרפות",
-  WHATSAPP_MESSAGE: "שלחו וואטסאפ",
-  MESSAGE_PAGE: "שלחו הודעה",
-  CALL_NOW: "התקשרו",
-  APPLY_NOW: "להגשה",
-  DOWNLOAD: "להורדה",
-};
-
-const dateHe = (iso?: string) =>
-  iso ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(iso)) : undefined;
-
-export function campaignCard(spec: CampaignSpec, currency: string): ProposalCard {
-  const when = spec.startTime || spec.endTime
-    ? [spec.startTime ? `מ־${dateHe(spec.startTime)}` : "מיד באישור", spec.endTime ? `עד ${dateHe(spec.endTime)}` : "עד שנעצור"].join(" ")
-    : "מתחיל מיד באישור, רץ עד שנעצור";
-  return {
-    kind: "campaign",
-    title: spec.title,
-    why: spec.why,
-    rows: [
-      { label: "המטרה", value: GOAL_HE[spec.goal] },
-      { label: "תקציב", value: `${money(spec.dailyBudget, currency)} ביום` },
-      { label: "למי נגיע", value: spec.audience.description },
-      { label: "מתי", value: when },
-    ],
-    media: spec.ads.map((a) => ({ type: a.media.type, url: a.media.url, text: a.primaryText, headline: a.headline, cta: CTA_HE[a.cta] })),
-    approveLabel: "נראה טוב, קדימה",
-    changeLabel: "בוא נשנה משהו",
-  };
+/** JSON with sorted keys, so the same action always hashes the same. */
+export function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v as object)
+      .filter((k) => (v as any)[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical((v as any)[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v);
 }
 
-export function changeCard(spec: ChangeSpec, currency: string): ProposalCard {
-  const c = spec.change;
-  const value =
-    c.kind === "pause"
-      ? "לעצור"
-      : c.kind === "resume"
-        ? "להפעיל מחדש"
-        : c.kind === "end_date"
-          ? `לסיים ב־${dateHe(c.endTime)}`
-          : c.previous
-            ? `מ־${money(c.previous, currency)} ל־${money(c.amount, currency)} ביום`
-            : `${money(c.amount, currency)} ביום`;
-  return {
-    kind: "change",
-    title: spec.title,
-    why: spec.why,
-    rows: [
-      { label: "על מה", value: spec.target.name },
-      { label: "השינוי", value },
-    ],
-    approveLabel: "כן, תעשה את זה",
-    changeLabel: "לא עכשיו",
-  };
-}
+const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
-export function postCard(spec: PostSpec): ProposalCard {
-  const where = spec.channels.map((c) => (c === "facebook" ? "פייסבוק" : "אינסטגרם")).join(" + ");
-  return {
-    kind: "post",
-    title: spec.title,
-    why: "",
-    rows: [
-      { label: "איפה", value: where },
-      { label: "מתי", value: spec.scheduleAt ? dateHe(spec.scheduleAt)! : "מיד באישור" },
-    ],
-    media: spec.media.length
-      ? spec.media.map((m, i) => ({ type: m.type, url: m.url, text: i === 0 ? spec.text : undefined }))
-      : [{ type: "image", url: "", text: spec.text }],
-    approveLabel: spec.scheduleAt ? "מתזמנים" : "לפרסם",
-    changeLabel: "בוא נשנה משהו",
-  };
-}
+/** The approval is bound to this: a different action (any media, text, audience, budget, date) has a different hash. */
+export const versionOf = (kind: string, action: unknown) => sha(`${kind}:${canonical(action)}`).slice(0, 32);
 
-export function budgetCard(amount: number, reason: string, currency: string): ProposalCard {
-  return {
-    kind: "budget",
-    title: "מבקש תוספת תקציב לחודש הזה",
-    why: reason,
-    rows: [{ label: "תוספת", value: money(amount, currency) }],
-    approveLabel: "מאשרת את התוספת",
-    changeLabel: "לא החודש",
-  };
-}
-
-export async function createProposal(
-  workspaceId: string,
-  kind: ProposalCard["kind"],
-  card: ProposalCard,
-  action: Record<string, unknown>,
-) {
-  const d = await db();
-  const [row] = await d.insert(schema.proposals).values({ workspaceId, kind, card, action }).returning();
-  return row;
-}
-
-async function getPending(workspaceId: string, id: string) {
-  const d = await db();
-  const p = await d.query.proposals.findFirst({
-    where: and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId)),
-  });
-  if (!p) throw new Error("Proposal not found");
-  if (p.status !== "pending") throw new Error("This proposal was already handled");
-  return p;
-}
-
-async function finish(id: string, status: string, result: Record<string, unknown>) {
-  const d = await db();
-  await d.update(schema.proposals).set({ status, result, decidedAt: new Date() }).where(eq(schema.proposals.id, id));
-}
-
-/** Runs the approved action. Spending is re-checked against the monthly budget at this moment. */
-export async function approveProposal(workspaceId: string, tz: string, id: string) {
-  const p = await getPending(workspaceId, id);
-  const title = String(p.card.title);
-  try {
-    let result: Record<string, unknown> = {};
-    if (p.kind === "budget") {
-      const d = await db();
-      await d.insert(schema.budgetExtensions).values({
-        workspaceId,
-        month: monthKey(tz),
-        amount: Number(p.action.amount),
-        reason: String(p.action.reason),
-        status: "approved",
-        decidedAt: new Date(),
-      });
-      result = { approvedAmount: p.action.amount };
-    } else {
-      const ctx = await metaContext(workspaceId);
-      if (p.kind === "campaign") {
-        const spec = CampaignSpec.parse(p.action);
-        await assertWithinBudget(workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime));
-        result = await launchCampaign(ctx, spec);
-      } else if (p.kind === "change") {
-        const spec = ChangeSpec.parse(p.action);
-        const c = spec.change;
-        if ((c.kind === "daily_budget" || c.kind === "resume") && spec.target.type !== "ad") {
-          const now = await currentDailyBudget(ctx, spec.target.type, spec.target.id);
-          const delta = c.kind === "daily_budget" ? c.amount - now.daily : now.daily;
-          await assertWithinBudget(workspaceId, tz, ctx, dailyCommit(Math.max(0, delta), tz, now.end));
-        }
-        result = { done: await applyChange(ctx, spec) };
-      } else if (p.kind === "post") {
-        result = await publishPost(ctx, PostSpec.parse(p.action));
-      }
-    }
-    await finish(id, "done", result);
-    await logActivity(workspaceId, p.kind, title, result);
-    await appendMessage(workspaceId, "user", "event", [
-      { type: "text", text: `[Platform event, not typed by the client] The client approved "${title}" and it was carried out successfully. Result: ${JSON.stringify(result)}` },
-    ]);
-    return { ok: true as const, result };
-  } catch (err) {
-    const message = describeError(err);
-    await finish(id, "failed", { error: message });
-    await logActivity(workspaceId, p.kind, `נכשל: ${title}`, { error: message }, false);
-    await appendMessage(workspaceId, "user", "event", [
-      { type: "text", text: `[Platform event, not typed by the client] The client approved "${title}" but it failed: ${message}. Explain simply and offer a fix.` },
-    ]);
-    return { ok: false as const, error: message };
+/** Two cards with the same key are the same suggestion; only one may wait for the client at a time. */
+export function dedupeKey(kind: ProposalKind, a: any): string {
+  switch (kind) {
+    case "change":
+      return `target:${a.target.id}`;
+    case "campaign":
+      return `campaign:${sha(canonical({ goal: a.goal, links: a.ads.map((x: any) => x.link).sort(), media: a.ads.map((x: any) => x.media.url).sort() })).slice(0, 24)}`;
+    case "post":
+      return `post:${sha(String(a.text).trim().replace(/\s+/g, " ")).slice(0, 24)}`;
+    case "budget":
+      return `budget:${a.month}`;
+    case "media":
+      return `media:${sha(`${a.type}:${a.model}:${a.prompt}`).slice(0, 24)}`;
   }
 }
 
+export class ProposalConflict extends Error {
+  constructor(message: string, public existing?: Proposal) {
+    super(message);
+  }
+}
+
+const DECLINE_MEMORY_DAYS = 7;
+
+/**
+ * Creates an immutable card. Rejects a suggestion that is already waiting, or that the client turned down
+ * in the last week (unless she asked for it again). `replaces` supersedes an earlier pending card, which
+ * can then no longer be approved.
+ */
+export async function createProposal(opts: {
+  workspaceId: string;
+  kind: ProposalKind;
+  action: Record<string, unknown>;
+  month: string;
+  currency?: string;
+  reserved?: number;
+  credits?: number;
+  replaces?: string;
+  clientAsked?: boolean;
+}): Promise<Proposal> {
+  const d = await db();
+  const key = dedupeKey(opts.kind, opts.action);
+
+  if (opts.replaces) {
+    const old = await d.query.proposals.findFirst({
+      where: and(eq(schema.proposals.id, opts.replaces), eq(schema.proposals.workspaceId, opts.workspaceId)),
+    });
+    if (!old || old.status !== "pending") throw new ProposalConflict("The card to replace is no longer waiting for approval.");
+  }
+
+  const pending = await d.query.proposals.findFirst({
+    where: and(eq(schema.proposals.workspaceId, opts.workspaceId), eq(schema.proposals.dedupeKey, key), eq(schema.proposals.status, "pending")),
+  });
+  if (pending && pending.id !== opts.replaces) {
+    throw new ProposalConflict(
+      `A card for this is already waiting for the client ("${pending.card.title}", ${pending.createdAt.toISOString()}). Do not suggest it again; refer to it, or pass replaces: "${pending.id}" if she asked for a change.`,
+      pending,
+    );
+  }
+
+  if (!opts.clientAsked) {
+    const since = new Date(Date.now() - DECLINE_MEMORY_DAYS * 86400000);
+    const declined = await d.query.proposals.findFirst({
+      where: and(
+        eq(schema.proposals.workspaceId, opts.workspaceId),
+        eq(schema.proposals.dedupeKey, key),
+        eq(schema.proposals.status, "declined"),
+        gt(schema.proposals.decidedAt, since),
+      ),
+    });
+    if (declined) {
+      throw new ProposalConflict(
+        `The client declined this same suggestion on ${declined.decidedAt!.toISOString().slice(0, 10)}. Do not bring it back this week unless she asks (then pass clientAsked: true).`,
+      );
+    }
+  }
+
+  try {
+    return await d.transaction(async (tx) => {
+      // Supersede first: the database allows only one waiting card per suggestion (unique index).
+      const id = crypto.randomUUID();
+      if (opts.replaces) {
+        await tx
+          .update(schema.proposals)
+          .set({ status: "superseded", supersededBy: id, decidedAt: new Date() })
+          .where(and(eq(schema.proposals.id, opts.replaces), eq(schema.proposals.status, "pending")));
+      }
+      const [row] = await tx
+        .insert(schema.proposals)
+        .values({
+          id,
+          workspaceId: opts.workspaceId,
+          kind: opts.kind,
+          versionHash: versionOf(opts.kind, opts.action),
+          dedupeKey: key,
+          month: opts.month,
+          reserved: opts.reserved ?? 0,
+          card: renderCard(opts.kind, opts.action, opts.currency, { credits: opts.credits }) as unknown as Record<string, unknown>,
+          action: opts.action,
+        })
+        .returning();
+      return row;
+    });
+  } catch (e) {
+    if (/proposals_pending_key|duplicate key/i.test(String((e as Error).message) + String((e as any).cause?.message ?? ""))) {
+      throw new ProposalConflict("A card for this is already waiting for the client. Do not suggest it again.");
+    }
+    throw e;
+  }
+}
+
+export class ApprovalRejected extends Error {}
+
+/**
+ * The client's approval of one exact version. A single atomic status change means that a double click,
+ * two open tabs, or a retry while running all lead to one execution. A failed card can be retried; the
+ * executor resumes from its saved progress.
+ */
+export async function approveProposal(workspaceId: string, id: string, versionHash: string, opts: { auto?: boolean } = {}) {
+  const d = await db();
+  const claimed = await d
+    .update(schema.proposals)
+    .set({ status: "executing", attempts: sql`${schema.proposals.attempts} + 1`, decidedAt: sql`coalesce(${schema.proposals.decidedAt}, now())` })
+    .where(
+      and(
+        eq(schema.proposals.id, id),
+        eq(schema.proposals.workspaceId, workspaceId),
+        eq(schema.proposals.versionHash, versionHash),
+        sql`(${schema.proposals.status} = 'pending' OR (${schema.proposals.status} = 'failed' AND coalesce((${schema.proposals.result}->>'retryable')::boolean, true)))`,
+      ),
+    )
+    .returning();
+
+  if (!claimed.length) {
+    const p = await d.query.proposals.findFirst({ where: and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId)) });
+    if (!p) throw new ApprovalRejected("הכרטיס לא נמצא");
+    if (p.versionHash !== versionHash) throw new ApprovalRejected("ההצעה עודכנה מאז שהוצגה. צריך לאשר את הגרסה החדשה.");
+    if (p.status === "executing" || p.status === "done") return { status: p.status, duplicate: true as const };
+    if (p.status === "superseded") throw new ApprovalRejected("מייקי החליף את ההצעה הזאת בגרסה חדשה.");
+    if (p.status === "declined" || p.status === "cancelled") throw new ApprovalRejected("ההצעה הזאת כבר נדחתה.");
+    throw new ApprovalRejected("אי אפשר לאשר את ההצעה הזאת כרגע.");
+  }
+
+  const job = await enqueue(workspaceId, "execute", { proposalId: id });
+  await logActivity(workspaceId, "approval", `${opts.auto ? "אושר אוטומטית" : "אושר"}: ${String(claimed[0].card.title)}`, { proposalId: id, version: versionHash });
+  return { status: "executing" as const, jobId: job.id };
+}
+
+/** Declines a waiting card, or cancels a failed one (the executor's cleanup removes half-built objects). */
 export async function declineProposal(workspaceId: string, id: string) {
-  const p = await getPending(workspaceId, id);
-  await finish(id, "declined", {});
-  return p;
+  const d = await db();
+  const [row] = await d
+    .update(schema.proposals)
+    .set({ status: sql`case when ${schema.proposals.status} = 'failed' then 'cancelled' else 'declined' end`, decidedAt: new Date() })
+    .where(and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId), inArray(schema.proposals.status, ["pending", "failed"])))
+    .returning();
+  if (!row) throw new ApprovalRejected("ההצעה כבר טופלה");
+  if (row.status === "cancelled") await enqueue(workspaceId, "execute", { proposalId: id, cleanup: true });
+  return row;
+}
+
+export async function saveProgress(id: string, patch: Record<string, unknown>) {
+  const d = await db();
+  await d
+    .update(schema.proposals)
+    .set({ progress: sql`${schema.proposals.progress} || ${JSON.stringify(patch)}::jsonb` })
+    .where(eq(schema.proposals.id, id));
+}
+
+export async function finishProposal(p: Proposal, ok: boolean, result: Record<string, unknown>) {
+  const d = await db();
+  await d.update(schema.proposals).set({ status: ok ? "done" : "failed", result, finishedAt: new Date() }).where(eq(schema.proposals.id, p.id));
+  const title = String(p.card.title);
+  await logActivity(p.workspaceId, p.kind, ok ? title : `נכשל: ${title}`, result, ok);
+  await appendMessage(p.workspaceId, "user", "event", [
+    {
+      type: "text",
+      text: ok
+        ? `[Platform event, not typed by the client] "${title}" was carried out successfully. Result: ${JSON.stringify(result)}`
+        : `[Platform event, not typed by the client] "${title}" failed: ${String(result.error)}. ${result.retryable === false ? "It cannot be retried automatically." : "The client can retry from the card; progress is kept, nothing is duplicated."} Explain simply if she asks.`,
+    },
+  ]);
+}
+
+/** Cards the client has not answered yet, and recent declines, so Mikee does not repeat himself. */
+export async function openAndRecent(workspaceId: string) {
+  const d = await db();
+  const since = new Date(Date.now() - 14 * 86400000);
+  const rows = await d
+    .select()
+    .from(schema.proposals)
+    .where(and(eq(schema.proposals.workspaceId, workspaceId), sql`(${schema.proposals.status} = 'pending' OR ${schema.proposals.decidedAt} > ${since.toISOString()})`))
+    .orderBy(desc(schema.proposals.createdAt))
+    .limit(30);
+  return rows;
 }

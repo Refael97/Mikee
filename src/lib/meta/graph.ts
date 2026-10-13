@@ -14,6 +14,11 @@ export class MetaError extends Error {
     super(message);
   }
 
+  /** Token expired or revoked (190), or the app/user lost permission to the object (10, 200-299). */
+  get isAccessLost(): boolean {
+    return this.code === 190 || this.code === 102 || this.code === 10 || (this.code != null && this.code >= 200 && this.code < 300);
+  }
+
   /** Short, model-readable description used in tool results. */
   describe(): string {
     return [
@@ -38,7 +43,11 @@ function encode(params: Params): URLSearchParams {
 
 /** Thin Graph API client. Tokens stay server-side; the model only ever sees results. */
 export class Graph {
-  constructor(private token: string) {}
+  constructor(
+    private token: string,
+    /** Called when Meta says the token or an asset is no longer accessible. */
+    private onAccessLost?: (err: MetaError) => void | Promise<void>,
+  ) {}
 
   private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
     const clean = path.startsWith("/") ? path : `/${path}`;
@@ -55,13 +64,15 @@ export class Graph {
     } & T;
     if (!res.ok || json.error) {
       const e = json.error;
-      throw new MetaError(
+      const err = new MetaError(
         e?.message ?? `HTTP ${res.status}`,
         e?.code,
         e?.error_subcode,
         e?.error_user_msg ?? e?.error_user_title,
         res.status,
       );
+      if (err.isAccessLost) await this.onAccessLost?.(err);
+      throw err;
     }
     return json;
   }
@@ -98,7 +109,7 @@ export class Graph {
   /** Page actions (posting) need a page access token derived from the user token. */
   async forPage(pageId: string): Promise<Graph> {
     const page = await this.get<{ access_token?: string }>(`/${pageId}`, { fields: "access_token" });
-    return page.access_token ? new Graph(page.access_token) : this;
+    return page.access_token ? new Graph(page.access_token, this.onAccessLost) : this;
   }
 }
 

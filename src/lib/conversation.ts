@@ -33,11 +33,14 @@ export type TimelineItem =
   | { type: "user"; id: string; text: string }
   | { type: "mikee"; id: string; text: string }
   | { type: "activity"; id: string; label: string }
-  | { type: "card"; id: string; proposal: { id: string; status: string; card: ProposalCard; error?: string } };
+  | { type: "card"; id: string; proposal: CardView };
+
+export type CardView = { id: string; status: string; version: string; card: ProposalCard; error?: string; retryable?: boolean };
 
 /** Labels for what Mikee is doing behind the scenes, as the client sees it. */
 export const TOOL_LABELS: Record<string, string> = {
   remember: "מייקי רשם לעצמו",
+  forget: "מייקי עדכן את מה שהוא יודע",
   scan_website: "מייקי קרא את האתר",
   read_store: "מייקי בדק את החנות",
   read_results: "מייקי בדק את התוצאות",
@@ -99,7 +102,14 @@ export async function timeline(workspaceId: string): Promise<TimelineItem[]> {
           items.push({
             type: "card",
             id,
-            proposal: { id: p.id, status: p.status, card: p.card as ProposalCard, error: (p.result as any)?.error },
+            proposal: {
+              id: p.id,
+              status: p.status,
+              version: p.versionHash,
+              card: p.card as ProposalCard,
+              error: (p.result as any)?.error,
+              retryable: (p.result as any)?.retryable,
+            },
           });
           return;
         }

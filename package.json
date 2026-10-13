@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
     "create-user": "tsx scripts/create-user.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@electric-sql/pglite": "^0.5.9",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "cheerio": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "next": "^15.5.27",
@@ -28,6 +30,7 @@
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.4"
   }
 }

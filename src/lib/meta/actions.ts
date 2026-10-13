@@ -119,26 +119,60 @@ async function createCreative(ctx: MetaContext, spec: CampaignSpec, ad: Campaign
 
 export type LaunchResult = { campaignId: string; adsetId: string; adIds: string[] };
 
+/** Progress store for an execution. Every created object is saved before the next step. */
+export type Checkpoint = {
+  data: Record<string, any>;
+  save: (patch: Record<string, unknown>) => Promise<void>;
+};
+
+const exists = async (ctx: MetaContext, id?: string) => {
+  if (!id) return false;
+  try {
+    const n = await ctx.graph.get<{ id: string; effective_status?: string }>(`/${id}`, { fields: "id,effective_status" });
+    return n.effective_status !== "DELETED" && n.effective_status !== "ARCHIVED";
+  } catch {
+    return false;
+  }
+};
+
+/** Finds an object created by an earlier attempt whose id was not saved (crash between create and save). */
+async function findTagged(ctx: MetaContext, edge: string, tag: string): Promise<string | undefined> {
+  const found = await ctx.graph.get<{ data: { id: string; name: string }[] }>(edge, {
+    fields: "id,name",
+    filtering: [{ field: "name", operator: "CONTAIN", value: tag }],
+    limit: 5,
+  });
+  return found.data?.[0]?.id;
+}
+
 /**
- * Builds the whole structure (campaign -> ad set -> creatives -> ads) and switches it on last.
- * On any failure the half-built campaign is deleted, so nothing partial is left running.
+ * Builds campaign -> ad set -> creatives -> ads, saving each id as it goes, and switches the campaign on
+ * last. A retry (after a failure or a restart) resumes from the saved ids or from objects tagged with the
+ * proposal's tag, so it never creates a second campaign or a second copy of an ad. Until the final step
+ * the campaign is paused and spends nothing.
  */
-export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec): Promise<LaunchResult> {
+export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint): Promise<LaunchResult> {
   const account = requireAdAccount(ctx);
   const currency = ctx.currency ?? "ILS";
-  const stamp = new Date().toISOString().slice(0, 10);
-  const name = `Mikee · ${spec.title.replace(/[^\p{L}\p{N} ]/gu, "").trim()} · ${stamp}`;
+  const name = `Mikee · ${spec.title.replace(/[^\p{L}\p{N} ]/gu, "").trim()} · ${tag}`;
 
-  const { id: campaignId } = await ctx.graph.post<{ id: string }>(`/${account}/campaigns`, {
-    name,
-    objective: OBJECTIVE[spec.goal],
-    status: "PAUSED",
-    special_ad_categories: [],
-    is_adset_budget_sharing_enabled: false,
-  });
+  let campaignId: string | undefined = cp.data.campaignId;
+  if (!(await exists(ctx, campaignId))) campaignId = await findTagged(ctx, `/${account}/campaigns`, tag);
+  if (!campaignId) {
+    ({ id: campaignId } = await ctx.graph.post<{ id: string }>(`/${account}/campaigns`, {
+      name,
+      objective: OBJECTIVE[spec.goal],
+      status: "PAUSED",
+      special_ad_categories: [],
+      is_adset_budget_sharing_enabled: false,
+    }));
+  }
+  if (campaignId !== cp.data.campaignId) await cp.save({ campaignId, adsetId: null, ads: {} });
 
-  try {
-    const { id: adsetId } = await ctx.graph.post<{ id: string }>(`/${account}/adsets`, {
+  let adsetId: string | undefined = cp.data.adsetId ?? undefined;
+  if (!(await exists(ctx, adsetId))) adsetId = await findTagged(ctx, `/${campaignId}/adsets`, tag);
+  if (!adsetId) {
+    ({ id: adsetId } = await ctx.graph.post<{ id: string }>(`/${account}/adsets`, {
       name,
       campaign_id: campaignId,
       daily_budget: toMinor(spec.dailyBudget, currency),
@@ -149,11 +183,18 @@ export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec): Prom
       end_time: spec.endTime,
       status: "ACTIVE",
       ...optimization(ctx, spec),
-    });
+    }));
+  }
+  if (adsetId !== cp.data.adsetId) await cp.save({ adsetId });
 
-    const adIds: string[] = [];
-    for (const [i, ad] of spec.ads.entries()) {
-      const adName = `${name} · ${i + 1}`;
+  const ads: Record<string, string> = { ...(cp.data.ads ?? {}) };
+  for (const [i, ad] of spec.ads.entries()) {
+    const adName = `${name} · ${i + 1}`;
+    if (await exists(ctx, ads[i])) continue;
+    const found = await findTagged(ctx, `/${adsetId}/ads`, `${tag} · ${i + 1}`);
+    if (found) {
+      ads[i] = found;
+    } else {
       const creativeId = await createCreative(ctx, spec, ad, adName);
       const { id } = await ctx.graph.post<{ id: string }>(`/${account}/ads`, {
         name: adName,
@@ -161,14 +202,21 @@ export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec): Prom
         creative: { creative_id: creativeId },
         status: "ACTIVE",
       });
-      adIds.push(id);
+      ads[i] = id;
     }
+    await cp.save({ ads });
+  }
 
-    await ctx.graph.post(`/${campaignId}`, { status: "ACTIVE" });
-    return { campaignId, adsetId, adIds };
-  } catch (err) {
-    await ctx.graph.delete(`/${campaignId}`).catch(() => undefined);
-    throw err;
+  await ctx.graph.post(`/${campaignId}`, { status: "ACTIVE" });
+  await cp.save({ activated: true });
+  return { campaignId: campaignId!, adsetId: adsetId!, adIds: Object.values(ads) };
+}
+
+/** Removes a paused, half-built campaign when the client cancels a failed launch. */
+export async function cleanupLaunch(ctx: MetaContext, cp: Checkpoint) {
+  if (cp.data.campaignId && !cp.data.activated) {
+    await ctx.graph.delete(`/${cp.data.campaignId}`).catch(() => undefined);
+    await cp.save({ campaignId: null, adsetId: null, ads: {} });
   }
 }
 
@@ -233,70 +281,94 @@ async function waitForContainer(ctx: MetaContext, id: string) {
   throw new Error("Instagram is still processing the media. Try again in a minute.");
 }
 
-/** Publishes (or schedules) to the Facebook page and/or Instagram. */
-export async function publishPost(ctx: MetaContext, spec: PostSpec) {
-  const out: Record<string, string> = {};
-  const when = spec.scheduleAt ? Math.floor(new Date(spec.scheduleAt).getTime() / 1000) : undefined;
+const sameText = (a?: string, b?: string) => !!a && !!b && a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
 
-  if (spec.channels.includes("facebook")) {
+/**
+ * Publishes (or schedules) to the Facebook page and/or Instagram. Each channel's post id is saved as soon
+ * as it exists; on a retry a channel that already has an id is skipped, and if an earlier attempt may have
+ * published without saving, recent posts are checked for the same text before publishing again.
+ */
+export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoint, isRetry: boolean) {
+  const when = spec.scheduleAt ? Math.floor(new Date(spec.scheduleAt).getTime() / 1000) : undefined;
+  const since = Date.now() - 6 * 3600 * 1000;
+
+  if (spec.channels.includes("facebook") && !cp.data.facebook) {
     if (!ctx.pageId) throw new Error("No Facebook page connected");
     const page = await ctx.graph.forPage(ctx.pageId);
-    const schedule = when ? { published: false, scheduled_publish_time: when } : {};
-    const first = spec.media[0];
-    if (!first) {
-      const r = await page.post<{ id: string }>(`/${ctx.pageId}/feed`, { message: spec.text, link: spec.link, ...schedule });
-      out.facebook = r.id;
-    } else if (first.type === "video") {
-      const r = await page.post<{ id: string }>(`/${ctx.pageId}/videos`, { file_url: first.url, description: spec.text, ...schedule });
-      out.facebook = r.id;
-    } else if (spec.media.length === 1) {
-      const r = await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: first.url, message: spec.text, ...schedule });
-      out.facebook = r.id;
-    } else {
-      const ids: string[] = [];
-      for (const m of spec.media.filter((m) => m.type === "image")) {
-        const r = await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: m.url, published: false });
-        ids.push(r.id);
+    if (isRetry && !when) {
+      const recent = await page.get<{ data: { id: string; message?: string; created_time: string }[] }>(`/${ctx.pageId}/posts`, { fields: "id,message,created_time", limit: 15 });
+      const hit = recent.data?.find((p) => sameText(p.message, spec.text) && new Date(p.created_time).getTime() > since);
+      if (hit) await cp.save({ facebook: hit.id });
+    }
+    if (!cp.data.facebook) {
+      const schedule = when ? { published: false, scheduled_publish_time: when } : {};
+      const first = spec.media[0];
+      let id: string;
+      if (!first) {
+        id = (await page.post<{ id: string }>(`/${ctx.pageId}/feed`, { message: spec.text, link: spec.link, ...schedule })).id;
+      } else if (first.type === "video") {
+        id = (await page.post<{ id: string }>(`/${ctx.pageId}/videos`, { file_url: first.url, description: spec.text, ...schedule })).id;
+      } else if (spec.media.length === 1) {
+        id = (await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: first.url, message: spec.text, ...schedule })).id;
+      } else {
+        const ids: string[] = cp.data.fbPhotos ?? [];
+        for (const m of spec.media.filter((m) => m.type === "image").slice(ids.length)) {
+          ids.push((await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: m.url, published: false })).id);
+          await cp.save({ fbPhotos: ids });
+        }
+        id = (
+          await page.post<{ id: string }>(`/${ctx.pageId}/feed`, {
+            message: spec.text,
+            attached_media: ids.map((media_fbid) => ({ media_fbid })),
+            ...schedule,
+          })
+        ).id;
       }
-      const r = await page.post<{ id: string }>(`/${ctx.pageId}/feed`, {
-        message: spec.text,
-        attached_media: ids.map((media_fbid) => ({ media_fbid })),
-        ...schedule,
-      });
-      out.facebook = r.id;
+      await cp.save({ facebook: id });
     }
   }
 
-  if (spec.channels.includes("instagram")) {
+  if (spec.channels.includes("instagram") && !cp.data.instagram) {
     if (!ctx.igUserId) throw new Error("No Instagram account connected");
     if (!spec.media.length) throw new Error("Instagram posts need an image or a video");
-    if (when) throw new Error("Instagram scheduling is handled by Mikee's scheduler; publish now or pick Facebook only.");
+    if (when) throw new Error("Instagram posts cannot be scheduled through Meta; choose 'publish now' or Facebook only.");
     const ig = ctx.igUserId;
-    let creationId: string;
-    if (spec.media.length === 1) {
-      const m = spec.media[0];
-      const c = await ctx.graph.post<{ id: string }>(`/${ig}/media`, m.type === "image"
-        ? { image_url: m.url, caption: spec.text }
-        : { media_type: "REELS", video_url: m.url, caption: spec.text });
-      await waitForContainer(ctx, c.id);
-      creationId = c.id;
-    } else {
-      const children: string[] = [];
-      for (const m of spec.media) {
-        const c = await ctx.graph.post<{ id: string }>(`/${ig}/media`, m.type === "image"
-          ? { image_url: m.url, is_carousel_item: true }
-          : { media_type: "VIDEO", video_url: m.url, is_carousel_item: true });
-        await waitForContainer(ctx, c.id);
-        children.push(c.id);
-      }
-      const c = await ctx.graph.post<{ id: string }>(`/${ig}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: spec.text });
-      await waitForContainer(ctx, c.id);
-      creationId = c.id;
+    if (isRetry) {
+      const recent = await ctx.graph.get<{ data: { id: string; caption?: string; timestamp: string }[] }>(`/${ig}/media`, { fields: "id,caption,timestamp", limit: 15 });
+      const hit = recent.data?.find((p) => sameText(p.caption, spec.text) && new Date(p.timestamp).getTime() > since);
+      if (hit) await cp.save({ instagram: hit.id });
     }
-    const r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
-    out.instagram = r.id;
+    if (!cp.data.instagram) {
+      let creationId: string | undefined = cp.data.igContainer;
+      if (!creationId) {
+        if (spec.media.length === 1) {
+          const m = spec.media[0];
+          creationId = (
+            await ctx.graph.post<{ id: string }>(
+              `/${ig}/media`,
+              m.type === "image" ? { image_url: m.url, caption: spec.text } : { media_type: "REELS", video_url: m.url, caption: spec.text },
+            )
+          ).id;
+        } else {
+          const children: string[] = [];
+          for (const m of spec.media) {
+            const c = await ctx.graph.post<{ id: string }>(
+              `/${ig}/media`,
+              m.type === "image" ? { image_url: m.url, is_carousel_item: true } : { media_type: "VIDEO", video_url: m.url, is_carousel_item: true },
+            );
+            await waitForContainer(ctx, c.id);
+            children.push(c.id);
+          }
+          creationId = (await ctx.graph.post<{ id: string }>(`/${ig}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: spec.text })).id;
+        }
+        await cp.save({ igContainer: creationId });
+      }
+      await waitForContainer(ctx, creationId);
+      const r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
+      await cp.save({ instagram: r.id });
+    }
   }
-  return out;
+  return { facebook: cp.data.facebook, instagram: cp.data.instagram };
 }
 
 export function describeError(err: unknown): string {

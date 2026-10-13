@@ -1,25 +1,36 @@
-import {
-  boolean,
-  integer,
-  jsonb,
-  numeric,
-  pgTable,
-  primaryKey,
-  serial,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { boolean, customType, integer, jsonb, numeric, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-/** One business. The pilot has a single workspace, but every row is scoped so more can join later. */
+const ts = (name: string) => timestamp(name, { withTimezone: true });
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+
+export type WorkspaceSettings = {
+  /** Monthly cap on Claude usage, in USD. */
+  aiMonthlyLimitUsd?: number;
+  /** Monthly cap on Higgsfield credits; nothing beyond it can be generated. */
+  mediaMonthlyCredits?: number;
+  /** Credits Mikee may spend per month without asking. 0 = every generation needs a card. */
+  mediaAutoCredits?: number;
+  /** Mirror the monthly budget onto the ad account's spending limit at Meta (hard stop on charges). */
+  metaSpendCap?: boolean;
+  metaSpendCapStatus?: { ok: boolean; at: string; detail: string };
+};
+
+export const DEFAULT_SETTINGS: Required<Omit<WorkspaceSettings, "metaSpendCapStatus">> = {
+  aiMonthlyLimitUsd: 150,
+  mediaMonthlyCredits: 0,
+  mediaAutoCredits: 0,
+  metaSpendCap: true,
+};
+
+/** One business. Every row is scoped so more businesses can join after the pilot. */
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   /** connect -> scanning -> interview -> active */
   stage: text("stage").notNull().default("connect"),
   timezone: text("timezone").notNull().default("Asia/Jerusalem"),
-  busyUntil: timestamp("busy_until", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  settings: jsonb("settings").$type<WorkspaceSettings>().notNull().default({}),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 export const users = pgTable("users", {
@@ -28,10 +39,10 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
-/** External accounts: meta, website, store. `secret` is encrypted at rest and never reaches the model. */
+/** External accounts. `secret` is encrypted at rest and never reaches the model. */
 export const connections = pgTable(
   "connections",
   {
@@ -39,68 +50,134 @@ export const connections = pgTable(
     provider: text("provider").notNull(),
     config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
     secret: text("secret"),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** ok | broken (token revoked, asset access lost) */
+    status: text("status").notNull().default("ok"),
+    statusReason: text("status_reason"),
+    checkedAt: ts("checked_at"),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.provider] })],
 );
 
-/** The client's "brain": everything Mikee knows about the business. */
-export const brains = pgTable("brains", {
-  workspaceId: uuid("workspace_id").primaryKey().references(() => workspaces.id),
-  profile: jsonb("profile").$type<Record<string, unknown>>().notNull().default({}),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+/**
+ * What Mikee knows about the business, one sentence per row, with where it came from and when.
+ * kind: fact | preference | rule | insight. status: confirmed (by the client) | suggested | archived.
+ */
+export const facts = pgTable("facts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  topic: text("topic").notNull(),
+  text: text("text").notNull(),
+  kind: text("kind").notNull().default("fact"),
+  status: text("status").notNull().default("suggested"),
+  source: text("source").notNull(),
+  sourceDetail: text("source_detail"),
+  observedAt: ts("observed_at").notNull().defaultNow(),
+  confirmedAt: ts("confirmed_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
-/** Monthly marketing budget the client sets by hand, in the ad account currency. */
 export const budgets = pgTable("budgets", {
   workspaceId: uuid("workspace_id").primaryKey().references(() => workspaces.id),
   monthlyLimit: numeric("monthly_limit", { mode: "number" }).notNull(),
   currency: text("currency").notNull().default("ILS"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
-/** Extra budget Mikee asked for in a given month. Only approved rows count. */
+/** Approved one-month increases. One row per approved proposal (unique), so a double approval cannot add twice. */
 export const budgetExtensions = pgTable("budget_extensions", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  proposalId: uuid("proposal_id").unique(),
   month: text("month").notNull(),
   amount: numeric("amount", { mode: "number" }).notNull(),
   reason: text("reason").notNull(),
-  status: text("status").notNull().default("pending"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
-/**
- * The single ongoing conversation with Mikee, stored as Claude API turns.
- * kind: chat (visible), event (shown as a small note), kickoff (internal instruction, hidden).
- */
+/** The ongoing conversation, stored as Claude API turns. kind: chat | event | kickoff. */
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
   role: text("role").$type<"user" | "assistant">().notNull(),
   kind: text("kind").notNull().default("chat"),
   content: jsonb("content").$type<unknown[]>().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 /**
- * Anything that spends money or goes public waits here for one tap from the client.
- * `card` is what she sees; `action` is the exact execution spec the server runs on approval.
+ * Anything that spends money or goes public. Immutable once created: `action` is exactly what runs,
+ * `versionHash` binds the client's approval to it, and a change by Mikee means a new proposal.
+ * status: pending -> executing -> done | failed (retryable) ; pending -> declined | superseded
  */
 export const proposals = pgTable("proposals", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
   kind: text("kind").notNull(),
   status: text("status").notNull().default("pending"),
+  versionHash: text("version_hash").notNull(),
+  dedupeKey: text("dedupe_key").notNull(),
+  month: text("month").notNull(),
+  /** Ad spend this card would add this month (held while pending). Credits for media cards. */
+  reserved: numeric("reserved", { mode: "number" }).notNull().default(0),
   card: jsonb("card").$type<Record<string, unknown>>().notNull(),
   action: jsonb("action").$type<Record<string, unknown>>().notNull(),
+  /** Execution checkpoints (ids created so far) so a retry resumes instead of duplicating. */
+  progress: jsonb("progress").$type<Record<string, unknown>>().notNull().default({}),
   result: jsonb("result").$type<Record<string, unknown>>(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  attempts: integer("attempts").notNull().default(0),
+  supersededBy: uuid("superseded_by"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  decidedAt: ts("decided_at"),
+  finishedAt: ts("finished_at"),
 });
 
-/** Audit trail of every action Mikee performed outside the platform. */
+/** Background work that must survive disconnects, restarts and deploys. kind: turn | execute | checkin */
+export const jobs = pgTable("jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  kind: text("kind").notNull(),
+  status: text("status").notNull().default("queued"),
+  input: jsonb("input").$type<Record<string, unknown>>().notNull().default({}),
+  state: jsonb("state").$type<Record<string, unknown>>().notNull().default({}),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(0),
+  heartbeatAt: ts("heartbeat_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  finishedAt: ts("finished_at"),
+});
+
+export const jobEvents = pgTable("job_events", {
+  id: serial("id").primaryKey(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id),
+  event: jsonb("event").$type<Record<string, unknown>>().notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Metered costs outside the ad account. kind: claude (USD) | higgsfield (credits) */
+export const usage = pgTable("usage", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  kind: text("kind").notNull(),
+  month: text("month").notNull(),
+  amount: numeric("amount", { mode: "number" }).notNull(),
+  detail: jsonb("detail").$type<Record<string, unknown>>(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Generated media, served from our own public URL so the server and Meta can always fetch it. */
+export const media = pgTable("media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  contentType: text("content_type").notNull(),
+  bytes: bytea("bytes").notNull(),
+  size: integer("size").notNull(),
+  source: text("source").notNull(),
+  sourceRef: text("source_ref"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const activity = pgTable("activity", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
@@ -108,6 +185,5 @@ export const activity = pgTable("activity", {
   summary: text("summary").notNull(),
   detail: jsonb("detail").$type<Record<string, unknown>>(),
   ok: boolean("ok").notNull().default(true),
-  costMinor: integer("cost_minor"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });

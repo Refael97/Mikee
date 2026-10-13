@@ -1,14 +1,22 @@
 import "server-only";
-import { getConnection, type MetaConfig } from "../connections";
-import { Graph } from "./graph";
+import { getConnection, markConnection, type MetaConfig } from "../connections";
+import { Graph, type MetaError } from "./graph";
 
 export type MetaContext = MetaConfig & { graph: Graph };
 
 /** Resolves the connected Meta assets for a workspace, or explains what is missing. */
+export class MetaDisconnected extends Error {}
+
 export async function metaContext(workspaceId: string): Promise<MetaContext> {
   const conn = await getConnection<MetaConfig>(workspaceId, "meta");
-  if (!conn?.secret) throw new Error("פייסבוק ואינסטגרם עדיין לא מחוברים. אפשר לחבר אותם בהגדרות.");
-  return { ...conn.config, graph: new Graph(conn.secret) };
+  if (!conn?.secret) throw new MetaDisconnected("Facebook and Instagram are not connected yet. The client can connect them in Settings.");
+  if (conn.status === "broken") {
+    throw new MetaDisconnected(
+      `Access to Facebook/Instagram was lost (${conn.statusReason ?? "unknown reason"}). Ask the client to reconnect in Settings; nothing can be read or changed until then.`,
+    );
+  }
+  const onAccessLost = (err: MetaError) => markConnection(workspaceId, "meta", "broken", err.message);
+  return { ...conn.config, graph: new Graph(conn.secret, onAccessLost) };
 }
 
 export function requireAdAccount(ctx: MetaContext): string {

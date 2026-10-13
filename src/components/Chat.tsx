@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TimelineItem } from "@/lib/conversation";
+import type { CardView, TimelineItem } from "@/lib/conversation";
 import { ProposalCard } from "./ProposalCard";
 import { RichText } from "./RichText";
 
@@ -20,12 +20,14 @@ const LIVE_LABELS: Record<string, string> = {
   propose_campaign: "מכין לך הצעה",
   propose_change: "מכין לך הצעה",
   propose_post: "מכין פוסט",
+  propose_media: "מכין תמונה או סרטון",
+  forget: "מעדכן את מה שאני יודע",
   request_budget_increase: "מכין בקשה",
 };
 
 const SUGGESTIONS = ["מה כדאי לקדם השבוע?", "צריך יותר פניות", "יש לי קולקציה חדשה", "איך הולך החודש?"];
 
-type LiveProposal = Extract<TimelineItem, { type: "card" }>["proposal"];
+type LiveProposal = CardView;
 type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: LiveProposal };
 type Live = { segments: Segment[]; activity: string | null };
 
@@ -51,6 +53,35 @@ export function Chat({ initialItems, stage, firstName }: { initialItems: Timelin
     if (res.ok) setItems((await res.json()).items);
   }, []);
 
+  /** Follows a background job by polling its events; survives refreshes, drops and server restarts. */
+  const follow = useCallback(
+    async (jobId: string) => {
+      setLive((l) => l ?? { segments: [], activity: null });
+      let cursor = 0;
+      for (;;) {
+        const res = await fetch(`/api/jobs/${jobId}?after=${cursor}`, { cache: "no-store" }).catch(() => null);
+        if (res?.ok) {
+          const data = (await res.json()) as { status: string; events: any[] };
+          for (const e of data.events) {
+            cursor = e.id;
+            if (e.t === "text") setLive((l) => appendText(l, e.v));
+            if (e.t === "tool" && e.state === "start") setLive((l) => ({ segments: l?.segments ?? [], activity: LIVE_LABELS[e.name] ?? "עובד על זה" }));
+            if (e.t === "proposal") {
+              const p = await fetch(`/api/proposals/${e.id}`).then((r) => (r.ok ? r.json() : null));
+              if (p) setLive((l) => ({ segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null }));
+            }
+            if (e.t === "error") setError(e.message);
+          }
+          if (data.status === "done" || data.status === "failed") break;
+        }
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      await refresh();
+      setLive(null);
+    },
+    [refresh],
+  );
+
   const send = useCallback(
     async (body: { text?: string; kickoff?: "scan" }) => {
       setError(null);
@@ -58,48 +89,32 @@ export function Chat({ initialItems, stage, firstName }: { initialItems: Timelin
       setLive({ segments: [], activity: body.kickoff ? "מתחיל ללמוד את העסק" : null });
       try {
         const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        if (!res.ok || !res.body) {
-          const data = await res.json().catch(() => null);
-          throw new Error(data?.error ?? "משהו השתבש, נסי שוב.");
+        const data = await res.json().catch(() => null);
+        if (data?.jobId) {
+          if (data.alreadyRunning && body.text) setError("מייקי עוד מסיים משהו קודם. ההודעה לא נשלחה, נסי שוב בעוד רגע.");
+          await follow(data.jobId);
+          return;
         }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            const e = JSON.parse(line);
-            if (e.t === "text") setLive((l) => appendText(l, e.v));
-            if (e.t === "tool" && e.state === "start")
-              setLive((l) => ({ segments: l?.segments ?? [], activity: LIVE_LABELS[e.name] ?? "עובד על זה" }));
-            if (e.t === "proposal") {
-              const p = await fetch(`/api/proposals/${e.id}`).then((r) => (r.ok ? r.json() : null));
-              if (p) setLive((l) => ({ segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null }));
-            }
-            if (e.t === "error") setError(e.message);
-          }
-        }
+        throw new Error(data?.error ?? "משהו השתבש, נסי שוב.");
       } catch (e) {
         setError((e as Error).message);
-      } finally {
         await refresh();
         setLive(null);
       }
     },
-    [refresh],
+    [follow, refresh],
   );
 
+  // Coming back to the screen while Mikee is working: pick up where he is.
   useEffect(() => {
-    if (stage === "scanning" && initialItems.length === 0 && !started.current) {
-      started.current = true;
-      void send({ kickoff: "scan" });
-    }
-  }, [stage, initialItems.length, send]);
+    if (started.current) return;
+    started.current = true;
+    void (async () => {
+      const active = await fetch("/api/jobs/active", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
+      if (active?.jobId) await follow(active.jobId);
+      else if (stage === "scanning" && initialItems.length === 0) await send({ kickoff: "scan" });
+    })();
+  }, [stage, initialItems.length, send, follow]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });

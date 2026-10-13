@@ -5,9 +5,10 @@ CREATE TABLE IF NOT EXISTS workspaces (
   name text NOT NULL,
   stage text NOT NULL DEFAULT 'connect',
   timezone text NOT NULL DEFAULT 'Asia/Jerusalem',
-  busy_until timestamptz,
+  settings jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS settings jsonb NOT NULL DEFAULT '{}'::jsonb;
 CREATE TABLE IF NOT EXISTS users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
@@ -21,14 +22,30 @@ CREATE TABLE IF NOT EXISTS connections (
   provider text NOT NULL,
   config jsonb NOT NULL DEFAULT '{}'::jsonb,
   secret text,
+  status text NOT NULL DEFAULT 'ok',
+  status_reason text,
+  checked_at timestamptz,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (workspace_id, provider)
 );
-CREATE TABLE IF NOT EXISTS brains (
-  workspace_id uuid PRIMARY KEY REFERENCES workspaces(id),
-  profile jsonb NOT NULL DEFAULT '{}'::jsonb,
+ALTER TABLE connections ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ok';
+ALTER TABLE connections ADD COLUMN IF NOT EXISTS status_reason text;
+ALTER TABLE connections ADD COLUMN IF NOT EXISTS checked_at timestamptz;
+CREATE TABLE IF NOT EXISTS facts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  topic text NOT NULL,
+  text text NOT NULL,
+  kind text NOT NULL DEFAULT 'fact',
+  status text NOT NULL DEFAULT 'suggested',
+  source text NOT NULL,
+  source_detail text,
+  observed_at timestamptz NOT NULL DEFAULT now(),
+  confirmed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS facts_ws_idx ON facts (workspace_id, topic);
 CREATE TABLE IF NOT EXISTS budgets (
   workspace_id uuid PRIMARY KEY REFERENCES workspaces(id),
   monthly_limit numeric NOT NULL,
@@ -38,12 +55,11 @@ CREATE TABLE IF NOT EXISTS budgets (
 CREATE TABLE IF NOT EXISTS budget_extensions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  proposal_id uuid UNIQUE,
   month text NOT NULL,
   amount numeric NOT NULL,
   reason text NOT NULL,
-  status text NOT NULL DEFAULT 'pending',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  decided_at timestamptz
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS messages (
   id serial PRIMARY KEY,
@@ -59,11 +75,62 @@ CREATE TABLE IF NOT EXISTS proposals (
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
   kind text NOT NULL,
   status text NOT NULL DEFAULT 'pending',
+  version_hash text NOT NULL,
+  dedupe_key text NOT NULL,
+  month text NOT NULL,
+  reserved numeric NOT NULL DEFAULT 0,
   card jsonb NOT NULL,
   action jsonb NOT NULL,
+  progress jsonb NOT NULL DEFAULT '{}'::jsonb,
   result jsonb,
+  attempts integer NOT NULL DEFAULT 0,
+  superseded_by uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
-  decided_at timestamptz
+  decided_at timestamptz,
+  finished_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS proposals_ws_idx ON proposals (workspace_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS proposals_pending_key ON proposals (workspace_id, dedupe_key) WHERE status = 'pending';
+CREATE TABLE IF NOT EXISTS jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  kind text NOT NULL,
+  status text NOT NULL DEFAULT 'queued',
+  input jsonb NOT NULL DEFAULT '{}'::jsonb,
+  state jsonb NOT NULL DEFAULT '{}'::jsonb,
+  error text,
+  attempts integer NOT NULL DEFAULT 0,
+  heartbeat_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status, created_at);
+CREATE TABLE IF NOT EXISTS job_events (
+  id serial PRIMARY KEY,
+  job_id uuid NOT NULL REFERENCES jobs(id),
+  event jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS job_events_job_idx ON job_events (job_id, id);
+CREATE TABLE IF NOT EXISTS usage (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  kind text NOT NULL,
+  month text NOT NULL,
+  amount numeric NOT NULL,
+  detail jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS usage_ws_idx ON usage (workspace_id, kind, month);
+CREATE TABLE IF NOT EXISTS media (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  content_type text NOT NULL,
+  bytes bytea NOT NULL,
+  size integer NOT NULL,
+  source text NOT NULL,
+  source_ref text,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS activity (
   id serial PRIMARY KEY,
@@ -72,7 +139,6 @@ CREATE TABLE IF NOT EXISTS activity (
   summary text NOT NULL,
   detail jsonb,
   ok boolean NOT NULL DEFAULT true,
-  cost_minor integer,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 `;

@@ -36,16 +36,16 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
       {error && <p className="card mb-6 p-4 text-warn">{error}</p>}
 
       <div className="space-y-5">
-        <Section step={1} title="פייסבוק ואינסטגרם" hint="כדי שאוכל לקרוא את התוצאות, להכין קמפיינים ולפרסם." done={connected}>
+        <Section step={1} title="האתר" hint="אקרא אותו כמו לקוחה חדשה, ואם זו חנות גם את המוצרים וההזמנות." done={!!site?.config.url}>
+          <WebsiteStore workspaceId={workspace.id} />
+        </Section>
+
+        <Section step={2} title="פייסבוק ואינסטגרם" hint="כדי שאוכל לקרוא את התוצאות, להכין קמפיינים ולפרסם." done={connected}>
           <MetaConnect workspaceId={workspace.id} />
         </Section>
 
-        <Section step={2} title="מה שייך לעסק" hint="בחרי את החשבון, הדף והקטלוג שאני עובד איתם." done={assets}>
-          <MetaAssets workspaceId={workspace.id} />
-        </Section>
-
-        <Section step={3} title="האתר" hint="אקרא אותו כמו לקוחה חדשה, ואם זו חנות גם את המוצרים וההזמנות." done={!!site?.config.url}>
-          <WebsiteStore workspaceId={workspace.id} />
+        <Section step={3} title="זה העסק שלך?" hint="אמצא לבד את הדף, האינסטגרם וחשבון המודעות." done={assets}>
+          <MetaAssets workspaceId={workspace.id} businessName={workspace.name} />
         </Section>
 
         <Section step={4} title="תקציב השיווק החודשי" hint="זו התקרה. לעולם לא אעבור אותה בלי לבקש ולקבל אישור." done={!!budget}>
@@ -57,7 +57,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         <button className="btn btn-primary px-8 py-3.5 text-lg" disabled={!ready}>
           בוא נתחיל, מייקי
         </button>
-        {!ready && <p className="mt-3 text-sm text-ink-3">צריך לחבר את פייסבוק, לבחור חשבון ולהוסיף אתר.</p>}
+        {!ready && <p className="mt-3 text-sm text-ink-3">צריך להוסיף אתר, לחבר את פייסבוק ולאשר את העסק.</p>}
       </form>
     </main>
   );

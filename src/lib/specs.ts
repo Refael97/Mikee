@@ -91,9 +91,28 @@ export const PostSpec = z.object({
 });
 export type PostSpec = z.infer<typeof PostSpec>;
 
+export const MediaSpec = z.object({
+  title: z.string().describe("Friendly card headline, e.g. 'סרטון קצר לקולקציה החדשה'"),
+  why: z.string().describe("Why this media is needed"),
+  type: z.enum(["image", "video"]),
+  model: z.string().describe("Higgsfield model id (e.g. marketing_studio_image, gpt_image_2_5, marketing_studio_video, seedance_2_5)"),
+  prompt: z.string().min(10),
+  aspectRatio: z.string().default("4:5").describe("4:5 or 1:1 for feed, 9:16 for reels and stories"),
+  duration: z.number().int().min(2).max(20).optional().describe("Video seconds"),
+  count: z.number().int().min(1).max(4).default(1),
+  referenceUrls: z.array(z.string().url()).max(4).default([]).describe("Real product photos to base the generation on"),
+  referenceRole: z.string().optional().describe("Role for the references as the model defines it (see Higgsfield model info)"),
+});
+export type MediaSpec = z.infer<typeof MediaSpec>;
+
+export const BudgetRequestSpec = z.object({ amount: z.number().positive(), reason: z.string().min(10), month: z.string() });
+export type BudgetRequestSpec = z.infer<typeof BudgetRequestSpec>;
+
+export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media";
+
 /** What the chat UI renders for a proposal. Built server-side from the specs above. */
 export type ProposalCard = {
-  kind: "campaign" | "change" | "post" | "budget";
+  kind: ProposalKind;
   title: string;
   why: string;
   rows: { label: string; value: string }[];

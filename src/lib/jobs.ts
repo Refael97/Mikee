@@ -1,0 +1,98 @@
+import "server-only";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
+import { db, schema } from "./db";
+
+export type JobKind = "turn" | "execute" | "checkin";
+export type Job = typeof schema.jobs.$inferSelect;
+
+/** A running job that has not sent a heartbeat for this long is considered dead and is picked up again. */
+export const STALE_AFTER_MS = 90_000;
+export const MAX_ATTEMPTS = 3;
+
+export class TurnInProgress extends Error {
+  constructor(public jobId: string) {
+    super("Mikee is already working on something");
+  }
+}
+
+export async function enqueue(workspaceId: string, kind: JobKind, input: Record<string, unknown> = {}) {
+  const d = await db();
+  if (kind === "turn" || kind === "checkin") {
+    // One conversation turn at a time per business, so two turns never write to the conversation together.
+    const active = await activeTurn(workspaceId);
+    if (active) throw new TurnInProgress(active.id);
+  }
+  const [job] = await d.insert(schema.jobs).values({ workspaceId, kind, input }).returning();
+  return job;
+}
+
+export async function activeTurn(workspaceId: string): Promise<Job | undefined> {
+  const d = await db();
+  return d.query.jobs.findFirst({
+    where: and(
+      eq(schema.jobs.workspaceId, workspaceId),
+      inArray(schema.jobs.kind, ["turn", "checkin"]),
+      inArray(schema.jobs.status, ["queued", "running"]),
+    ),
+    orderBy: asc(schema.jobs.createdAt),
+  });
+}
+
+/**
+ * Atomically claims the oldest runnable job: queued, or running with a stale heartbeat (its worker died
+ * in a restart or deploy). Safe with several workers: the row lock means each job goes to one worker.
+ */
+export async function claimNext(kinds?: JobKind[]): Promise<Job | null> {
+  const d = await db();
+  const kindFilter = kinds?.length ? sql`AND kind IN (${sql.join(kinds.map((k) => sql`${k}`), sql`, `)})` : sql``;
+  const res = await d.execute(sql`
+    UPDATE jobs SET status = 'running', heartbeat_at = now(), attempts = attempts + 1
+    WHERE id = (
+      SELECT id FROM jobs
+      WHERE (status = 'queued' OR (status = 'running' AND heartbeat_at < now() - make_interval(secs => ${STALE_AFTER_MS / 1000})))
+      ${kindFilter}
+      ORDER BY created_at
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id`);
+  const rows = ((res as any).rows ?? res) as { id: string }[];
+  if (!rows.length) return null;
+  return (await d.query.jobs.findFirst({ where: eq(schema.jobs.id, rows[0].id) })) ?? null;
+}
+
+export async function heartbeat(jobId: string) {
+  const d = await db();
+  await d.update(schema.jobs).set({ heartbeatAt: new Date() }).where(eq(schema.jobs.id, jobId));
+}
+
+export async function saveState(jobId: string, state: Record<string, unknown>) {
+  const d = await db();
+  await d.update(schema.jobs).set({ state, heartbeatAt: new Date() }).where(eq(schema.jobs.id, jobId));
+}
+
+export async function finishJob(jobId: string, status: "done" | "failed", error?: string) {
+  const d = await db();
+  await d.update(schema.jobs).set({ status, error: error ?? null, finishedAt: new Date() }).where(eq(schema.jobs.id, jobId));
+}
+
+export async function pushEvent(jobId: string, event: Record<string, unknown>) {
+  const d = await db();
+  await d.insert(schema.jobEvents).values({ jobId, event });
+}
+
+/** Events after a cursor, for clients that poll (and can reconnect at any time without losing anything). */
+export async function eventsSince(jobId: string, after = 0) {
+  const d = await db();
+  return d
+    .select({ id: schema.jobEvents.id, event: schema.jobEvents.event })
+    .from(schema.jobEvents)
+    .where(and(eq(schema.jobEvents.jobId, jobId), gt(schema.jobEvents.id, after)))
+    .orderBy(asc(schema.jobEvents.id))
+    .limit(500);
+}
+
+export async function getJob(workspaceId: string, jobId: string) {
+  const d = await db();
+  return d.query.jobs.findFirst({ where: and(eq(schema.jobs.id, jobId), eq(schema.jobs.workspaceId, workspaceId)) });
+}

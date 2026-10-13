@@ -16,12 +16,17 @@ async function connect(): Promise<DB> {
     await client.unsafe(INIT_SQL);
     return drizzle(client, { schema }) as unknown as DB;
   }
-  // Local development: embedded Postgres persisted under ./.data
+  // Local development and tests: embedded Postgres, persisted under ./.data (or in memory for tests)
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
-  const { mkdirSync } = await import("fs");
-  mkdirSync("./.data", { recursive: true });
-  const client = new PGlite("./.data/pglite");
+  let client;
+  if (process.env.MIKEE_DB === "memory") {
+    client = new PGlite();
+  } else {
+    const { mkdirSync } = await import("fs");
+    mkdirSync("./.data", { recursive: true });
+    client = new PGlite("./.data/pglite");
+  }
   await client.exec(INIT_SQL);
   return drizzle(client, { schema }) as unknown as DB;
 }
@@ -29,6 +34,11 @@ async function connect(): Promise<DB> {
 export function db(): Promise<DB> {
   globalForDb.mikeeDb ??= connect();
   return globalForDb.mikeeDb;
+}
+
+/** Tests only: start from an empty database. */
+export function resetDbForTests() {
+  globalForDb.mikeeDb = undefined;
 }
 
 export { schema };

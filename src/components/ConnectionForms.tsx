@@ -1,7 +1,7 @@
 import { getConnection, type MetaConfig, type StoreConfig, type WebsiteConfig } from "@/lib/connections";
-import { discoverAssets, listPixels } from "@/lib/meta/context";
+import { type Detected, detectBusiness } from "@/lib/meta/detect";
 import { Graph } from "@/lib/meta/graph";
-import { saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndStore } from "@/lib/actions";
+import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndStore } from "@/lib/actions";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
@@ -26,6 +26,25 @@ export function Section({ step, title, hint, done, children }: { step?: number; 
 
 export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
   const conn = await getConnection<MetaConfig>(workspaceId, "meta");
+  if (conn?.secret && conn.status === "broken") {
+    return (
+      <div className="space-y-3">
+        <p className="font-medium text-warn">החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.</p>
+        <p className="text-sm text-ink-2">זה קורה כשמשנים סיסמה, מסירים הרשאה או כשמישהו מוציא את החשבון מהעסק.</p>
+        <div className="flex flex-wrap gap-2">
+          {process.env.META_APP_ID && (
+            <a href="/api/meta/connect" className="btn btn-primary">
+              לחבר מחדש
+            </a>
+          )}
+          <form action={recheckMeta}>
+            <button className="btn btn-quiet">לבדוק שוב</button>
+          </form>
+        </div>
+        <TokenForm />
+      </div>
+    );
+  }
   if (conn?.secret) return <p className="text-ink-2">מחובר בתור {conn.config.userName ?? "החשבון שלך"} ✓</p>;
   return (
     <div className="space-y-4">
@@ -34,78 +53,119 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
           התחברות עם פייסבוק
         </a>
       )}
-      <details className="text-sm text-ink-2">
-        <summary className="cursor-pointer select-none">יש לי מפתח גישה מוכן</summary>
-        <form action={saveMetaToken} className="mt-3 flex gap-2">
-          <input name="token" className="field" placeholder="מפתח גישה ממטא" dir="ltr" />
-          <button className="btn btn-quiet shrink-0">שמירה</button>
+      <TokenForm />
+    </div>
+  );
+}
+
+function TokenForm() {
+  return (
+    <details className="text-sm text-ink-2">
+      <summary className="cursor-pointer select-none">יש לי מפתח גישה מוכן</summary>
+      <form action={saveMetaToken} className="mt-3 flex gap-2">
+        <input name="token" className="field" placeholder="מפתח גישה ממטא" dir="ltr" />
+        <button className="btn btn-quiet shrink-0">שמירה</button>
+      </form>
+    </details>
+  );
+}
+
+/**
+ * Finds the business among everything the login can see and asks one question:
+ * "these are yours?" Picking by hand stays available, folded away.
+ */
+export async function MetaAssets({ workspaceId, businessName }: { workspaceId: string; businessName: string }) {
+  const conn = await getConnection<MetaConfig>(workspaceId, "meta");
+  if (!conn?.secret) return <p className="text-ink-3">קודם מתחברים לפייסבוק.</p>;
+  const site = await getConnection<WebsiteConfig>(workspaceId, "website");
+  let found: Detected;
+  try {
+    found = await detectBusiness(new Graph(conn.secret), businessName, site?.config.url);
+  } catch (e) {
+    return <p className="text-warn">לא הצלחתי לקרוא את החשבונות ({(e as Error).message}). נסי להתחבר מחדש.</p>;
+  }
+  const c = conn.config;
+  const chosen = {
+    adAccountId: c.adAccountId ?? found.guess.adAccountId,
+    pageId: c.pageId ?? found.guess.pageId,
+    pixelId: c.pixelId ?? found.guess.pixelId,
+    catalogId: c.catalogId ?? found.guess.catalogId,
+  };
+  const page = found.pages.find((p) => p.id === chosen.pageId);
+  const account = found.adAccounts.find((a) => a.id === chosen.adAccountId);
+  const pixel = found.pixels.find((p) => p.id === chosen.pixelId);
+  const saved = !!c.adAccountId;
+
+  if (!page && !account) return <p className="text-ink-2">לא מצאתי דף או חשבון מודעות שמחוברים למשתמש הזה.</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-surface-2 p-5">
+        <p className="mb-3 font-medium">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
+        <ul className="space-y-2 text-[0.95rem]">
+          {page && (
+            <li>
+              דף הפייסבוק <strong>{page.name}</strong>
+            </li>
+          )}
+          {page?.ig && (
+            <li>
+              האינסטגרם <strong dir="ltr">@{page.ig.username}</strong>
+            </li>
+          )}
+          {account && (
+            <li>
+              חשבון המודעות <strong>{account.name}</strong>
+            </li>
+          )}
+          {pixel && <li>המעקב באתר פעיל{pixel.lastFired ? ` (נראה לאחרונה ${new Date(pixel.lastFired).toLocaleDateString("he-IL")})` : ""}</li>}
+        </ul>
+      </div>
+      {!saved && (
+        <form action={saveMetaAssets}>
+          <Hidden chosen={chosen} />
+          <button className="btn btn-primary">כן, זה העסק שלי</button>
+        </form>
+      )}
+      <details className="text-sm">
+        <summary className="cursor-pointer select-none text-ink-2">{saved ? "להחליף" : "לא, אבחר בעצמי"}</summary>
+        <form action={saveMetaAssets} className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Select label="דף הפייסבוק" name="page" value={chosen.pageId} options={found.pages.map((p) => [p.id, `${p.name}${p.ig?.username ? ` · @${p.ig.username}` : ""}`])} />
+          <Select label="חשבון המודעות" name="adAccount" value={chosen.adAccountId} options={found.adAccounts.map((a) => [a.id, a.name])} />
+          <Select label="מעקב באתר" name="pixel" value={chosen.pixelId} options={[["", "בלי"], ...found.pixels.map((p) => [p.id, p.name] as [string, string])]} />
+          <Select label="קטלוג מוצרים" name="catalog" value={chosen.catalogId} options={[["", "בלי"], ...found.catalogs.map((k) => [k.id, k.name] as [string, string])]} />
+          <div className="sm:col-span-2">
+            <button className="btn btn-quiet">שמירה</button>
+          </div>
         </form>
       </details>
     </div>
   );
 }
 
-export async function MetaAssets({ workspaceId }: { workspaceId: string }) {
-  const conn = await getConnection<MetaConfig>(workspaceId, "meta");
-  if (!conn?.secret) return <p className="text-ink-3">קודם מתחברים לפייסבוק.</p>;
-  const graph = new Graph(conn.secret);
-  let assets: Awaited<ReturnType<typeof discoverAssets>>;
-  try {
-    assets = await discoverAssets(graph);
-  } catch (e) {
-    return <p className="text-warn">לא הצלחנו לקרוא את החשבונות ({(e as Error).message}). נסי להתחבר מחדש.</p>;
-  }
-  const pixels = (await Promise.all(assets.adAccounts.slice(0, 5).map((a) => listPixels(graph, a.id)))).flat();
-  const c = conn.config;
+function Hidden({ chosen }: { chosen: Record<string, string | undefined> }) {
   return (
-    <form action={saveMetaAssets} className="grid gap-4 sm:grid-cols-2">
-      <label className="space-y-1.5">
-        <span className="text-sm text-ink-2">חשבון המודעות</span>
-        <select name="adAccount" className="field" defaultValue={c.adAccountId ? `${c.adAccountId}|${c.adAccountName}|${c.currency}` : undefined}>
-          {assets.adAccounts.map((a) => (
-            <option key={a.id} value={`${a.id}|${a.name}|${a.currency}`}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-sm text-ink-2">דף הפייסבוק (והאינסטגרם שמחובר אליו)</span>
-        <select name="page" className="field" defaultValue={c.pageId ? `${c.pageId}|${c.pageName}|${c.igUserId ?? ""}|${c.igUsername ?? ""}` : undefined}>
-          {assets.pages.map((p) => (
-            <option key={p.id} value={`${p.id}|${p.name}|${p.instagram_business_account?.id ?? ""}|${p.instagram_business_account?.username ?? ""}`}>
-              {p.name}
-              {p.instagram_business_account?.username ? ` · @${p.instagram_business_account.username}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-sm text-ink-2">מעקב באתר</span>
-        <select name="pixel" className="field" defaultValue={c.pixelId}>
-          <option value="">בלי</option>
-          {pixels.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-sm text-ink-2">קטלוג מוצרים</span>
-        <select name="catalog" className="field" defaultValue={c.catalogId}>
-          <option value="">בלי</option>
-          {assets.catalogs.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="sm:col-span-2">
-        <button className="btn btn-primary">{c.adAccountId ? "עדכון" : "שמירה"}</button>
-      </div>
-    </form>
+    <>
+      <input type="hidden" name="page" value={chosen.pageId ?? ""} />
+      <input type="hidden" name="adAccount" value={chosen.adAccountId ?? ""} />
+      <input type="hidden" name="pixel" value={chosen.pixelId ?? ""} />
+      <input type="hidden" name="catalog" value={chosen.catalogId ?? ""} />
+    </>
+  );
+}
+
+function Select({ label, name, value, options }: { label: string; name: string; value?: string; options: [string, string][] }) {
+  return (
+    <label className="space-y-1.5">
+      <span className="text-ink-2">{label}</span>
+      <select name={name} className="field" defaultValue={value}>
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
