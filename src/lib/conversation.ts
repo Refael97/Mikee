@@ -52,6 +52,12 @@ export const TOOL_LABELS: Record<string, string> = {
   meta_read: "מייקי בדק משהו מאחורי הקלעים",
   meta_write: "מייקי סידר משהו מאחורי הקלעים",
   set_stage: "",
+  // The team stays invisible: the client sees what is being done, not who does it.
+  ask_copywriter: "מייקי כתב טקסטים",
+  ask_media_buyer: "מייקי עבד על הקמפיינים",
+  ask_creative: "מייקי הכין ויז׳ואל",
+  ask_social: "מייקי הכין פוסט",
+  ask_analyst: "מייקי ניתח את התוצאות",
   web_search: "מייקי חיפש ברשת",
   web_fetch: "מייקי קרא עמוד ברשת",
 };
@@ -65,18 +71,19 @@ export async function timeline(workspaceId: string): Promise<TimelineItem[]> {
     .where(eq(schema.messages.workspaceId, workspaceId))
     .orderBy(asc(schema.messages.id));
 
-  // Proposal ids come back inside tool results; map them to the tool call that created them.
-  const proposalByToolUse = new Map<string, string>();
+  // Proposal ids come back inside tool results (a specialist's task can create several);
+  // map them to the tool call that created them.
+  const proposalByToolUse = new Map<string, string[]>();
   for (const r of rows) {
     if (r.role !== "user") continue;
     for (const b of r.content as any[]) {
-      if (b?.type !== "tool_result") continue;
+      if (b?.type !== "tool_result" || b.is_error) continue;
       const text = typeof b.content === "string" ? b.content : b.content?.map((c: any) => c.text).join("");
-      const m = /"proposalId":"([0-9a-f-]{36})"/.exec(text ?? "");
-      if (m) proposalByToolUse.set(b.tool_use_id, m[1]);
+      const found = [...new Set([...(text ?? "").matchAll(/"proposalId":"([0-9a-f-]{36})"/g)].map((m) => m[1]))];
+      if (found.length) proposalByToolUse.set(b.tool_use_id, found);
     }
   }
-  const ids = [...proposalByToolUse.values()];
+  const ids = [...proposalByToolUse.values()].flat();
   const proposals = ids.length
     ? await d.select().from(schema.proposals).where(inArray(schema.proposals.id, ids))
     : [];
@@ -96,21 +103,27 @@ export async function timeline(workspaceId: string): Promise<TimelineItem[]> {
       const id = `m${r.id}-${i}`;
       if (b?.type === "text" && b.text.trim()) items.push({ type: "mikee", id, text: b.text });
       if (b?.type === "tool_use" || b?.type === "server_tool_use" || b?.type === "mcp_tool_use") {
-        const pid = proposalByToolUse.get(b.id);
-        const p = pid ? byId.get(pid) : undefined;
-        if (p) {
-          items.push({
-            type: "card",
-            id,
-            proposal: {
-              id: p.id,
-              status: p.status,
-              version: p.versionHash,
-              card: p.card as ProposalCard,
-              error: (p.result as any)?.error,
-              retryable: (p.result as any)?.retryable,
-            },
-          });
+        const label0 = TOOL_LABELS[b.name];
+        const cards = (proposalByToolUse.get(b.id) ?? []).map((pid) => byId.get(pid)).filter(Boolean) as (typeof proposals)[number][];
+        if (cards.length) {
+          if (label0 && !seen.has(label0) && b.name.startsWith("ask_")) {
+            seen.add(label0);
+            items.push({ type: "activity", id: `${id}-label`, label: label0 });
+          }
+          for (const p of cards) {
+            items.push({
+              type: "card",
+              id: `${id}-${p.id}`,
+              proposal: {
+                id: p.id,
+                status: p.status,
+                version: p.versionHash,
+                card: p.card as ProposalCard,
+                error: (p.result as any)?.error,
+                retryable: (p.result as any)?.retryable,
+              },
+            });
+          }
           return;
         }
         const label = b.type === "mcp_tool_use" ? "מייקי יצר מדיה" : TOOL_LABELS[b.name];

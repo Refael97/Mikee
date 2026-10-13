@@ -62,30 +62,21 @@ describe("background jobs", () => {
 });
 
 describe("a Mikee turn", () => {
-  it("runs as a job, creates a card through the tool, and stores a valid conversation", async () => {
+  it("runs as a job and stores a valid conversation, with no MCP access for the model", async () => {
     const ws = await createBusiness({ budget: 3000 });
     const claude = fakeClaude([
-      () => ({ stop_reason: "tool_use", content: [{ type: "text", text: "מכין לך משהו" }, toolUse("t1", "propose_campaign", campaignSpec())] }),
-      () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "הכרטיס מחכה לך." }] }),
+      () => ({ stop_reason: "tool_use", content: [{ type: "text", text: "בודק רגע" }, toolUse("t1", "budget_status", {})] }),
+      () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "נשאר מקום יפה בתקציב." }] }),
     ]);
     setAnthropicForTests(claude);
-    const job = await userSays(ws, "יש לי קולקציה חדשה");
+    const job = await userSays(ws, "כמה נשאר בתקציב?");
     await drainJobs();
 
-    // The model never gets direct access to paid tools: no MCP servers, only our tools and web search.
     for (const req of claude.requests) {
       expect(req.mcp_servers).toBeUndefined();
       expect(req.tools.some((t: any) => t.type === "mcp_toolset")).toBe(false);
     }
-    const names = claude.requests[0].tools.map((t: any) => t.name);
-    expect(names).toContain("propose_campaign");
-    expect(names).not.toContain("generate_image");
-
-    const events = (await eventsSince(job.id)).map((e) => e.event.t);
-    expect(events).toContain("proposal");
-    expect(events.at(-1)).toBe("done");
-    expect(meta.writes()).toEqual([]); // still nothing at Meta: the card waits for the client
-
+    expect((await eventsSince(job.id)).map((e) => e.event.t).at(-1)).toBe("done");
     const d = await db();
     const rows = await d.select().from(schema.messages).where(eq(schema.messages.workspaceId, ws)).orderBy(asc(schema.messages.id));
     expect(rows.map((r) => r.role)).toEqual(["user", "assistant", "user", "assistant"]);

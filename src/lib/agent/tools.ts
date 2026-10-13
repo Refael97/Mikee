@@ -17,16 +17,21 @@ import { mediaAllowance } from "../usage";
 import { inventory, salesSummary } from "../store";
 import { publicProducts, scanWebsite } from "../website";
 
-export type ToolContext = { workspaceId: string; tz: string };
+export type ToolContext = {
+  workspaceId: string;
+  tz: string;
+  /** Lets a tool surface progress (e.g. a card created by a specialist) to the client's screen. */
+  emit?: (e: { t: "proposal"; id: string } | { t: "tool"; name: string; state: "start" | "done" | "error" }) => void | Promise<void>;
+};
 
 /**
  * read: looks only. memory: writes Mikee's notes. setup: non-spending, non-public Meta configuration.
  * proposal: creates a card; nothing happens outside the platform until the client approves it.
  * No tool spends money or publishes by itself (enforced by tests in tests/approvals.test.ts).
  */
-export type Effect = "read" | "memory" | "setup" | "proposal";
+export type Effect = "read" | "memory" | "setup" | "proposal" | "delegate";
 
-type ToolDef<S extends z.ZodType> = {
+export type ToolDef<S extends z.ZodType = z.ZodType> = {
   name: string;
   effect: Effect;
   description: string;
@@ -34,7 +39,7 @@ type ToolDef<S extends z.ZodType> = {
   run: (ctx: ToolContext, input: z.infer<S>) => Promise<unknown>;
 };
 
-const tool = <S extends z.ZodType>(def: ToolDef<S>) => def;
+export const tool = <S extends z.ZodType>(def: ToolDef<S>) => def as unknown as ToolDef;
 
 const Period = z.enum(["today", "yesterday", "last_7d", "last_14d", "last_30d", "this_month", "last_month", "maximum"]);
 
@@ -370,23 +375,34 @@ export const TOOLS = [
   }),
 ];
 
-const BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
+export const BASE_TOOLS = new Map(TOOLS.map((t) => [t.name, t]));
+
+/** The subset of tools with these names, in the given order. Throws on a typo so a role never silently loses a tool. */
+export function pick(names: string[]): ToolDef[] {
+  return names.map((n) => {
+    const t = BASE_TOOLS.get(n);
+    if (!t) throw new Error(`Unknown tool ${n}`);
+    return t;
+  });
+}
 
 function jsonSchema(s: z.ZodType): Anthropic.Beta.BetaTool.InputSchema {
   const { $schema: _, ...rest } = z.toJSONSchema(s, { io: "input" }) as Record<string, unknown>;
   return rest as Anthropic.Beta.BetaTool.InputSchema;
 }
 
-export const TOOL_DEFINITIONS: Anthropic.Beta.BetaTool[] = TOOLS.map((t) => ({
-  name: t.name,
-  description: t.description,
-  input_schema: jsonSchema(t.input),
-  eager_input_streaming: true,
-}));
+export function toolDefinitions(tools: ToolDef[]): Anthropic.Beta.BetaTool[] {
+  return tools.map((t) => ({
+    name: t.name,
+    description: t.description,
+    input_schema: jsonSchema(t.input),
+    eager_input_streaming: true,
+  }));
+}
 
 /** Validates the model's input against the tool's schema, runs it, and turns failures into readable results. */
-export async function runTool(ctx: ToolContext, name: string, rawInput: unknown): Promise<{ content: string; isError: boolean }> {
-  const def = BY_NAME.get(name);
+export async function runToolIn(tools: ToolDef[], ctx: ToolContext, name: string, rawInput: unknown): Promise<{ content: string; isError: boolean }> {
+  const def = tools.find((t) => t.name === name);
   if (!def) return { content: `Unknown tool ${name}`, isError: true };
   const parsed = def.input.safeParse(rawInput);
   if (!parsed.success) {
@@ -401,3 +417,6 @@ export async function runTool(ctx: ToolContext, name: string, rawInput: unknown)
     return { content: describeError(err), isError: true };
   }
 }
+
+/** Runs any base tool by name (used by tests and by specialists through their own subsets). */
+export const runTool = (ctx: ToolContext, name: string, rawInput: unknown) => runToolIn(TOOLS as ToolDef[], ctx, name, rawInput);

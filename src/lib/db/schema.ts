@@ -178,6 +178,20 @@ export const media = pgTable("media", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+/** Every task Mikee handed to a specialist: what was asked, what came back, which cards it made. */
+export const agentRuns = pgTable("agent_runs", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  agent: text("agent").notNull(),
+  task: text("task").notNull(),
+  output: text("output").notNull(),
+  proposalIds: jsonb("proposal_ids").$type<string[]>().notNull().default([]),
+  steps: integer("steps").notNull().default(0),
+  error: text("error"),
+  startedAt: ts("started_at").notNull(),
+  finishedAt: ts("finished_at").notNull().defaultNow(),
+});
+
 export const activity = pgTable("activity", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),

@@ -12,6 +12,19 @@ Client ──chat──▶ job queue ──▶ Mikee (Claude) ──tools──�
                              Business brain      One-tap approval of an exact version ─▶ background execution
 ```
 
+### The team (`src/lib/agent/`)
+On the front end there's only Mikee. In the back end, Mikee is a manager (`run.ts`, medium thinking effort) who understands the need, decides, and hands the work to specialists (`specialists.ts`, high thinking effort):
+
+| Specialist | Responsible for | Can create cards |
+|---|---|---|
+| Copywriter | Text for ads, reels and posts | — |
+| Media buyer | Building campaigns and changing running ones | Campaign, change |
+| Creative | Choosing existing visuals or creating new ones | Media (costs credits) |
+| Social | Organic posts, reels, carousels | Post |
+| Analyst | Results, diagnosis, budget, stock, market research | — |
+
+Each specialist gets the business brief (`brief.ts`), its own professional instructions, Mikee's task, and only the tools its job needs. It doesn't see the conversation with the client and can't delegate further. All specialists run on the same loop (`loop.ts`) and go through the same safety layer: cards, budget, versions. Every task is logged in `agent_runs`, and its cost is logged per agent. The client sees neutral wording ("Mikee is analyzing the results"), never the team.
+
 ### Approvals (`src/lib/proposals.ts`, `src/lib/executor.ts`)
 - **Every tool has an effect** (`read` / `memory` / `setup` / `proposal`). No tool spends money or publishes by itself. The only tool that writes to Meta directly is `meta_write`, and it blocks every path or field that spends, changes what's running, publishes, or touches the account (tested).
 - **Mikee has no direct access to Higgsfield or any other external MCP.** Generating media goes through `propose_media`: a price quote first (`get_cost`), then a card, or, within a monthly amount the client approved in advance, it runs immediately.
@@ -47,9 +60,10 @@ Simple sentences, each with a source (client / website / store / results / Mikee
 npm test
 ```
 
-33 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
+38 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
 - `tests/approvals.test.ts`: tool classification and blocking, the version-bound approval, five simultaneous approvals → one campaign, a failure mid-run and retry without duplicates, adopting an orphaned campaign after a crash, a post retry only on the channel that failed, blocking repeated suggestions.
 - `tests/budget.test.ts`: the projection (scheduled, paused, external changes), the ceiling, reservations for pending cards, the check at execution time, increases, and the hard ceiling at Meta.
+- `tests/team.test.ts`: tool permissions per role (Mikee doesn't build or publish himself; each specialist only gets its own tools; no further delegation), a full delegation flow (brief, tools, card reaches the client, the team stays invisible), parallel tasks, and a specialist failure.
 - `tests/runtime.test.ts`: jobs (one turn at a time, atomic claiming, resuming after a dead worker), a full Mikee turn with a mocked model (no MCP in the request), the AI cap, and gating media generation (no paying twice).
 
 **Not yet tested against the real services:** the actual Meta API, the Claude API, and Higgsfield's real MCP server. That's the first step of the pilot.

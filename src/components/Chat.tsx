@@ -21,6 +21,11 @@ const LIVE_LABELS: Record<string, string> = {
   propose_change: "מכין לך הצעה",
   propose_post: "מכין פוסט",
   propose_media: "מכין תמונה או סרטון",
+  ask_copywriter: "כותב טקסטים",
+  ask_media_buyer: "עובד על הקמפיין",
+  ask_creative: "מכין ויז׳ואל",
+  ask_social: "מכין פוסט",
+  ask_analyst: "מנתח את התוצאות",
   forget: "מעדכן את מה שאני יודע",
   request_budget_increase: "מכין בקשה",
 };
@@ -68,7 +73,12 @@ export function Chat({ initialItems, stage, firstName }: { initialItems: Timelin
             if (e.t === "tool" && e.state === "start") setLive((l) => ({ segments: l?.segments ?? [], activity: LIVE_LABELS[e.name] ?? "עובד על זה" }));
             if (e.t === "proposal") {
               const p = await fetch(`/api/proposals/${e.id}`).then((r) => (r.ok ? r.json() : null));
-              if (p) setLive((l) => ({ segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null }));
+              if (p)
+                setLive((l) =>
+                  l?.segments.some((x) => x.kind === "card" && x.proposal.id === p.id)
+                    ? l
+                    : { segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null },
+                );
             }
             if (e.t === "error") setError(e.message);
           }

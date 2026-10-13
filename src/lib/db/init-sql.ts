@@ -132,6 +132,18 @@ CREATE TABLE IF NOT EXISTS media (
   source_ref text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  agent text NOT NULL,
+  task text NOT NULL,
+  output text NOT NULL,
+  proposal_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  steps integer NOT NULL DEFAULT 0,
+  error text,
+  started_at timestamptz NOT NULL,
+  finished_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS activity (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),

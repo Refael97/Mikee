@@ -113,3 +113,43 @@ export function fakeGenerator(opts: { cost?: number; terminalAfter?: number } = 
   };
   return { gen, state };
 }
+
+const ROLE_MARKERS: [string, string][] = [
+  ["# Your role: copywriter", "copywriter"],
+  ["# Your role: media buyer", "media_buyer"],
+  ["# Your role: creative director", "creative"],
+  ["# Your role: social media manager", "social"],
+  ["# Your role: performance analyst", "analyst"],
+  ["You are Mikee", "mikee"],
+];
+
+/** Like fakeClaude, but with a separate script per agent, recognised from its system prompt. */
+export function fakeTeam(scripts: Record<string, ((req: any) => { content: any[]; stop_reason: string })[]>) {
+  const requests: { agent: string; req: any }[] = [];
+  const agentOf = (req: any) => {
+    const sys = req.system.map((b: any) => b.text).join("\n");
+    return ROLE_MARKERS.find(([marker]) => sys.includes(marker))?.[1] ?? "unknown";
+  };
+  return {
+    requests,
+    beta: {
+      messages: {
+        stream(req: any) {
+          const agent = agentOf(req);
+          requests.push({ agent, req: structuredClone(req) });
+          const next = scripts[agent]?.shift();
+          if (!next) throw new Error(`fake Claude ran out of scripted replies for ${agent}`);
+          const msg = { id: `msg_${requests.length}`, model: req.model, usage: { input_tokens: 1000, output_tokens: 200 }, ...next(req) };
+          return {
+            on() {
+              return this;
+            },
+            async finalMessage() {
+              return msg;
+            },
+          };
+        },
+      },
+    },
+  };
+}
