@@ -10,6 +10,7 @@ import { logActivity } from "../activity";
 import { metaContext, money, requireAdAccount } from "../meta/context";
 import { currentDailyBudget, describeError } from "../meta/actions";
 import { insights, readCampaigns } from "../meta/performance";
+import { fileConversation } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict } from "../proposals";
 import { CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "../specs";
@@ -20,6 +21,8 @@ import { publicProducts, scanWebsite } from "../website";
 export type ToolContext = {
   workspaceId: string;
   tz: string;
+  /** The conversation the work belongs to (cards report their outcome there). */
+  conversationId?: string;
   /** Lets a tool surface progress (e.g. a card created by a specialist) to the client's screen. */
   emit?: (e: { t: "proposal"; id: string } | { t: "tool"; name: string; state: "start" | "done" | "error" }) => void | Promise<void>;
 };
@@ -83,6 +86,24 @@ export const TOOLS = [
     run: async (ctx, i) => {
       await setFact(ctx.workspaceId, i.id, { status: "archived" });
       return { archived: i.id };
+    },
+  }),
+
+  tool({
+    name: "file_conversation",
+    effect: "memory",
+    description:
+      "Give the current conversation a short title (2-5 words, Hebrew, like a folder label) and file it under a category: " +
+      "campaigns (paid ads, budgets, audiences), content (posts, reels, copy, visuals), results (performance, reports, recommendations), " +
+      "business (products, goals, brand), general. Call it in your first turn of a new conversation, and again only if the topic clearly changes.",
+    input: z.object({
+      title: z.string().min(2).max(60),
+      category: z.enum(["campaigns", "content", "results", "business", "general"]),
+    }),
+    run: async (ctx, i) => {
+      if (!ctx.conversationId) return { error: "No conversation" };
+      const c = await fileConversation(ctx.workspaceId, ctx.conversationId, i);
+      return { title: c?.title, category: c?.category, note: c && !c.auto ? "The client filed this conversation herself; the category stays." : undefined };
     },
   }),
 
@@ -260,6 +281,7 @@ export const TOOLS = [
       await assertWithinBudget(ctx.workspaceId, ctx.tz, meta, reserved, { excludeProposalId: replaces });
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
+        conversationId: ctx.conversationId,
         kind: "campaign",
         action: spec,
         month: monthKey(ctx.tz),
@@ -294,6 +316,7 @@ export const TOOLS = [
       }
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
+        conversationId: ctx.conversationId,
         kind: "change",
         action: spec,
         month: monthKey(ctx.tz),
@@ -312,7 +335,7 @@ export const TOOLS = [
     description: "Prepare an organic post (Facebook page and/or Instagram, image, video/reel or carousel) and show it to the client before publishing.",
     input: PostSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
-      const p = await createProposal({ workspaceId: ctx.workspaceId, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
       return { proposalId: p.id, shown: "The post preview is in front of the client." };
     },
   }),
@@ -337,6 +360,7 @@ export const TOOLS = [
       }
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
+        conversationId: ctx.conversationId,
         kind: "media",
         action: spec,
         month: monthKey(ctx.tz),
@@ -363,6 +387,7 @@ export const TOOLS = [
       const month = monthKey(ctx.tz);
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
+        conversationId: ctx.conversationId,
         kind: "budget",
         action: { ...i, month },
         month,

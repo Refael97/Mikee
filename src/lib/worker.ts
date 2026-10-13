@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { type AgentEvent, type Row, runMikee } from "./agent/run";
 import { CHECKIN_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
+import { deleteIfEmpty } from "./conversations";
 import { executeProposal } from "./executor";
 import { claimNext, finishJob, heartbeat, type Job, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 
@@ -31,8 +32,11 @@ export async function runJob(job: Job) {
         last = Date.now();
         await pushEvent(job.id, { t: "text", v });
       };
+      const conversationId = String(job.input.conversationId);
+      const discard = job.kind === "checkin" ? (t: string) => t.trim() === "NOTHING" : undefined;
       await runMikee({
         workspaceId: job.workspaceId,
+        conversationId,
         prepend,
         resume: (job.state.pending as Row[] | undefined) ?? undefined,
         saveState: (pending) => saveState(job.id, { pending }),
@@ -45,8 +49,10 @@ export async function runJob(job: Job) {
           await flush();
           await pushEvent(job.id, e);
         },
-        discardIf: job.kind === "checkin" ? (t) => t.trim() === "NOTHING" : undefined,
+        discardIf: discard,
       });
+      // A check-in with nothing to say leaves no empty conversation behind.
+      if (job.kind === "checkin") await deleteIfEmpty(conversationId);
     }
     await finishJob(job.id, "done");
   } catch (e) {

@@ -18,23 +18,32 @@ export class TurnInProgress extends Error {
 export async function enqueue(workspaceId: string, kind: JobKind, input: Record<string, unknown> = {}) {
   const d = await db();
   if (kind === "turn" || kind === "checkin") {
-    // One conversation turn at a time per business, so two turns never write to the conversation together.
-    const active = await activeTurn(workspaceId);
+    // One turn at a time per conversation, so two turns never write to the same conversation together.
+    // Different conversations run in parallel; only one scheduled check-in runs per business.
+    const active = kind === "checkin" ? await activeCheckin(workspaceId) : await activeTurn(workspaceId, String(input.conversationId));
     if (active) throw new TurnInProgress(active.id);
   }
   const [job] = await d.insert(schema.jobs).values({ workspaceId, kind, input }).returning();
   return job;
 }
 
-export async function activeTurn(workspaceId: string): Promise<Job | undefined> {
+export async function activeTurn(workspaceId: string, conversationId: string): Promise<Job | undefined> {
   const d = await db();
   return d.query.jobs.findFirst({
     where: and(
       eq(schema.jobs.workspaceId, workspaceId),
       inArray(schema.jobs.kind, ["turn", "checkin"]),
       inArray(schema.jobs.status, ["queued", "running"]),
+      sql`${schema.jobs.input}->>'conversationId' = ${conversationId}`,
     ),
     orderBy: asc(schema.jobs.createdAt),
+  });
+}
+
+async function activeCheckin(workspaceId: string): Promise<Job | undefined> {
+  const d = await db();
+  return d.query.jobs.findFirst({
+    where: and(eq(schema.jobs.workspaceId, workspaceId), eq(schema.jobs.kind, "checkin"), inArray(schema.jobs.status, ["queued", "running"])),
   });
 }
 

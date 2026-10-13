@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { appendMessage } from "@/lib/conversation";
+import { createConversation } from "@/lib/conversations";
 import { runTool } from "@/lib/agent/tools";
 import { setAnthropicForTests } from "@/lib/agent/run";
 import { claimNext, enqueue, eventsSince, TurnInProgress } from "@/lib/jobs";
@@ -22,18 +24,23 @@ beforeEach(() => {
   setMediaGeneratorForTests(null);
 });
 
-const userSays = async (ws: string, text: string) => {
-  const d = await db();
-  await d.insert(schema.messages).values({ workspaceId: ws, role: "user", kind: "chat", content: [{ type: "text", text }] });
-  return enqueue(ws, "turn");
+const userSays = async (ws: string, text: string, conversationId?: string) => {
+  const conv = conversationId ?? (await createConversation(ws, { firstText: text })).id;
+  await appendMessage(ws, conv, "user", "chat", [{ type: "text", text }]);
+  const job = await enqueue(ws, "turn", { conversationId: conv });
+  return Object.assign(job, { conversationId: conv });
 };
 
 describe("background jobs", () => {
-  it("one conversation turn at a time per business", async () => {
+  it("one turn at a time per conversation; different conversations run in parallel", async () => {
     const ws = await createBusiness({ budget: 1000 });
-    await enqueue(ws, "turn");
-    await expect(enqueue(ws, "turn")).rejects.toThrow(TurnInProgress);
-    await expect(enqueue(ws, "checkin")).rejects.toThrow(TurnInProgress);
+    const a = await createConversation(ws, { firstText: "קמפיין" });
+    const b = await createConversation(ws, { firstText: "פוסט" });
+    await enqueue(ws, "turn", { conversationId: a.id });
+    await expect(enqueue(ws, "turn", { conversationId: a.id })).rejects.toThrow(TurnInProgress);
+    await enqueue(ws, "turn", { conversationId: b.id });
+    await enqueue(ws, "checkin", { conversationId: "c1" });
+    await expect(enqueue(ws, "checkin", { conversationId: "c2" })).rejects.toThrow(TurnInProgress); // one check-in per business
     await enqueue(ws, "execute", { proposalId: "x" }); // executions are independent
   });
 
@@ -41,7 +48,7 @@ describe("background jobs", () => {
     const d = await db();
     await d.update(schema.jobs).set({ status: "done" }); // isolate from jobs queued by earlier tests
     const ws = await createBusiness();
-    await enqueue(ws, "turn");
+    await enqueue(ws, "turn", { conversationId: (await createConversation(ws)).id });
     const claims = await Promise.all(Array.from({ length: 5 }, () => claimNext()));
     expect(claims.filter(Boolean)).toHaveLength(1);
   });
@@ -50,7 +57,7 @@ describe("background jobs", () => {
     const d0 = await db();
     await d0.update(schema.jobs).set({ status: "done" });
     const ws = await createBusiness();
-    const job = await enqueue(ws, "turn");
+    const job = await enqueue(ws, "turn", { conversationId: (await createConversation(ws)).id });
     expect((await claimNext())?.id).toBe(job.id);
     expect(await claimNext()).toBeNull(); // heartbeat is fresh
     const d = await db();
@@ -78,7 +85,7 @@ describe("a Mikee turn", () => {
     }
     expect((await eventsSince(job.id)).map((e) => e.event.t).at(-1)).toBe("done");
     const d = await db();
-    const rows = await d.select().from(schema.messages).where(eq(schema.messages.workspaceId, ws)).orderBy(asc(schema.messages.id));
+    const rows = await d.select().from(schema.messages).where(eq(schema.messages.conversationId, job.conversationId)).orderBy(asc(schema.messages.id));
     expect(rows.map((r) => r.role)).toEqual(["user", "assistant", "user", "assistant"]);
     const usage = await d.select().from(schema.usage).where(eq(schema.usage.workspaceId, ws));
     expect(usage).toHaveLength(2);

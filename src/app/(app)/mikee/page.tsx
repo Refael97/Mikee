@@ -1,11 +1,21 @@
 import { requireSession } from "@/lib/auth";
 import { getConnection, type MetaConfig } from "@/lib/connections";
-import { timeline } from "@/lib/conversation";
+import { listConversations } from "@/lib/conversations";
 import { Chat } from "@/components/Chat";
 
-export default async function MikeePage() {
+/** A new conversation. It is created when the client sends the first message. */
+export default async function NewConversationPage() {
   const { user, workspace } = await requireSession();
-  const [items, meta] = await Promise.all([timeline(workspace.id), getConnection<MetaConfig>(workspace.id, "meta")]);
+  const [meta, existing] = await Promise.all([getConnection<MetaConfig>(workspace.id, "meta"), listConversations(workspace.id, 1)]);
   const brand = { name: meta?.config.pageName ?? workspace.name, handle: meta?.config.igUsername };
-  return <Chat initialItems={items} stage={workspace.stage} firstName={user.name.split(" ")[0]} brand={brand} />;
+  return (
+    <Chat
+      key="new"
+      conversationId={null}
+      initialItems={[]}
+      autoScan={workspace.stage === "scanning" && existing.length === 0}
+      firstName={user.name.split(" ")[0]}
+      brand={brand}
+    />
+  );
 }

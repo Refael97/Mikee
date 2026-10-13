@@ -61,6 +61,17 @@ CREATE TABLE IF NOT EXISTS budget_extensions (
   reason text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS conversations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  title text NOT NULL DEFAULT 'שיחה חדשה',
+  category text NOT NULL DEFAULT 'general',
+  auto boolean NOT NULL DEFAULT true,
+  archived boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS conversations_ws_idx ON conversations (workspace_id, updated_at DESC);
 CREATE TABLE IF NOT EXISTS messages (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
@@ -69,7 +80,10 @@ CREATE TABLE IF NOT EXISTS messages (
   content jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_id uuid REFERENCES conversations(id);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments jsonb;
 CREATE INDEX IF NOT EXISTS messages_ws_idx ON messages (workspace_id, id);
+CREATE INDEX IF NOT EXISTS messages_conv_idx ON messages (conversation_id, id);
 CREATE TABLE IF NOT EXISTS proposals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
@@ -89,6 +103,7 @@ CREATE TABLE IF NOT EXISTS proposals (
   decided_at timestamptz,
   finished_at timestamptz
 );
+ALTER TABLE proposals ADD COLUMN IF NOT EXISTS conversation_id uuid;
 CREATE INDEX IF NOT EXISTS proposals_ws_idx ON proposals (workspace_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS proposals_pending_key ON proposals (workspace_id, dedupe_key) WHERE status = 'pending';
 CREATE TABLE IF NOT EXISTS jobs (
@@ -144,6 +159,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   started_at timestamptz NOT NULL,
   finished_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE media ADD COLUMN IF NOT EXISTS filename text;
 CREATE TABLE IF NOT EXISTS activity (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
@@ -153,4 +169,12 @@ CREATE TABLE IF NOT EXISTS activity (
   ok boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Messages from before conversations existed move into one first conversation per business.
+INSERT INTO conversations (workspace_id, title, category)
+  SELECT w.id, 'השיחה הראשונה', 'general' FROM workspaces w
+  WHERE EXISTS (SELECT 1 FROM messages m WHERE m.workspace_id = w.id AND m.conversation_id IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.workspace_id = w.id);
+UPDATE messages m SET conversation_id = (
+  SELECT c.id FROM conversations c WHERE c.workspace_id = m.workspace_id ORDER BY c.created_at LIMIT 1
+) WHERE m.conversation_id IS NULL;
 `;

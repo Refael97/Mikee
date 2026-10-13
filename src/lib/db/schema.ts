@@ -96,10 +96,32 @@ export const budgetExtensions = pgTable("budget_extensions", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
-/** The ongoing conversation, stored as Claude API turns. kind: chat | event | kickoff. */
+export type Category = "campaigns" | "content" | "results" | "business" | "general";
+
+/**
+ * Separate conversations, filed automatically by topic. `auto` stays true until the client moves a
+ * conversation herself; after that Mikee never re-files it.
+ */
+export const conversations = pgTable("conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  title: text("title").notNull().default("שיחה חדשה"),
+  category: text("category").$type<Category>().notNull().default("general"),
+  auto: boolean("auto").notNull().default(true),
+  archived: boolean("archived").notNull().default(false),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export type Attachment = { id: string; name: string; type: string; size: number; url: string };
+
+/** Messages of a conversation, stored as Claude API turns. kind: chat | event | kickoff. */
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  conversationId: uuid("conversation_id").references(() => conversations.id),
+  /** Files the client attached; expanded into image/document blocks when sent to the model. */
+  attachments: jsonb("attachments").$type<Attachment[]>(),
   role: text("role").$type<"user" | "assistant">().notNull(),
   kind: text("kind").notNull().default("chat"),
   content: jsonb("content").$type<unknown[]>().notNull(),
@@ -114,6 +136,8 @@ export const messages = pgTable("messages", {
 export const proposals = pgTable("proposals", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  /** The conversation the card was created in; its outcome is reported there. */
+  conversationId: uuid("conversation_id"),
   kind: text("kind").notNull(),
   status: text("status").notNull().default("pending"),
   versionHash: text("version_hash").notNull(),
@@ -175,6 +199,7 @@ export const media = pgTable("media", {
   size: integer("size").notNull(),
   source: text("source").notNull(),
   sourceRef: text("source_ref"),
+  filename: text("filename"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 

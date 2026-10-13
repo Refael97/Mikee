@@ -22,7 +22,7 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
   let error: string | undefined;
   try {
     const r = await agentLoop({
-      ctx: { workspaceId: ctx.workspaceId, tz: ctx.tz },
+      ctx: { workspaceId: ctx.workspaceId, tz: ctx.tz, conversationId: ctx.conversationId },
       agent: spec.id,
       system: [
         { type: "text", text: `${TEAM_PREAMBLE}\n\n${spec.instructions}`, cache_control: { type: "ephemeral" } },

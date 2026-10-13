@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { syncMetaSpendCap } from "@/lib/budget";
+import { createConversation, deleteIfEmpty } from "@/lib/conversations";
 import { enqueue, TurnInProgress } from "@/lib/jobs";
 import { metaContext } from "@/lib/meta/context";
 import { checkMetaHealth } from "@/lib/meta/health";
@@ -24,10 +25,15 @@ export async function POST(req: Request) {
   for (const ws of active) {
     const health = await checkMetaHealth(ws.id).catch((e) => ({ ok: false, problems: [(e as Error).message] }));
     if (health.ok) await syncMetaSpendCap(ws.id, ws.timezone, await metaContext(ws.id)).catch(() => undefined);
+    let convId: string | undefined;
     try {
-      const job = health.ok ? await enqueue(ws.id, "checkin") : null;
+      // Each check-in gets its own conversation; it is removed again if Mikee has nothing to say.
+      const conv = health.ok ? await createConversation(ws.id, { title: "המלצות של מייקי", category: "results" }) : null;
+      convId = conv?.id;
+      const job = conv ? await enqueue(ws.id, "checkin", { conversationId: conv.id }) : null;
       report[ws.id] = { health, checkin: job?.id ?? "skipped (no Meta access)" };
     } catch (e) {
+      if (convId) await deleteIfEmpty(convId);
       report[ws.id] = { health, checkin: e instanceof TurnInProgress ? "busy" : (e as Error).message };
     }
   }

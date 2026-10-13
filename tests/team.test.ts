@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { appendMessage } from "@/lib/conversation";
+import { createConversation } from "@/lib/conversations";
 import { MIKEE_TOOLS, setAnthropicForTests } from "@/lib/agent/run";
 import { SPECIALISTS } from "@/lib/agent/specialists";
 import { BASE_TOOLS } from "@/lib/agent/tools";
@@ -20,10 +22,11 @@ beforeEach(() => {
   uninstall = meta.install();
 });
 
-const userSays = async (ws: string, text: string) => {
-  const d = await db();
-  await d.insert(schema.messages).values({ workspaceId: ws, role: "user", kind: "chat", content: [{ type: "text", text }] });
-  return enqueue(ws, "turn");
+const userSays = async (ws: string, text: string, conversationId?: string) => {
+  const conv = conversationId ?? (await createConversation(ws, { firstText: text })).id;
+  await appendMessage(ws, conv, "user", "chat", [{ type: "text", text }]);
+  const job = await enqueue(ws, "turn", { conversationId: conv });
+  return Object.assign(job, { conversationId: conv });
 };
 
 const effectOf = (name: string) => BASE_TOOLS.get(name)?.effect;
@@ -76,7 +79,7 @@ describe("delegation", () => {
       ],
     });
     setAnthropicForTests(team);
-    await userSays(ws, "יש קולקציה חדשה, בוא נקדם");
+    const job = await userSays(ws, "יש קולקציה חדשה, בוא נקדם");
     await drainJobs();
 
     const mikeeReq = team.requests.find((r) => r.agent === "mikee")!.req;
@@ -99,7 +102,7 @@ describe("delegation", () => {
     expect(meta.writes()).toEqual([]);
 
     // The client sees Mikee's words, a neutral activity line and the card: never the team.
-    const items = await timeline(ws);
+    const items = await timeline(ws, job.conversationId);
     expect(items.map((i) => i.type)).toEqual(["user", "activity", "card", "mikee"]);
     expect(JSON.stringify(items)).not.toMatch(/media buyer|media_buyer|specialist/i);
 
@@ -149,12 +152,12 @@ describe("delegation", () => {
       analyst: [], // runs out immediately: simulates the specialist's call failing
     });
     setAnthropicForTests(team);
-    await userSays(ws, "איך היה השבוע?");
+    const job = await userSays(ws, "איך היה השבוע?");
     await drainJobs();
     const d = await db();
     const runs = await d.select().from(schema.agentRuns).where(eq(schema.agentRuns.workspaceId, ws));
     expect(runs[0].error).toBeTruthy();
-    const last = (await timeline(ws)).at(-1);
+    const last = (await timeline(ws, job.conversationId)).at(-1);
     expect(last?.type).toBe("mikee");
   });
 });

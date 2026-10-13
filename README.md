@@ -25,6 +25,23 @@ On the front end there's only Mikee. In the back end, Mikee is a manager (`run.t
 
 Each specialist gets the business brief (`brief.ts`), its own professional instructions, Mikee's task, and only the tools its job needs. It doesn't see the conversation with the client and can't delegate further. All specialists run on the same loop (`loop.ts`) and go through the same safety layer: cards, budget, versions. Every task is logged in `agent_runs`, and its cost is logged per agent. The client sees neutral wording ("Mikee is analyzing the results"), never the team.
 
+### Conversations (`src/lib/conversations.ts`, `src/components/Sidebar.tsx`, `Composer.tsx`)
+- **Separate conversations:** each new conversation gets its own address, with the history on the right grouped by category: campaigns, content and posts, results and data, the business, general.
+- **Automatic filing in two layers:**
+  1. A quick keyword-based guess the moment the conversation opens.
+  2. In his first turn, Mikee gives an accurate title and category through `file_conversation`.
+  - If the client moves a conversation herself, it's locked (`auto=false`) and Mikee won't change it.
+- **What's shared across conversations:**
+  - Each conversation sends the model only its own history.
+  - The brain, the cards and a list of recent conversations are shared.
+  - A card reports its result in the conversation it came from.
+  - Different conversations can run in parallel. Within the same conversation, one turn at a time.
+- **Composer:**
+  - The + button attaches files or a photo. You can also drag a file in or paste one.
+  - Hebrew voice dictation via the browser.
+  - Images and PDFs reach the model as real content. Text files arrive as text. A video or other file arrives as a link Mikee can use in ads and posts.
+- **Every scheduled check-in** opens a new "Mikee's recommendations" conversation, which is deleted if there's nothing to say.
+
 ### Approvals (`src/lib/proposals.ts`, `src/lib/executor.ts`)
 - **Every tool has an effect** (`read` / `memory` / `setup` / `proposal`). No tool spends money or publishes by itself. The only tool that writes to Meta directly is `meta_write`, and it blocks every path or field that spends, changes what's running, publishes, or touches the account (tested).
 - **Mikee has no direct access to Higgsfield or any other external MCP.** Generating media goes through `propose_media`: a price quote first (`get_cost`), then a card, or, within a monthly amount the client approved in advance, it runs immediately.
@@ -60,10 +77,11 @@ Simple sentences, each with a source (client / website / store / results / Mikee
 npm test
 ```
 
-38 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
+45 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
 - `tests/approvals.test.ts`: tool classification and blocking, the version-bound approval, five simultaneous approvals → one campaign, a failure mid-run and retry without duplicates, adopting an orphaned campaign after a crash, a post retry only on the channel that failed, blocking repeated suggestions.
 - `tests/budget.test.ts`: the projection (scheduled, paused, external changes), the ceiling, reservations for pending cards, the check at execution time, increases, and the hard ceiling at Meta.
 - `tests/team.test.ts`: tool permissions per role (Mikee doesn't build or publish himself; each specialist only gets its own tools; no further delegation), a full delegation flow (brief, tools, card reaches the client, the team stays invisible), parallel tasks, and a specialist failure.
+- `tests/conversations.test.ts`: the quick category guess, filing by Mikee, the lock after a manual move, history isolation between conversations, a card result reported in the right conversation, ordering and removal, and attachments as content blocks.
 - `tests/runtime.test.ts`: jobs (one turn at a time, atomic claiming, resuming after a dead worker), a full Mikee turn with a mocked model (no MCP in the request), the AI cap, and gating media generation (no paying twice).
 
 **Not yet tested against the real services:** the actual Meta API, the Claude API, and Higgsfield's real MCP server. That's the first step of the pilot.

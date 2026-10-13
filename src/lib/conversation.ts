@@ -1,36 +1,82 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "./db";
+import type { Attachment } from "./db/schema";
 import type { ProposalCard } from "./specs";
 
 type Block = Anthropic.Beta.BetaContentBlockParam;
 export type Kind = "chat" | "event" | "kickoff";
 
-export async function appendMessage(workspaceId: string, role: "user" | "assistant", kind: Kind, content: Block[] | unknown[]) {
+export async function appendMessage(
+  workspaceId: string,
+  conversationId: string,
+  role: "user" | "assistant",
+  kind: Kind,
+  content: Block[] | unknown[],
+  attachments?: Attachment[],
+) {
   const d = await db();
-  await d.insert(schema.messages).values({ workspaceId, role, kind, content: content as unknown[] });
+  await d.insert(schema.messages).values({ workspaceId, conversationId, role, kind, content: content as unknown[], attachments: attachments?.length ? attachments : null });
+  await d.update(schema.conversations).set({ updatedAt: new Date() }).where(eq(schema.conversations.id, conversationId));
 }
 
-export async function appendMany(workspaceId: string, rows: { role: "user" | "assistant"; kind: Kind; content: unknown[] }[]) {
+export async function appendMany(workspaceId: string, conversationId: string, rows: { role: "user" | "assistant"; kind: Kind; content: unknown[] }[]) {
   if (!rows.length) return;
   const d = await db();
-  await d.insert(schema.messages).values(rows.map((r) => ({ workspaceId, ...r })));
+  await d.insert(schema.messages).values(rows.map((r) => ({ workspaceId, conversationId, ...r })));
+  await d.update(schema.conversations).set({ updatedAt: new Date() }).where(eq(schema.conversations.id, conversationId));
 }
 
-/** Full conversation in Claude API shape. Consecutive same-role turns are merged by the API. */
-export async function loadHistory(workspaceId: string): Promise<Anthropic.Beta.BetaMessageParam[]> {
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+const MAX_IMAGE = 5 * 1024 * 1024;
+const MAX_PDF = 30 * 1024 * 1024;
+const MAX_TEXT = 200 * 1024;
+
+/**
+ * Turns the client's attachments into blocks the model can read: images and PDFs as real content,
+ * text files inline, anything else (video, audio) as a note with its public URL for use in ads and posts.
+ */
+async function expandAttachments(atts: Attachment[]): Promise<Block[]> {
+  const d = await db();
+  const rows = await d.select().from(schema.media).where(inArray(schema.media.id, atts.map((a) => a.id)));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const blocks: Block[] = [];
+  for (const a of atts) {
+    const m = byId.get(a.id);
+    const note = `[Attached file "${a.name}" (${a.type}), public URL for ads/posts: ${a.url}]`;
+    if (m && IMAGE_TYPES.has(m.contentType) && m.size <= MAX_IMAGE) {
+      blocks.push({ type: "image", source: { type: "base64", media_type: m.contentType as "image/png", data: Buffer.from(m.bytes).toString("base64") } });
+      blocks.push({ type: "text", text: note });
+    } else if (m && m.contentType === "application/pdf" && m.size <= MAX_PDF) {
+      blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: Buffer.from(m.bytes).toString("base64") }, title: a.name });
+    } else if (m && /^text\/|csv|json/.test(m.contentType) && m.size <= MAX_TEXT) {
+      blocks.push({ type: "text", text: `${note}\n\n${Buffer.from(m.bytes).toString("utf8")}` });
+    } else {
+      blocks.push({ type: "text", text: note });
+    }
+  }
+  return blocks;
+}
+
+/** One conversation in Claude API shape. Consecutive same-role turns are merged by the API. */
+export async function loadHistory(workspaceId: string, conversationId: string): Promise<Anthropic.Beta.BetaMessageParam[]> {
   const d = await db();
   const rows = await d
     .select()
     .from(schema.messages)
-    .where(eq(schema.messages.workspaceId, workspaceId))
+    .where(and(eq(schema.messages.workspaceId, workspaceId), eq(schema.messages.conversationId, conversationId)))
     .orderBy(asc(schema.messages.id));
-  return rows.map((r) => ({ role: r.role, content: r.content as Block[] }));
+  return Promise.all(
+    rows.map(async (r) => ({
+      role: r.role,
+      content: r.attachments?.length ? [...(await expandAttachments(r.attachments)), ...(r.content as Block[])] : (r.content as Block[]),
+    })),
+  );
 }
 
 export type TimelineItem =
-  | { type: "user"; id: string; text: string }
+  | { type: "user"; id: string; text: string; attachments?: Attachment[] }
   | { type: "mikee"; id: string; text: string }
   | { type: "activity"; id: string; label: string }
   | { type: "card"; id: string; proposal: CardView };
@@ -52,6 +98,7 @@ export const TOOL_LABELS: Record<string, string> = {
   meta_read: "מייקי בדק משהו מאחורי הקלעים",
   meta_write: "מייקי סידר משהו מאחורי הקלעים",
   set_stage: "",
+  file_conversation: "",
   // The team stays invisible: the client sees what is being done, not who does it.
   ask_copywriter: "מייקי כתב טקסטים",
   ask_media_buyer: "מייקי עבד על הקמפיינים",
@@ -62,13 +109,13 @@ export const TOOL_LABELS: Record<string, string> = {
   web_fetch: "מייקי קרא עמוד ברשת",
 };
 
-/** What the chat screen shows: plain bubbles, quiet activity notes, and proposal cards. */
-export async function timeline(workspaceId: string): Promise<TimelineItem[]> {
+/** What the chat screen shows for one conversation: plain bubbles, quiet activity notes, and proposal cards. */
+export async function timeline(workspaceId: string, conversationId: string): Promise<TimelineItem[]> {
   const d = await db();
   const rows = await d
     .select()
     .from(schema.messages)
-    .where(eq(schema.messages.workspaceId, workspaceId))
+    .where(and(eq(schema.messages.workspaceId, workspaceId), eq(schema.messages.conversationId, conversationId)))
     .orderBy(asc(schema.messages.id));
 
   // Proposal ids come back inside tool results (a specialist's task can create several);
@@ -95,7 +142,7 @@ export async function timeline(workspaceId: string): Promise<TimelineItem[]> {
     const blocks = r.content as any[];
     if (r.role === "user") {
       const text = blocks.filter((b) => b?.type === "text").map((b) => b.text).join("\n").trim();
-      if (text) items.push({ type: "user", id: `m${r.id}`, text });
+      if (text || r.attachments?.length) items.push({ type: "user", id: `m${r.id}`, text, attachments: r.attachments ?? undefined });
       continue;
     }
     const seen = new Set<string>();

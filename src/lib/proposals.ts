@@ -59,6 +59,7 @@ const DECLINE_MEMORY_DAYS = 7;
  */
 export async function createProposal(opts: {
   workspaceId: string;
+  conversationId?: string;
   kind: ProposalKind;
   action: Record<string, unknown>;
   month: string;
@@ -120,6 +121,7 @@ export async function createProposal(opts: {
         .values({
           id,
           workspaceId: opts.workspaceId,
+          conversationId: opts.conversationId ?? null,
           kind: opts.kind,
           versionHash: versionOf(opts.kind, opts.action),
           dedupeKey: key,
@@ -202,7 +204,12 @@ export async function finishProposal(p: Proposal, ok: boolean, result: Record<st
   await d.update(schema.proposals).set({ status: ok ? "done" : "failed", result, finishedAt: new Date() }).where(eq(schema.proposals.id, p.id));
   const title = String(p.card.title);
   await logActivity(p.workspaceId, p.kind, ok ? title : `נכשל: ${title}`, result, ok);
-  await appendMessage(p.workspaceId, "user", "event", [
+  // Report in the conversation the card came from (or the latest one, for cards made before conversations).
+  const conversationId =
+    p.conversationId ??
+    (await d.query.conversations.findFirst({ where: eq(schema.conversations.workspaceId, p.workspaceId), orderBy: desc(schema.conversations.updatedAt) }))?.id;
+  if (!conversationId) return;
+  await appendMessage(p.workspaceId, conversationId, "user", "event", [
     {
       type: "text",
       text: ok

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import { appendMany, type Kind, loadHistory } from "../conversation";
+import { recentConversationsText } from "../conversations";
 import { AiBudgetExceeded } from "../usage";
 import { businessBrief } from "./brief";
 import { agentLoop, type LoopEvent, type Row } from "./loop";
@@ -20,7 +21,7 @@ export type AgentEvent = LoopEvent | { t: "done" } | { t: "error"; message: stri
  * specialist. He runs at medium effort; the specialists think hard about their narrow tasks.
  */
 export const MIKEE_TOOLS: ToolDef[] = [
-  ...pick(["remember", "forget", "set_stage", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
+  ...pick(["file_conversation", "remember", "forget", "set_stage", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
   ...TEAM_TOOLS,
 ];
 
@@ -31,6 +32,7 @@ export const MIKEE_TOOLS: ToolDef[] = [
  */
 export async function runMikee(opts: {
   workspaceId: string;
+  conversationId: string;
   /** Rows to add before Mikee answers (a kickoff instruction). The client's own message is already stored. */
   prepend?: Row[];
   resume?: Row[];
@@ -38,7 +40,7 @@ export async function runMikee(opts: {
   emit?: (e: AgentEvent) => void | Promise<void>;
   discardIf?: (text: string) => boolean;
 }): Promise<string> {
-  const { workspaceId } = opts;
+  const { workspaceId, conversationId } = opts;
   const emit = async (e: AgentEvent) => {
     await opts.emit?.(e);
   };
@@ -46,20 +48,23 @@ export async function runMikee(opts: {
   const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, workspaceId) });
   if (!ws) throw new Error("Workspace not found");
 
-  const history = await loadHistory(workspaceId);
+  const history = await loadHistory(workspaceId, conversationId);
   const pending: Row[] = opts.resume?.length ? [...opts.resume] : [...(opts.prepend ?? [])];
   let written = "";
   let failed = false;
 
   try {
     const r = await agentLoop({
-      ctx: { workspaceId, tz: ws.timezone },
+      ctx: { workspaceId, tz: ws.timezone, conversationId },
       agent: "mikee",
       system: async () => {
         const stage = (await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, workspaceId) }))?.stage ?? ws.stage;
         return [
           { type: "text", text: MIKEE_CONSTITUTION, cache_control: { type: "ephemeral" } },
-          { type: "text", text: `${await businessBrief(workspaceId, ws.timezone)}\n\n${stageInstructions(stage)}` },
+          {
+            type: "text",
+            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}`,
+          },
         ];
       },
       history,
@@ -90,7 +95,7 @@ export async function runMikee(opts: {
   // Save only complete turns: drop a trailing assistant message whose tool calls never got results.
   const last = pending[pending.length - 1];
   if (last?.role === "assistant" && (last.content as any[]).some((b) => b?.type === "tool_use")) pending.pop();
-  if (!opts.discardIf?.(written) || failed) await appendMany(workspaceId, pending);
+  if (!opts.discardIf?.(written) || failed) await appendMany(workspaceId, conversationId, pending);
   await emit({ t: "done" });
   return written;
 }
