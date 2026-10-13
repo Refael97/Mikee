@@ -7,7 +7,7 @@ import { recentConversationsText } from "../conversations";
 import { AiBudgetExceeded } from "../usage";
 import { businessBrief } from "./brief";
 import { agentLoop, type LoopEvent, type Row } from "./loop";
-import { MIKEE_CONSTITUTION, stageInstructions } from "./prompt";
+import { LEAK_MARKERS, LEAK_REPLACEMENT, MIKEE_CONSTITUTION, stageInstructions } from "./prompt";
 import { TEAM_TOOLS } from "./team";
 import { pick, type ToolDef } from "./tools";
 
@@ -21,7 +21,7 @@ export type AgentEvent = LoopEvent | { t: "done" } | { t: "error"; message: stri
  * specialist. He runs at medium effort; the specialists think hard about their narrow tasks.
  */
 export const MIKEE_TOOLS: ToolDef[] = [
-  ...pick(["file_conversation", "remember", "forget", "set_stage", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
+  ...pick(["file_conversation", "remember", "forget", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
   ...TEAM_TOOLS,
 ];
 
@@ -95,6 +95,16 @@ export async function runMikee(opts: {
   // Save only complete turns: drop a trailing assistant message whose tool calls never got results.
   const last = pending[pending.length - 1];
   if (last?.role === "assistant" && (last.content as any[]).some((b) => b?.type === "tool_use")) pending.pop();
+  // An answer that quotes the instructions is never stored or shown again.
+  for (const row of pending) {
+    if (row.role !== "assistant") continue;
+    for (const b of row.content as any[]) {
+      if (b?.type === "text" && LEAK_MARKERS.some((m) => b.text.includes(m))) {
+        b.text = LEAK_REPLACEMENT;
+        await emit({ t: "error", message: LEAK_REPLACEMENT });
+      }
+    }
+  }
   if (!opts.discardIf?.(written) || failed) await appendMany(workspaceId, conversationId, pending);
   await emit({ t: "done" });
   return written;

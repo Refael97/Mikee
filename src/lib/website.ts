@@ -1,11 +1,13 @@
 import "server-only";
 import * as cheerio from "cheerio";
+import { type SafeResponse, safeFetch } from "./net";
 
 const UA = "Mozilla/5.0 (compatible; MikeeBot/1.0; +https://mikee.ai)";
 
-async function get(url: string, timeoutMs = 12000): Promise<Response | null> {
+/** Pages are fetched through the network guard: public web only, 3MB per page, 12 seconds. */
+async function get(url: string, timeoutMs = 12000): Promise<SafeResponse | null> {
   try {
-    return await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(timeoutMs), redirect: "follow" });
+    return await safeFetch(url, { headers: { "User-Agent": UA }, timeoutMs, maxBytes: 3 * 1024 * 1024 });
   } catch {
     return null;
   }
@@ -39,18 +41,27 @@ function detectPlatform(html: string): "shopify" | "woocommerce" | "other" {
 
 async function sitemapUrls(origin: string): Promise<string[]> {
   const robots = await get(`${origin}/robots.txt`);
-  const fromRobots = robots?.ok ? [...(await robots.text()).matchAll(/^sitemap:\s*(\S+)/gim)].map((m) => m[1]) : [];
+  const fromRobots = robots?.ok ? [...(await robots.text()).matchAll(/^sitemap:\s*(\S+)/gim)].map((m) => m[1]).filter((u) => sameSite(u, origin)) : [];
   const queue = fromRobots.length ? fromRobots : [`${origin}/sitemap.xml`];
   const urls: string[] = [];
-  for (let i = 0; i < queue.length && i < 8; i++) {
+  for (let i = 0; i < queue.length && i < 8 && urls.length < 2000; i++) {
     const res = await get(queue[i]);
     if (!res?.ok) continue;
     const xml = await res.text();
-    const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
+    // A sitemap may only point inside the same site.
+    const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]).filter((u) => sameSite(u, origin));
     if (/<sitemapindex/i.test(xml)) queue.push(...locs);
     else urls.push(...locs);
   }
   return urls;
+}
+
+function sameSite(u: string, origin: string) {
+  try {
+    return new URL(u).host.replace(/^www\./, "") === new URL(origin).host.replace(/^www\./, "");
+  } catch {
+    return false;
+  }
 }
 
 const PRIORITY = /about|odot|אודות|story|collections?|products?|shop|services?|שירות|contact|צור-קשר|faq|שאלות|pricing|מחיר|blog/i;

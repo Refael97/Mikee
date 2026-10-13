@@ -5,6 +5,7 @@ import { type AgentEvent, type Row, runMikee } from "./agent/run";
 import { CHECKIN_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
 import { deleteIfEmpty, markUnread } from "./conversations";
 import { executeProposal } from "./executor";
+import { describeMedia } from "./library";
 import { claimNext, finishJob, heartbeat, type Job, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 
 /** Runs one job to completion. Exported for tests; the worker loop below calls it. */
@@ -19,6 +20,10 @@ export async function runJob(job: Job) {
     }
     if (job.kind === "execute") {
       await executeProposal(String(job.input.proposalId), { cleanup: !!job.input.cleanup });
+    } else if (job.kind === "describe") {
+      const d = await db();
+      const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, job.workspaceId) });
+      await describeMedia(job.workspaceId, ws?.timezone ?? "Asia/Jerusalem", String(job.input.mediaId));
     } else {
       const kickoff =
         job.kind === "checkin" ? (typeof job.input.kickoff === "string" ? job.input.kickoff : CHECKIN_KICKOFF) : job.input.kickoff === "scan" ? SCAN_KICKOFF : null;

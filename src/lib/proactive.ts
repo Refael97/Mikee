@@ -4,6 +4,7 @@ import { db, schema } from "./db";
 import { type Category, createConversation, deleteIfEmpty } from "./conversations";
 import { activeTurn, enqueue, TurnInProgress } from "./jobs";
 import { CHECKIN_KICKOFF } from "./agent/prompt";
+import { journeyStatus, recentActivityCount } from "./journey";
 
 /**
  * Mikee reaches out on his own. Every hour the cron asks each business: is there a reason to talk now?
@@ -16,7 +17,7 @@ export const QUIET_FROM = 21;
 export const QUIET_UNTIL = 8;
 export const MAX_PER_DAY = 2;
 
-export type NudgeKind = "connection" | "failed" | "pending" | "month" | "weekly" | "morning" | "quiet";
+export type NudgeKind = "connection" | "failed" | "pending" | "month" | "weekly" | "next_step" | "morning" | "quiet";
 
 export type Nudge = {
   kind: NudgeKind;
@@ -138,6 +139,23 @@ export async function dueNudges(workspaceId: string, tz: string, now = new Date(
     });
   }
 
+  // Momentum: nothing new for a few days and nothing waiting, so suggest the next step on the marketing path.
+  const waiting = pending.length > 0 || (await d.select({ id: schema.proposals.id }).from(schema.proposals).where(and(eq(schema.proposals.workspaceId, workspaceId), eq(schema.proposals.status, "pending"))).limit(1)).length > 0;
+  const j = !waiting && t.hour >= 10 ? await journeyStatus(workspaceId) : null;
+  if (j && j.relationship.days >= 3 && (await recentActivityCount(workspaceId, 5)) === 0) {
+    const next = j.nextUp[0];
+    if (next) {
+      due.push({
+        kind: "next_step",
+        key: t.week,
+        title: `הצעד הבא: ${next.title}`,
+        category: "campaigns",
+        kickoff: `${EVENT} Nothing new has happened in the marketing for a few days and no card is waiting. Look at where the business stands (journey_status) and her focus. Suggest the one next move that fits best right now (the natural candidate is "${next.title}": ${next.why}), in two or three sentences: what you noticed, what you suggest, why now. If she is likely to say yes, have the right specialist prepare the card. If the timing is wrong, reply with exactly: NOTHING. ${REPLIES}`,
+        mayStaySilent: true,
+      });
+    }
+  }
+
   if (t.hour >= QUIET_UNTIL) {
     due.push({ kind: "morning", key: t.date, title: "המלצות של מייקי", category: "results", kickoff: CHECKIN_KICKOFF, mayStaySilent: true });
   }
@@ -201,7 +219,8 @@ export async function runProactive(workspaceId: string, tz: string, now = new Da
       .values({ workspaceId, kind: nudge.kind, key: nudge.key, day: t.date })
       .onConflictDoNothing()
       .returning();
-    if (!claimed) continue;
+    // Someone else (a parallel cron run) just claimed it: let that run do the talking.
+    if (!claimed) return { skipped: "already handled" };
 
     const conv = nudge.conversationId ? null : await createConversation(workspaceId, { title: nudge.title, category: nudge.category });
     const conversationId = nudge.conversationId ?? conv!.id;

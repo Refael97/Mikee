@@ -1,28 +1,31 @@
 import { getSession } from "@/lib/auth";
-import { db, schema } from "@/lib/db";
+import { assertSameOrigin, guarded, limit, LIMITS, Refused } from "@/lib/guard";
+import { MediaRejected, storeBytes } from "@/lib/media";
 
 export const runtime = "nodejs";
 
-const MAX = 50 * 1024 * 1024;
-const ALLOWED = /^(image\/|video\/|audio\/|application\/pdf$|text\/|application\/json$|application\/vnd\.openxmlformats|application\/vnd\.ms-excel|text\/csv$)/;
+const MAX_REQUEST = 310 * 1024 * 1024;
 
-/** Files the client attaches to a message. Stored with an unguessable public URL so Meta can use them too. */
-export async function POST(req: Request) {
+/**
+ * Files the client attaches to a message or adds to the library. The real type is read from the bytes
+ * (see lib/filetype.ts); the browser's claimed type is ignored.
+ */
+export const POST = guarded(async (req: Request) => {
+  assertSameOrigin(req);
   const session = await getSession();
   if (!session) return new Response("Unauthorized", { status: 401 });
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_REQUEST) throw new Refused("הקובץ גדול מדי", 413);
+  await limit(`upload:${session.workspace.id}`, LIMITS.uploadsPerHour, 3600, "יותר מדי העלאות בשעה האחרונה. נסי שוב מאוחר יותר.");
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return Response.json({ error: "לא התקבל קובץ" }, { status: 400 });
-  if (file.size > MAX) return Response.json({ error: "הקובץ גדול מדי (עד 50MB)" }, { status: 413 });
-  const type = file.type || "application/octet-stream";
-  if (!ALLOWED.test(type)) return Response.json({ error: "סוג הקובץ לא נתמך" }, { status: 415 });
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  const d = await db();
-  const [row] = await d
-    .insert(schema.media)
-    .values({ workspaceId: session.workspace.id, contentType: type, bytes, size: bytes.length, source: "upload", filename: file.name.slice(0, 200) })
-    .returning({ id: schema.media.id });
-  const base = process.env.APP_URL?.replace(/\/$/, "") ?? "";
-  return Response.json({ id: row.id, name: file.name, type, size: bytes.length, url: `${base}/api/media/${row.id}` });
-}
+  if (!(file instanceof File)) throw new Refused("לא התקבל קובץ");
+  const folder = String(form?.get("folder") ?? "").slice(0, 60) || undefined;
+  const library = form?.get("library") === "1";
+  try {
+    const m = await storeBytes(session.workspace.id, Buffer.from(await file.arrayBuffer()), { filename: file.name, source: "upload", folder, inLibrary: library || undefined });
+    return Response.json({ id: m.id, name: m.name, type: m.type, kind: m.kind, size: m.size, url: m.url });
+  } catch (e) {
+    if (e instanceof MediaRejected) throw new Refused(e.message, 415);
+    throw e;
+  }
+});

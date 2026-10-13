@@ -2,6 +2,8 @@ import "server-only";
 import type { CampaignSpec, ChangeSpec, PostSpec } from "../specs";
 import { type MetaContext, requireAdAccount, toMajor, toMinor } from "./context";
 import { MetaError } from "./graph";
+import { bytesFromOwnUrl } from "../media";
+import { safeFetch } from "../net";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -13,10 +15,13 @@ const OBJECTIVE: Record<CampaignSpec["goal"], string> = {
   awareness: "OUTCOME_AWARENESS",
 };
 
+/** Our own files are read straight from storage; anything else goes through the network guard. */
 async function fetchBytes(url: string): Promise<Buffer> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not download media from ${url} (HTTP ${res.status})`);
-  return Buffer.from(await res.arrayBuffer());
+  const own = await bytesFromOwnUrl(url);
+  if (own) return own;
+  const res = await safeFetch(url, { maxBytes: 30 * 1024 * 1024, timeoutMs: 60_000 });
+  if (!res.ok) throw new Error(`Could not download the image (HTTP ${res.status})`);
+  return res.bytes();
 }
 
 async function uploadImage(ctx: MetaContext, url: string): Promise<string> {

@@ -24,21 +24,21 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   const ready = connected && assets && !!site?.config.url;
 
   return (
-    <main className="mx-auto max-w-[760px] px-5 py-12 sm:py-20">
-      <header className="mb-14 text-center">
-        <div className="orb orb-glow orb-breathe mx-auto w-20" />
-        <span className="kicker rise mt-10">בואי נתחיל</span>
+    <main className="mx-auto max-w-[1000px] px-5 py-12 sm:py-20">
+      <header className="mb-12">
+        <div className="orb orb-breathe w-14" />
+        <span className="kicker rise mt-8">ארבעה צעדים, עשר דקות</span>
         <h1 className="display rise mt-3 [animation-delay:40ms]">
-          נעים מאוד, <span className="accent-word">{user.name.split(" ")[0]}</span>.
+          נעים מאוד, <span className="marked">{user.name.split(" ")[0]}</span>.
         </h1>
-        <p className="lead rise mx-auto mt-4 max-w-md [animation-delay:80ms]">
+        <p className="lead rise mt-4 max-w-xl [animation-delay:80ms]">
           אני מייקי. חברי אותי לעסק, ואני אלמד אותו לעומק לפני שנדבר: את האתר, המוצרים, הקמפיינים והפוסטים.
         </p>
       </header>
 
-      {error && <p className="card mb-6 rounded-2xl p-4 text-warn">{error}</p>}
+      {error && <p className="note note-warn mb-6">{({ meta_cancelled: "החיבור לפייסבוק בוטל או פג. נסי שוב.", meta_failed: "החיבור לפייסבוק נכשל. נסי שוב." } as Record<string, string>)[error] ?? "משהו השתבש. נסי שוב."}</p>}
 
-      <div className="space-y-10">
+      <div>
         <Section step={1} title="האתר" hint="אקרא אותו כמו לקוחה חדשה, ואם זו חנות גם את המוצרים וההזמנות." done={!!site?.config.url}>
           <WebsiteStore workspaceId={workspace.id} />
         </Section>
@@ -56,11 +56,11 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         </Section>
       </div>
 
-      <form action={startMikee} className="mt-10 text-center">
+      <form action={startMikee} className="mt-4 flex flex-wrap items-center gap-5 border-t border-line pt-8">
         <button className="btn btn-primary px-10" disabled={!ready}>
           בוא נתחיל, מייקי
         </button>
-        {!ready && <p className="mt-3 text-[15px] text-ink-3">צריך להוסיף אתר, לחבר את פייסבוק ולאשר את העסק.</p>}
+        {!ready && <p className="text-[15px] text-ink-3">צריך להוסיף אתר, לחבר את פייסבוק ולאשר את העסק.</p>}
       </form>
     </main>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChartNoAxesColumn, Check, FileText, Megaphone, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, Check, FileText } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
 import { Composer, type Upload } from "./Composer";
 import { ProposalCard, type Brand } from "./ProposalCard";
@@ -35,10 +35,10 @@ const LIVE_LABELS: Record<string, string> = {
 const SILENT = new Set(["file_conversation", "set_stage"]);
 
 const SUGGESTIONS = [
-  { icon: ChartNoAxesColumn, title: "איך הולך החודש?", sub: "תמונת מצב בשתי דקות" },
-  { icon: Megaphone, title: "צריך יותר פניות", sub: "מייקי יבנה תוכנית" },
-  { icon: Sparkles, title: "יש לי קולקציה חדשה", sub: "בוא נשיק אותה נכון" },
-  { icon: Wand2, title: "מה כדאי לקדם השבוע?", sub: "לפי המלאי והתוצאות" },
+  { title: "איך הולך החודש?", sub: "תמונת מצב קצרה, במספרים אמיתיים" },
+  { title: "צריך יותר פניות", sub: "מייקי בונה תוכנית ומכין קמפיין" },
+  { title: "יש לי קולקציה חדשה", sub: "נשיק אותה נכון, עם תוכן מהספרייה" },
+  { title: "מה כדאי לקדם השבוע?", sub: "לפי המלאי, העונה והתוצאות" },
 ];
 
 type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: CardView };
@@ -72,7 +72,7 @@ function toolEvent(live: Live | null, name: string, state: "start" | "done" | "e
 }
 
 function MikeeMark({ live = false }: { live?: boolean }) {
-  return <span className={`orb mt-0.5 w-7 shrink-0 ${live ? "orb-live" : ""}`} aria-hidden />;
+  return <span className={`orb mt-1 w-6 shrink-0 ${live ? "orb-live" : ""}`} aria-hidden />;
 }
 
 export function Chat({
@@ -81,12 +81,16 @@ export function Chat({
   autoScan,
   firstName,
   brand,
+  draft,
+  nextMoves = [],
 }: {
   conversationId: string | null;
   initialItems: TimelineItem[];
   autoScan: boolean;
   firstName: string;
   brand: Brand;
+  draft?: string;
+  nextMoves?: { title: string; why: string }[];
 }) {
   const [items, setItems] = useState(initialItems);
   const [live, setLive] = useState<Live | null>(null);
@@ -226,31 +230,46 @@ export function Chat({
     <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-5">
       <div className="flex-1 pb-10 pt-8 sm:pt-12">
         {empty ? (
-          <div className="flex flex-col items-center pt-[3vh] text-center">
-            <span className="orb orb-glow orb-breathe w-16" aria-hidden />
-            <span className="kicker rise mt-7">מייקי, איש השיווק שלך</span>
-            <h1 className="title rise mt-3 [animation-delay:40ms]">
-              היי {firstName}, <span className="accent-word">מה עושים</span> היום?
+          <div className="pt-[4vh]">
+            <span className="orb orb-breathe w-12" aria-hidden />
+            <h1 className="title rise mt-6">
+              היי {firstName}, <span className="marked">מה עושים</span> היום?
             </h1>
-            <p className="lead rise mt-4 [animation-delay:80ms]">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
-            <div className="mt-9 grid w-full max-w-xl grid-cols-2 gap-3 xl:max-w-none xl:grid-cols-4">
-              {SUGGESTIONS.map(({ icon: Icon, title, sub }, i) => (
-                <button
-                  key={title}
-                  onClick={() => submit(title)}
-                  style={{ animationDelay: `${120 + i * 50}ms` }}
-                  className="card rise flex flex-col items-start gap-3 p-4 text-start transition-[transform,box-shadow] duration-300 ease-[var(--ease)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)] active:scale-[0.97]"
-                >
-                  <span className="icon-chip h-10 w-10">
-                    <Icon className="h-5 w-5" strokeWidth={1.9} />
-                  </span>
-                  <span>
-                    <span className="block font-semibold">{title}</span>
-                    <span className="mt-0.5 block text-[15px] text-ink-2">{sub}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
+            <p className="lead rise mt-3 [animation-delay:60ms]">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
+
+            {nextMoves.length > 0 && (
+              <section className="rise mt-10 [animation-delay:100ms]">
+                <span className="kicker">מייקי מציע להמשיך</span>
+                <div className="mt-3 divide-y divide-line border-y border-line">
+                  {nextMoves.map((m) => (
+                    <button key={m.title} onClick={() => submit(`בוא נדבר על הצעד הבא: ${m.title}`)} className="group flex w-full items-center gap-4 py-4 text-start">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[18px] font-semibold group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-4">{m.title}</span>
+                        <span className="mt-0.5 block text-[15.5px] text-ink-2">{m.why}</span>
+                      </span>
+                      <ArrowLeft className="h-5 w-5 shrink-0 text-ink-3 transition-transform group-hover:-translate-x-1 group-hover:text-ink" strokeWidth={1.8} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="rise mt-10 [animation-delay:140ms]">
+              <span className="kicker">או להתחיל מכאן</span>
+              <ol className="mt-3 grid border-t border-line sm:grid-cols-2">
+                {SUGGESTIONS.map(({ title, sub }, i) => (
+                  <li key={title} className="border-b border-line sm:odd:border-e sm:odd:pe-5 sm:even:ps-5">
+                    <button onClick={() => submit(title)} className="group flex w-full items-baseline gap-3 py-4 text-start">
+                      <span className="num text-[13px] text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+                      <span>
+                        <span className="block font-semibold group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-4">{title}</span>
+                        <span className="mt-0.5 block text-[15px] text-ink-2">{sub}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </section>
           </div>
         ) : (
           <div className="space-y-6">
@@ -264,12 +283,10 @@ export function Chat({
                         {item.attachments.map((a) =>
                           a.type.startsWith("image/") && a.url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img key={a.id} src={a.url} alt={a.name} className="h-28 w-28 rounded-[14px] object-cover shadow-[var(--shadow)]" />
+                            <img key={a.id} src={a.url} alt={a.name} className="h-28 w-28 rounded-[8px] border border-line object-cover" />
                           ) : (
-                            <a key={a.id} href={a.url || undefined} target="_blank" rel="noreferrer" className="card flex h-14 items-center gap-2.5 pe-4 ps-2">
-                              <span className="icon-chip h-10 w-10 rounded-[10px]">
-                                <FileText className="h-4 w-4" />
-                              </span>
+                            <a key={a.id} href={a.url || undefined} target="_blank" rel="noreferrer" className="card flex h-14 items-center gap-2.5 pe-4 ps-3">
+                              <FileText className="h-5 w-5 text-ink-2" strokeWidth={1.6} />
                               <span className="max-w-40 truncate text-[14px] font-medium">{a.name}</span>
                             </a>
                           ),
@@ -277,7 +294,7 @@ export function Chat({
                       </div>
                     ) : null}
                     {item.text && item.text !== "(קבצים מצורפים)" && (
-                      <div className="card max-w-[80%] whitespace-pre-line rounded-[18px] px-5 py-3 text-[17px]">{item.text}</div>
+                      <div className="max-w-[80%] whitespace-pre-line rounded-[10px] bg-surface-2 px-4 py-2.5 text-[17px]">{item.text}</div>
                     )}
                   </div>
                 );
@@ -296,9 +313,7 @@ export function Chat({
                   <div key={item.id} className="flex items-center gap-3.5 text-[15px] text-ink-3">
                     {prev?.type === "user" ? <MikeeMark /> : <span className="w-7 shrink-0" />}
                     <span className="flex items-center gap-2">
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-surface-2 text-ink-3">
-                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                      </span>
+                      <Check className="h-3.5 w-3.5 text-good" strokeWidth={2.6} />
                       {item.label}
                     </span>
                   </div>
@@ -330,7 +345,7 @@ export function Chat({
             {error && (
               <div className="flex gap-3.5">
                 <span className="w-7 shrink-0" />
-                <p className="rounded-[14px] bg-bad-tint px-4 py-2.5 text-[15px] text-bad">{error}</p>
+                <p className="note note-bad text-[15px]">{error}</p>
               </div>
             )}
           </div>
@@ -339,8 +354,8 @@ export function Chat({
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-60% to-transparent px-5 pb-4 pt-10 sm:pb-6">
-        <Composer busy={!!live} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
-        <p className="mt-2.5 text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
+        <Composer busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
+        <p className="mt-2 text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
       </div>
     </div>
   );

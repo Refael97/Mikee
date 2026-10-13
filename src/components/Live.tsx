@@ -11,11 +11,11 @@ export function MediaGenerating({ label = "יוצר תמונה", ratio = "4/5" }
   const phrases = [label, "מסדר את האור", "מלטש פרטים", "כמעט מוכן"];
   const phrase = useCycle(phrases, 2600);
   return (
-    <div className="relative w-full overflow-hidden rounded-[14px] bg-surface-2" style={{ aspectRatio: ratio }} role="status" aria-label={label}>
+    <div className="relative w-full overflow-hidden rounded-[8px] bg-surface-2" style={{ aspectRatio: ratio }} role="status" aria-label={label}>
       <div className="dot-grid absolute inset-0" />
       <div className="dot-grid-glow absolute inset-0" />
       <div className="dot-grid-lit absolute inset-0" />
-      <span key={phrase} className="glass swap-in absolute bottom-3 start-3 rounded-[12px] px-3 py-1.5 text-[13.5px] font-medium">
+      <span key={phrase} className="swap-in absolute bottom-3 start-3 rounded-[5px] border border-line bg-surface/90 px-2.5 py-1 text-[13.5px] font-semibold">
         <span className="shimmer">{phrase}…</span>
       </span>
     </div>
@@ -75,10 +75,10 @@ export function Steps({ steps }: { steps: Step[] }) {
       {steps.map((s, i) => (
         <li key={`${s.name}-${i}`} className="rise flex items-center gap-2.5 text-[15px]">
           {s.state === "running" ? (
-            <span className="spin h-4 w-4 rounded-full border-2 border-brand/25 border-t-brand" />
+            <span className="spin h-3.5 w-3.5 rounded-full border-[1.5px] border-ink/15 border-t-ink" />
           ) : (
-            <span className={`pop flex h-4 w-4 items-center justify-center rounded-full ${s.state === "done" ? "bg-brand-tint text-brand" : "bg-bad-tint text-bad"}`}>
-              <Check className="h-3 w-3" strokeWidth={3} />
+            <span className={`pop flex h-4 w-4 items-center justify-center ${s.state === "done" ? "text-good" : "text-bad"}`}>
+              <Check className="h-4 w-4" strokeWidth={2.6} />
             </span>
           )}
           {s.state === "running" ? <Phrase base={s.label} className="font-medium" /> : <span className="text-ink-2">{s.label}</span>}
@@ -130,7 +130,7 @@ export function QuickReplies({ replies, onPick }: { replies: string[]; onPick: (
           key={r}
           onClick={() => onPick(r)}
           style={{ animationDelay: `${120 + i * 70}ms` }}
-          className="rise h-10 rounded-[20px] bg-surface px-4 text-[15px] font-medium text-brand shadow-[var(--shadow)] transition-[transform,background-color] duration-200 hover:bg-brand-tint active:scale-[0.97]"
+          className="rise h-9 rounded-[7px] border border-line-strong bg-surface px-3.5 text-[15px] font-semibold text-ink transition-[transform,background-color,border-color] duration-150 hover:border-ink active:translate-y-px"
         >
           {r}
         </button>

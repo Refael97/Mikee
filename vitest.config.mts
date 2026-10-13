@@ -16,6 +16,7 @@ export default defineConfig({
     env: {
       MIKEE_DB: "memory",
       MIKEE_WORKER: "off",
+      MIKEE_DESCRIBE_MEDIA: "off",
       MIKEE_ENCRYPTION_KEY: "0".repeat(64),
       SESSION_SECRET: "test-session-secret-test-session-secret",
       APP_URL: "https://mikee.test",

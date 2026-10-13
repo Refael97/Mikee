@@ -30,7 +30,18 @@ export function hashPassword(password: string): string {
 
 export function verifyPassword(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const actual = scryptSync(password, Buffer.from(salt, "hex"), 64);
+  if (!salt || !hash || hash.length !== 128) return false;
+  const actual = scryptSync(password.slice(0, 256), Buffer.from(salt, "hex"), 64);
   return timingSafeEqual(actual, Buffer.from(hash, "hex"));
+}
+
+/** Used when the email does not exist, so a wrong email takes as long as a wrong password. */
+export const DUMMY_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
+
+/** A password strong enough for an account that can spend money on ads. */
+export function passwordProblem(password: string): string | null {
+  if (password.length < 10) return "הסיסמה צריכה להיות באורך 10 תווים לפחות";
+  if (password.length > 200) return "הסיסמה ארוכה מדי";
+  if (/^(.)\1+$/.test(password) || /^(0123456789|1234567890|password|qwerty)/i.test(password)) return "הסיסמה קלה מדי לניחוש";
+  return null;
 }

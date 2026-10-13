@@ -72,6 +72,31 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS conversations_ws_idx ON conversations (workspace_id, updated_at DESC);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at timestamptz;
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key text NOT NULL,
+  window_start bigint NOT NULL,
+  count integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, window_start)
+);
+CREATE TABLE IF NOT EXISTS support_requests (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  user_id uuid,
+  topic text NOT NULL,
+  body text NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS journey (
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  item text NOT NULL,
+  status text NOT NULL,
+  note text,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, item)
+);
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS unread boolean NOT NULL DEFAULT false;
 CREATE TABLE IF NOT EXISTS nudges (
   id serial PRIMARY KEY,
@@ -158,6 +183,16 @@ CREATE TABLE IF NOT EXISTS media (
   source_ref text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE media ALTER COLUMN bytes DROP NOT NULL;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS storage text NOT NULL DEFAULT 'db';
+ALTER TABLE media ADD COLUMN IF NOT EXISTS key text;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS kind text;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS tags jsonb;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS folder text;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS in_library boolean NOT NULL DEFAULT true;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+CREATE INDEX IF NOT EXISTS media_ws_idx ON media (workspace_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS agent_runs (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),

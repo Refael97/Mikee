@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   if (!code || !state || state !== req.cookies.get("meta_oauth_state")?.value) {
-    return NextResponse.redirect(new URL(`${back}?error=${encodeURIComponent("החיבור לפייסבוק בוטל או פג. נסי שוב.")}`, base));
+    return NextResponse.redirect(new URL(`${back}?error=meta_cancelled`, base));
   }
   try {
     const { token, expiresAt } = await exchangeCode(code);
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     res.cookies.delete("meta_oauth_state");
     return res;
   } catch (e) {
-    return NextResponse.redirect(new URL(`${back}?error=${encodeURIComponent(`החיבור נכשל: ${(e as Error).message}`)}`, base));
+    console.error("[meta] connect failed", (e as Error).message);
+    return NextResponse.redirect(new URL(`${back}?error=meta_failed`, base));
   }
 }

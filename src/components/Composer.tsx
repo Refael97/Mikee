@@ -16,14 +16,14 @@ type SpeechRec = {
   onerror: ((e: any) => void) | null;
 };
 
-const ACCEPT = "image/*,video/*,application/pdf,.csv,.txt,.json,.xlsx";
+const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,application/pdf,.csv,.txt";
 
 /**
  * The writing bar: text that grows, "+" to attach files or take a photo, voice dictation in Hebrew,
  * drag-and-drop and paste. Files upload as soon as they are picked, so sending is instant.
  */
-export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeholder: string; onSend: (text: string, attachmentIds: string[], uploads: Upload[]) => void }) {
-  const [text, setText] = useState("");
+export function Composer({ busy, placeholder, onSend, initialText }: { busy: boolean; placeholder: string; initialText?: string; onSend: (text: string, attachmentIds: string[], uploads: Upload[]) => void }) {
+  const [text, setText] = useState(initialText ?? "");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [menu, setMenu] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -105,8 +105,8 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
 
   return (
     <div
-      className={`glass relative rounded-[28px] shadow-[var(--shadow-float)] transition-shadow duration-300 focus-within:shadow-[var(--shadow-float),0_0_0_5px_var(--brand-tint)] ${
-        dragging ? "shadow-[var(--shadow-float),0_0_0_2px_var(--brand)]" : ""
+      className={`relative rounded-[12px] border bg-surface shadow-[var(--shadow-float)] transition-[border-color,box-shadow] duration-200 focus-within:border-ink ${
+        dragging ? "border-brand shadow-[0_0_0_3px_var(--brand-tint)]" : "border-line-strong"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -125,9 +125,9 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
             <div key={u.localId} className="tile relative flex h-16 shrink-0 items-center gap-2.5 overflow-hidden pe-3 ps-1.5">
               {u.preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={u.preview} alt="" className="h-[52px] w-[52px] rounded-[10px] object-cover" />
+                <img src={u.preview} alt="" className="h-[52px] w-[52px] rounded-[6px] object-cover" />
               ) : (
-                <span className="icon-chip h-[52px] w-[52px] rounded-[10px]">
+                <span className="flex h-[52px] w-[52px] items-center justify-center rounded-[6px] bg-surface text-ink-2">
                   <FileText className="h-5 w-5" />
                 </span>
               )}
@@ -142,7 +142,7 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
                 type="button"
                 aria-label="הסרה"
                 onClick={() => setUploads((x) => x.filter((y) => y.localId !== u.localId))}
-                className="absolute end-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-ink/70 text-white"
+                className="absolute end-1 top-1 flex h-5 w-5 items-center justify-center rounded-[4px] bg-ink/75 text-bg"
               >
                 <X className="h-3 w-3" strokeWidth={3} />
               </button>
@@ -170,32 +170,30 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
         }}
         rows={1}
         placeholder={listening ? "מקשיב…" : placeholder}
-        className="block max-h-[220px] min-h-14 w-full resize-none bg-transparent px-5 pb-1 pt-4 text-[18px] leading-[1.5] outline-none placeholder:text-ink-3"
+        className="block max-h-[220px] min-h-14 w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-[18px] leading-[1.5] outline-none placeholder:text-ink-3"
       />
 
-      <div className="flex items-center gap-1.5 px-2.5 pb-2.5">
+      <div className="flex items-center gap-1 px-2 pb-2">
         <div className="relative">
           <button
             type="button"
             aria-label="צירוף"
             onClick={() => setMenu((m) => !m)}
-            className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-200 ${menu ? "bg-brand-tint text-brand" : "text-ink-2 hover:bg-surface-2"}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-[7px] transition-colors duration-200 ${menu ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2"}`}
           >
             <Plus className={`h-5 w-5 transition-transform duration-300 ${menu ? "rotate-45" : ""}`} strokeWidth={2} />
           </button>
           {menu && (
-            <div className="card rise absolute bottom-12 start-0 z-30 w-60 p-1.5" onMouseLeave={() => setMenu(false)}>
+            <div className="pop-over rise absolute bottom-11 start-0 z-30 w-56 p-1.5" onMouseLeave={() => setMenu(false)}>
               <button
                 type="button"
                 onClick={() => {
                   setMenu(false);
                   fileInput.current?.click();
                 }}
-                className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start text-[15px] hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-[6px] px-3 py-2.5 text-start text-[15px] hover:bg-surface-2"
               >
-                <span className="icon-chip h-8 w-8 rounded-[10px]">
-                  <Paperclip className="h-4 w-4" />
-                </span>
+                <Paperclip className="h-4 w-4 text-ink-2" strokeWidth={1.8} />
                 קבצים ותמונות
               </button>
               <button
@@ -204,11 +202,9 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
                   setMenu(false);
                   cameraInput.current?.click();
                 }}
-                className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start text-[15px] hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-[6px] px-3 py-2.5 text-start text-[15px] hover:bg-surface-2"
               >
-                <span className="icon-chip h-8 w-8 rounded-[10px]">
-                  <Camera className="h-4 w-4" />
-                </span>
+                <Camera className="h-4 w-4 text-ink-2" strokeWidth={1.8} />
                 צילום
               </button>
             </div>
@@ -223,11 +219,11 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
               type="button"
               aria-label={listening ? "עצירת הקלטה" : "הקלטה"}
               onClick={toggleDictation}
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-200 ${
-                listening ? "bg-brand-tint text-brand" : "text-ink-2 hover:bg-surface-2"
+              className={`relative flex h-9 w-9 items-center justify-center rounded-[7px] transition-colors duration-200 ${
+                listening ? "bg-bad-tint text-bad" : "text-ink-2 hover:bg-surface-2"
               }`}
             >
-              {listening && <span className="absolute inset-0 animate-ping rounded-full bg-brand/20" />}
+              {listening && <span className="absolute inset-0 animate-ping rounded-[7px] bg-bad/20" />}
               {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" strokeWidth={2} />}
             </button>
           )}
@@ -236,7 +232,7 @@ export function Composer({ busy, placeholder, onSend }: { busy: boolean; placeho
             onClick={submit}
             disabled={!canSend}
             aria-label="שליחה"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-on-brand transition-[transform,opacity,background-color] duration-200 ease-[var(--ease)] hover:opacity-90 active:scale-[0.97] disabled:bg-surface-2 disabled:text-ink-3"
+            className="flex h-9 w-9 items-center justify-center rounded-[7px] bg-ink text-bg transition-[transform,background-color] duration-150 hover:bg-brand active:translate-y-px disabled:bg-surface-2 disabled:text-ink-3"
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} />
           </button>

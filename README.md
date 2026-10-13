@@ -63,6 +63,57 @@ Limits:
 
 A conversation Mikee started is marked as new: a dot in the list, and a note that slides in on every screen ("מייקי כתב לך") with the opening words. If the conversation is already open, the message appears live as it's written.
 
+### The marketing path (`src/lib/journey.ts`)
+Mikee always knows where the business stands. The path has five stages:
+1. **Foundations:** site tracking, a clear offer, a tidy profile, a catalog.
+2. **New audience:** a first campaign, testing creative, short videos.
+3. **Interest to purchase:** retargeting, catalog ads, an instant lead form, a matching landing page.
+4. **Repeat customers:** a members club or email collection, a customer list as an audience, an offer for returning customers, a regular posting rhythm.
+5. **Growth:** lookalike audiences, scaling what works, a seasonal calendar, customer reviews.
+
+How it's tracked and used:
+- **Tracking and focus:** every step is stored with its status. Mikee keeps the business type and the client's current focus through `update_journey`.
+- **Automatic detection:** some steps are picked up from what the platform can see, such as a connected pixel or a launched campaign.
+- **In the brief:** the brief every agent receives includes where the business stands, how long it has worked with Mikee (first week, getting started, established), what's done, what's in progress, and the next natural steps.
+- **Next steps:** the prompt teaches Mikee to propose the next step at the right time, one at a time and tied to the client's focus. For example, a sales campaign that has been running for a week leads to retargeting, and traffic leads to a members club.
+- **Nudge when things stall:** if nothing has moved for 5 days and no card is waiting, the proactive engine prompts Mikee to suggest the next step (`next_step`).
+- **In the UI:** "The business" page shows the plan (the five stages, where we are, and what's next), and a new conversation opens with "Mikee suggests continuing".
+
+### The content library (`src/lib/library.ts`, `src/lib/storage.ts`, `src/lib/google.ts`)
+- **Getting files in:** upload, drag and drop, or attach in the chat. Images and videos land in the library, and media Mikee creates is saved there too.
+- **Storage:** a private S3/R2 bucket under each business's prefix. A per-plan quota is enforced on every save (2/5/10GB, `src/lib/plans.ts`).
+- **Searchable descriptions:** Mikee describes every new image once (a background job), so it can be found by what's in it. `search_library` is available to Mikee, the creative director, the social manager and the media buyer, and they search the library before creating anything new.
+- **Google Drive:** connects with the narrowest permission (`drive.file`). The client picks files in Google's own picker, and only those files are copied into the library.
+
+### Results and campaigns (`src/lib/dashboard.ts`, `src/lib/platforms.ts`)
+- **The results page:** Mikee picks 3 or 4 numbers that matter for this business type (`set_dashboard`), plus a one-line headline. Each number is compared fairly against the same days last month, alongside the month's daily rhythm, what's waiting for approval, and the next step. There's no configuration and no clutter.
+- **The campaigns page:** campaigns from every platform behind one interface. Meta is live today; Google and TikTok are already reserved.
+
+### Account, help and connectors
+- **Profile:** details, plan and usage (storage, AI, credits), connected assets, password change, recent account activity, and sign out of all devices.
+- **Help:** a side panel with frequently asked questions, a message to support (stored in `support_requests` and forwarded to `SUPPORT_WEBHOOK_URL`), email and WhatsApp.
+- **Connectors in settings:** live ones (Meta, website, store, Google Drive) and upcoming ones (email, Google Ads, TikTok, WhatsApp Business, Canva, Dropbox).
+
+### Security (`src/lib/guard.ts`, `src/lib/net.ts`, `src/lib/filetype.ts`, `src/middleware.ts`)
+- **Uploaded files:** the type is checked from the bytes, never from the name or the browser. Only images, video, PDF and text/CSV are accepted, and HTML and SVG are refused.
+- **Serving files:** files are served with `nosniff` and a sandbox, and documents download as files. Images and videos get a signed link (for Meta); everything else requires a login and ownership by the same business.
+- **Server network requests:** they go through a guard that blocks internal addresses, cloud metadata, non-standard ports and redirects to them, and caps size and time. The check repeats at connection time, which defeats DNS tricks.
+- **`meta_write`:** an allowlist of creation types on the business's own assets with specific fields. It can't change budgets or statuses, publish, use the batch API, or smuggle parameters into the path.
+- **Tokens:** they never reach the model; `stripTokens` removes them from every response. The Graph token travels in a header, not a URL.
+- **Text from outside:** sites, posts, comments, files, store and library content are wrapped in `<untrusted>`. Client messages that imitate a platform event are neutralised, and invisible characters are removed.
+- **Protecting the instructions:** a canary marker and filter — an answer that quotes the instructions isn't saved. Mikee can't erase rules the client wrote herself.
+- **Rate limits:** per business and per IP, stored in the database so they hold across servers (messages, uploads, approvals, login, support). A cap on concurrent turns. Text length and attachment count limits, and a zod schema with a size cap on every request body.
+- **Login and sessions:** login is limited per email and per IP, and takes the same time whether the email exists or not. Sessions have a version, so changing the password or signing out of all devices disconnects every other session. The cookie is always `secure`.
+- **Requests and headers:**
+  - every write checks `Origin` (CSRF)
+  - CSP with a fresh nonce per page
+  - HSTS
+  - no framing
+  - no image proxy
+  - errors don't leak details
+- **Plan limits:** a client can't raise their own AI limits above what the plan includes.
+- `npm audit`: 0 known vulnerabilities (with a PostCSS override).
+
 ### Liveliness (`src/components/Live.tsx`)
 - **Image or video being created:** a dot grid with a diagonal band of light, and a status that changes ("מסדר את האור", "מלטש פרטים"). When it's ready, the images appear with a blur-to-sharp transition.
 - **While Mikee works:** a list of steps. Each one shows a shimmering status that changes as the work goes on, and turns into a check when it finishes.
@@ -105,12 +156,14 @@ Simple sentences, each with a source (client / website / store / results / Mikee
 npm test
 ```
 
-60 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
+105 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
 - `tests/approvals.test.ts`: tool classification and blocking, the version-bound approval, five simultaneous approvals → one campaign, a failure mid-run and retry without duplicates, adopting an orphaned campaign after a crash, a post retry only on the channel that failed, blocking repeated suggestions.
 - `tests/budget.test.ts`: the projection (scheduled, paused, external changes), the ceiling, reservations for pending cards, the check at execution time, increases, and the hard ceiling at Meta.
 - `tests/team.test.ts`: tool permissions per role (Mikee doesn't build or publish himself; each specialist only gets its own tools; no further delegation), a full delegation flow (brief, tools, card reaches the client, the team stays invisible), parallel tasks, and a specialist failure.
 - `tests/conversations.test.ts`: the quick category guess, filing by Mikee, the lock after a manual move, history isolation between conversations, a card result reported in the right conversation, ordering and removal, and attachments as content blocks.
 - `tests/proactive.test.ts`: quiet hours, the daily limit, no repeats (including two cron runs at once), priorities (a lost connection, a failed card, a waiting card in its own conversation), the weekly summary replacing the morning check, a silent check-in leaving no trace, the new-conversation marking, and parsing quick replies.
+- `tests/security.test.ts`: forged files (HTML/SVG disguised as images), internal addresses, the `meta_write` allowlist against every bypass attempt, tokens, imitating platform events, blocking instruction leaks, protecting client rules, isolation between businesses, a code check that every route verifies the session and the origin, signed links, quota, rate limits, and signing out of all devices.
+- `tests/journey.test.ts` and `tests/library.test.ts`: the marketing path (detection, updates, focus, the next-step nudge), and the library (storage, a single description, search by content, folders, deletion, isolation).
 - `tests/runtime.test.ts`: jobs (one turn at a time, atomic claiming, resuming after a dead worker), a full Mikee turn with a mocked model (no MCP in the request), the AI cap, and gating media generation (no paying twice).
 
 **Not yet tested against the real services:** the actual Meta API, the Claude API, and Higgsfield's real MCP server. That's the first step of the pilot.
@@ -149,6 +202,13 @@ Netlify fits Mikee's public landing page (a separate site). The app itself stays
 ## Higgsfield (generating images and video)
 
 Set `HIGGSFIELD_MCP_URL` (and `HIGGSFIELD_MCP_TOKEN`). The **server** connects to Higgsfield as an MCP client (`src/lib/higgsfield.ts`), not the model. Created media is copied into our storage and served from `/api/media/:id`, so the server and Meta can always access it. In Settings: a monthly credit cap, and how many of them can be used without asking (default: 0, everything needs approval).
+
+## Can Mikee edit videos with HyperFrames?
+Yes, in two possible ways:
+- **Through HeyGen's MCP server:** the server connects to it like it does to Higgsfield. Mikee sends the clip and editing instructions (`compose`), then renders (`render_video`), and the result goes into the library. It requires a HeyGen account and approval of the per-render cost, just like media cards.
+- **Rendering ourselves (recommended):** the open-source HyperFrames framework builds the video as HTML/GSAP and renders it to MP4 in a headless browser. On Railway this means a separate worker with Chromium and ffmpeg. A video-editor specialist writes the composition (cuts, subtitles, text, branding) from the clip in the library, and the client approves a short preview before rendering.
+
+This isn't built yet. It's a natural next step after the library.
 
 ## Code structure
 

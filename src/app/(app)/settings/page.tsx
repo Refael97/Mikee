@@ -2,10 +2,13 @@ import { requireSession } from "@/lib/auth";
 import { budgetStatus } from "@/lib/budget";
 import { getConnection, type MetaConfig } from "@/lib/connections";
 import { metaContext, money } from "@/lib/meta/context";
-import { disconnectMeta, saveLimits } from "@/lib/actions";
+import { disconnectDrive, disconnectMeta, saveLimits } from "@/lib/actions";
+import { CONNECTORS } from "@/lib/connectors";
+import { driveConfigured } from "@/lib/google";
+import { planOf } from "@/lib/plans";
+import { Page, PageHeader } from "@/components/Page";
 import { getSettings } from "@/lib/settings";
 import { monthUsage } from "@/lib/usage";
-import { logout } from "@/app/login/actions";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
 
 async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: string }) {
@@ -16,16 +19,16 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
     const c = s.currency;
     return (
       <div className="mt-6">
-        <div className="flex h-3 overflow-hidden rounded-full bg-surface-2">
-          <div className="rounded-full bg-brand" style={{ width: pct(s.spent) }} />
-          <div className="bg-brand/40" style={{ width: pct(s.committed + s.buffer) }} />
-          <div className="bg-brand/15" style={{ width: pct(s.reserved) }} />
+        <div className="flex h-2 overflow-hidden bg-line">
+          <div className="bg-ink" style={{ width: pct(s.spent) }} />
+          <div className="bg-ink/40" style={{ width: pct(s.committed + s.buffer) }} />
+          <div className="bg-brand/40" style={{ width: pct(s.reserved) }} />
         </div>
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[15px] text-ink-2">
           <span>הושקעו {money(s.spent, c)}</span>
           <span>צפוי עד סוף החודש {money(s.committed + s.buffer, c)}</span>
           {s.reserved > 0 && <span>שמור להצעות שמחכות לך {money(s.reserved, c)}</span>}
-          <span className="font-medium text-ink">פנוי {money(Math.max(0, s.headroom), c)}</span>
+          <span className="font-semibold text-ink">פנוי {money(Math.max(0, s.headroom), c)}</span>
           {s.extensions > 0 && <span>כולל תוספת שאישרת {money(s.extensions, c)}</span>}
         </div>
         {s.paused.length > 0 && (
@@ -43,6 +46,7 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
 async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) {
   const [settings, ai, credits] = await Promise.all([getSettings(workspaceId), monthUsage(workspaceId, tz, "claude"), monthUsage(workspaceId, tz, "higgsfield")]);
   const cap = settings.metaSpendCapStatus;
+  const plan = planOf(settings);
   return (
     <form action={saveLimits} className="space-y-5">
       <label className="flex items-center justify-between gap-4">
@@ -56,13 +60,13 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="space-y-1.5">
           <span className="text-[15px] text-ink-2">שימוש של מייקי בחודש ($)</span>
-          <input name="aiMonthlyLimitUsd" inputMode="decimal" defaultValue={settings.aiMonthlyLimitUsd} className="field" />
-          <span className="text-[13px] text-ink-3">החודש: ${ai.toFixed(2)}</span>
+          <input name="aiMonthlyLimitUsd" inputMode="decimal" defaultValue={Math.min(settings.aiMonthlyLimitUsd, plan.aiUsd)} className="field" />
+          <span className="text-[13px] text-ink-3">החודש: ${ai.toFixed(2)} · עד ${plan.aiUsd} במנוי</span>
         </label>
         <label className="space-y-1.5">
           <span className="text-[15px] text-ink-2">קרדיטים ליצירת מדיה בחודש</span>
           <input name="mediaMonthlyCredits" inputMode="numeric" defaultValue={settings.mediaMonthlyCredits} className="field" />
-          <span className="text-[13px] text-ink-3">נוצלו: {credits}</span>
+          <span className="text-[13px] text-ink-3">נוצלו: {credits} · עד {plan.mediaCredits} במנוי</span>
         </label>
         <label className="space-y-1.5">
           <span className="text-[15px] text-ink-2">מתוכם בלי לשאול אותי</span>
@@ -75,61 +79,115 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
   );
 }
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { user, workspace } = await requireSession();
-  const { error } = await searchParams;
-  const meta = await getConnection<MetaConfig>(workspace.id, "meta");
+const ERRORS: Record<string, string> = {
+  meta_cancelled: "החיבור לפייסבוק בוטל או פג. נסי שוב.",
+  meta_failed: "החיבור לפייסבוק נכשל. נסי שוב, ואם זה חוזר כתבי לנו בעזרה.",
+  meta_token: "מפתח הגישה לא עבד. בדקי שהעתקת אותו במלואו.",
+  bad_website: "כתובת האתר לא תקינה.",
+  bad_store: "כתובת החנות לא תקינה. ב־Shopify זו הכתובת שנגמרת ב־myshopify.com.",
+  drive_unavailable: "החיבור לגוגל דרייב עוד לא זמין בחשבון הזה.",
+  drive_cancelled: "החיבור לגוגל דרייב בוטל.",
+  drive_failed: "החיבור לגוגל דרייב נכשל. נסי שוב.",
+};
+
+async function Connectors({ workspaceId, businessName }: { workspaceId: string; businessName: string }) {
+  const [meta, drive] = await Promise.all([getConnection<MetaConfig>(workspaceId, "meta"), getConnection(workspaceId, "google_drive")]);
+  const live = CONNECTORS.filter((c) => c.status === "live");
+  const soon = CONNECTORS.filter((c) => c.status === "soon");
   return (
-    <main className="mx-auto w-full max-w-[760px] space-y-10 px-5 pb-16 pt-6 sm:pt-10">
-      <header>
-        <span className="kicker">החשבון והכללים</span>
-        <h1 className="display mt-2">הגדרות</h1>
-      </header>
-      {error && <p className="card rounded-2xl p-4 text-warn">{error}</p>}
-
-      <Section title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
-        <BudgetForm workspaceId={workspace.id} />
-        <BudgetMeter workspaceId={workspace.id} tz={workspace.timezone} />
-      </Section>
-
-      <Section title="מגבלות" hint="כל עלות מחוץ לתקציב הפרסום, בנפרד.">
-        <Limits workspaceId={workspace.id} tz={workspace.timezone} />
-      </Section>
-
-      <Section title="פייסבוק ואינסטגרם">
+    <div className="space-y-10">
+      <div>
+        <h3 className="text-[18px] font-semibold">פייסבוק ואינסטגרם</h3>
+        <p className="mb-4 text-[15px] text-ink-2">{live[0].does}</p>
         <div className="space-y-6">
-          <MetaConnect workspaceId={workspace.id} />
+          <MetaConnect workspaceId={workspaceId} />
           {meta?.secret && (
             <>
-              <MetaAssets workspaceId={workspace.id} businessName={workspace.name} />
+              <MetaAssets workspaceId={workspaceId} businessName={businessName} />
               <form action={disconnectMeta}>
-                <button className="text-[15px] font-medium text-bad">ניתוק</button>
+                <button className="text-[15px] font-semibold text-bad underline-offset-4 hover:underline">ניתוק</button>
               </form>
             </>
           )}
         </div>
-      </Section>
+      </div>
 
-      <Section title="האתר והחנות">
-        <WebsiteStore workspaceId={workspace.id} />
-      </Section>
+      <div className="border-t border-line pt-8">
+        <h3 className="text-[18px] font-semibold">האתר והחנות</h3>
+        <p className="mb-4 text-[15px] text-ink-2">מייקי קורא את האתר, המוצרים, ההזמנות והמלאי</p>
+        <WebsiteStore workspaceId={workspaceId} />
+      </div>
 
-      <Section title="החשבון">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-3">
-            <span className="icon-chip h-11 w-11 rounded-full text-[18px] font-semibold">{user.name.slice(0, 1)}</span>
-            <span className="leading-tight">
-              <span className="block font-medium">{user.name}</span>
-              <span className="block text-[15px] text-ink-3" dir="ltr">
-                {user.email}
-              </span>
-            </span>
-          </span>
-          <form action={logout}>
-            <button className="btn btn-quiet btn-sm">יציאה</button>
-          </form>
+      <div className="border-t border-line pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h3 className="text-[18px] font-semibold">גוגל דרייב</h3>
+            <p className="text-[15px] text-ink-2">ייבוא תמונות וסרטונים לספרייה. מייקי רואה רק את הקבצים שבוחרים.</p>
+          </div>
+          {!driveConfigured() ? (
+            <span className="tag tag-quiet">בקרוב</span>
+          ) : drive?.secret && drive.status !== "broken" ? (
+            <div className="flex items-center gap-4">
+              <span className="tag tag-good">מחובר{(drive.config as { email?: string }).email ? ` · ${(drive.config as { email?: string }).email}` : ""}</span>
+              <form action={disconnectDrive}>
+                <button className="text-[15px] font-semibold text-bad underline-offset-4 hover:underline">ניתוק</button>
+              </form>
+            </div>
+          ) : (
+            <a href="/api/google/connect" className="btn btn-quiet btn-sm">
+              {drive?.status === "broken" ? "לחבר מחדש" : "לחבר"}
+            </a>
+          )}
         </div>
+      </div>
+
+      <div className="border-t border-line pt-8">
+        <h3 className="text-[18px] font-semibold">בקרוב</h3>
+        <p className="text-[15px] text-ink-2">חיבורים שאנחנו בונים עכשיו. רוצה אחד מהם קודם? ספרי לנו דרך העזרה.</p>
+        <ul className="mt-4 grid gap-x-8 sm:grid-cols-2">
+          {soon.map((c) => (
+            <li key={c.id} className="flex items-baseline justify-between gap-4 border-b border-line py-3">
+              <span>
+                <span className="block font-semibold">{c.name}</span>
+                <span className="text-[14px] text-ink-3">{c.does}</span>
+              </span>
+              <span className="tag tag-quiet shrink-0">בקרוב</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { workspace } = await requireSession();
+  const { error } = await searchParams;
+  return (
+    <Page>
+      <PageHeader
+        kicker="הכללים והחיבורים"
+        title={
+          <>
+            הגדרות <span className="marked">וחיבורים</span>
+          </>
+        }
+        lead="התקציב, המגבלות, וכל מה שמחובר למייקי."
+      />
+      {error && ERRORS[error] && <p className="note note-warn mb-6">{ERRORS[error]}</p>}
+
+      <Section id="budget" title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
+        <BudgetForm workspaceId={workspace.id} />
+        <BudgetMeter workspaceId={workspace.id} tz={workspace.timezone} />
       </Section>
-    </main>
+
+      <Section id="limits" title="מגבלות" hint="כל עלות מחוץ לתקציב הפרסום, בנפרד. אפשר להוריד, עד הגבול של המנוי.">
+        <Limits workspaceId={workspace.id} tz={workspace.timezone} />
+      </Section>
+
+      <Section id="connectors" title="חיבורים" hint="כל מה שמייקי יכול לעבוד איתו. הגישה נשמרת מוצפנת ולא מגיעה למודל.">
+        <Connectors workspaceId={workspace.id} businessName={workspace.name} />
+      </Section>
+    </Page>
   );
 }

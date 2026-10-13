@@ -5,24 +5,18 @@ import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndS
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
-/** A titled floating group, like a section in iOS Settings. */
-export function Section({ step, title, hint, done, children }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode }) {
+/** A section of a settings-like page: a title with a short rule, a quiet hint, then the content. */
+export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
   return (
-    <section className="rise">
-      <div className="mb-3 flex items-center gap-2.5 px-1.5">
-        {step != null && (
-          <span
-            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold transition-colors ${
-              done ? "bg-good-tint text-good" : "bg-brand-tint text-brand"
-            }`}
-          >
-            {done ? "✓" : step}
-          </span>
-        )}
-        <h2 className="text-[20px] font-semibold">{title}</h2>
+    <section id={id} className="rise grid gap-x-10 gap-y-4 border-t border-line py-8 lg:grid-cols-[260px_1fr]">
+      <div>
+        <h2 className="h2 flex items-baseline gap-3">
+          {step != null && <span className={`num text-[15px] font-semibold ${done ? "text-good" : "text-ink-3"}`}>{done ? "✓" : String(step).padStart(2, "0")}</span>}
+          {title}
+        </h2>
+        {hint && <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">{hint}</p>}
       </div>
-      {hint && <p className="-mt-1.5 mb-3 px-1.5 text-[15px] text-ink-3">{hint}</p>}
-      <div className="card p-5 sm:p-7">{children}</div>
+      <div className="min-w-0">{children}</div>
     </section>
   );
 }
@@ -32,7 +26,7 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
   if (conn?.secret && conn.status === "broken") {
     return (
       <div className="space-y-3">
-        <p className="rounded-[14px] bg-warn-tint px-4 py-3 font-medium text-warn">החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.</p>
+        <p className="note note-warn font-semibold">החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.</p>
         <p className="text-[15px] text-ink-2">זה קורה כשמשנים סיסמה, מסירים הרשאה או כשמישהו מוציא את החשבון מהעסק.</p>
         <div className="flex flex-wrap gap-2">
           {process.env.META_APP_ID && (
@@ -48,7 +42,7 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
       </div>
     );
   }
-  if (conn?.secret) return <p className="text-ink-2">מחובר בתור {conn.config.userName ?? "החשבון שלך"} ✓</p>;
+  if (conn?.secret) return <p className="tag tag-good">מחובר בתור {conn.config.userName ?? "החשבון שלך"}</p>;
   return (
     <div className="space-y-4">
       {process.env.META_APP_ID && (
@@ -105,7 +99,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
     <div className="space-y-4">
       <div>
         <p className="mb-3 text-[15px] text-ink-3">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
-        <ul className="group-list text-[0.95rem] [&>li]:px-4 [&>li]:py-3">
+        <ul className="border-y border-line text-[16px] [&>li+li]:border-t [&>li+li]:border-line [&>li]:py-3">
           {page && (
             <li>
               דף הפייסבוק <strong>{page.name}</strong>

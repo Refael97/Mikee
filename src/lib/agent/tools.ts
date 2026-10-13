@@ -17,6 +17,11 @@ import { CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "../specs";
 import { mediaAllowance } from "../usage";
 import { inventory, salesSummary } from "../store";
 import { publicProducts, scanWebsite } from "../website";
+import { wrapStrings } from "./untrusted";
+import { ITEMS, journeyStatus, setFocus, setJourney } from "../journey";
+import { listLibrary } from "../library";
+import { KPIS, setDashboard } from "../dashboard";
+import type { KpiId } from "../db/schema";
 
 export type ToolContext = {
   workspaceId: string;
@@ -40,16 +45,57 @@ export type ToolDef<S extends z.ZodType = z.ZodType> = {
   description: string;
   input: S;
   run: (ctx: ToolContext, input: z.infer<S>) => Promise<unknown>;
+  /** Results contain text written by others (sites, posts, comments, store data): wrapped as untrusted data. */
+  untrusted?: string;
 };
 
 export const tool = <S extends z.ZodType>(def: ToolDef<S>) => def as unknown as ToolDef;
 
 const Period = z.enum(["today", "yesterday", "last_7d", "last_14d", "last_30d", "this_month", "last_month", "maximum"]);
 
-/** Endpoints that spend, change what runs, publish, or change the account: only through cards. */
+/**
+ * meta_write may only create these things, on the business's own assets, with these fields. It is an allowlist:
+ * anything not listed (budgets, statuses, ads, posts, the batch API, query strings smuggled in the path) is refused.
+ */
+type Asset = "adAccount" | "catalog" | "page" | "pixel";
+export const META_WRITES: { path: RegExp; asset: Asset; params: string[] }[] = [
+  { path: /^\/(act_\d+)\/customaudiences$/, asset: "adAccount", params: ["name", "description", "subtype", "rule", "retention_days", "prefill", "lookalike_spec", "origin_audience_id", "customer_file_source", "event_source_group", "pixel_id", "claim_objective", "content_type"] },
+  { path: /^\/(act_\d+)\/customconversions$/, asset: "adAccount", params: ["name", "description", "rule", "event_source_id", "custom_event_type", "default_conversion_value"] },
+  { path: /^\/(\d+)\/product_sets$/, asset: "catalog", params: ["name", "filter"] },
+  { path: /^\/(\d+)\/leadgen_forms$/, asset: "page", params: ["name", "questions", "privacy_policy", "follow_up_action_url", "thank_you_page", "context_card", "locale", "block_display_for_non_targeted_viewer", "is_optimized_for_quality", "question_page_custom_headline"] },
+];
+/** Kept for the approval tests: these must never be reachable through meta_write. */
 export const GUARDED_PATH =
   /\/(campaigns|adsets|ads|copies|feed|photos|videos|media|media_publish|live_videos|stories)\/?$|^\/?\d+\/?$|^\/?act_\d+\/?$/;
 export const GUARDED_PARAM = /^(daily_budget|lifetime_budget|spend_cap|spend_cap_action|bid_amount|bid_strategy|status|end_time|stop_time|published)$/;
+
+/** A Graph path the model may use: plain segments only, no query, fragments, encoding tricks or traversal. */
+export const SAFE_PATH = /^\/(?:[A-Za-z0-9_]+)(?:\/[A-Za-z0-9_]+){0,3}$/;
+
+export function checkMetaWrite(path: string, params: Record<string, unknown>, assets: Partial<Record<Asset, string | undefined>>): string | null {
+  const via = " Anything that spends, changes what runs or publishes goes through a card (propose_campaign / propose_change / propose_post).";
+  if (!SAFE_PATH.test(path)) return `Unsupported path.${via}`;
+  const rule = META_WRITES.find((r) => r.path.test(path));
+  if (!rule) return `This kind of change is not allowed here.${via}`;
+  const owner = rule.path.exec(path)![1];
+  if (!assets[rule.asset] || assets[rule.asset] !== owner) return `That object does not belong to this business's connected accounts.${via}`;
+  const extra = Object.keys(params).filter((k) => !rule.params.includes(k));
+  if (extra.length) return `These fields are not allowed here: ${extra.join(", ")}.${via}`;
+  return null;
+}
+
+/** Strips any access token Meta might include in a response (page tokens, app tokens). */
+export function stripTokens(value: unknown, depth = 0): unknown {
+  if (depth > 8 || value == null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((v) => stripTokens(v, depth + 1));
+  return Object.fromEntries(Object.entries(value).filter(([k]) => !/token|secret/i.test(k)).map(([k, v]) => [k, stripTokens(v, depth + 1)]));
+}
+
+async function isClientRule(workspaceId: string, factId: string) {
+  const d = await db();
+  const f = await d.query.facts.findFirst({ where: (t, { and, eq }) => and(eq(t.id, factId), eq(t.workspaceId, workspaceId)) });
+  return !!f && f.source === "client" && f.status === "confirmed";
+}
 
 const proposalOptions = {
   replaces: z.string().uuid().optional().describe("Id of a waiting card this one replaces (when the client asked for a change)"),
@@ -73,6 +119,11 @@ export const TOOLS = [
       replaces: z.string().uuid().optional().describe("Id of an outdated sentence this one replaces"),
     }),
     run: async (ctx, i) => {
+      // A rule or preference the client set herself is never replaced by Mikee: the update waits for her.
+      if (i.replaces && (await isClientRule(ctx.workspaceId, i.replaces))) {
+        const row = await rememberFact(ctx.workspaceId, { ...i, replaces: undefined, source: i.source === "client" ? "mikee" : i.source });
+        return { saved: row.id, status: row.status, note: "The client's own sentence stays until she confirms the change on the business page." };
+      }
       const row = await rememberFact(ctx.workspaceId, i);
       return { saved: row.id, status: row.status };
     },
@@ -84,8 +135,56 @@ export const TOOLS = [
     description: "Archive a sentence in the brain that is wrong or no longer true.",
     input: z.object({ id: z.string().uuid() }),
     run: async (ctx, i) => {
+      if (await isClientRule(ctx.workspaceId, i.id)) return { error: "This is something the client told you herself. Only she can remove it (on the business page). Ask her if it changed." };
       await setFact(ctx.workspaceId, i.id, { status: "archived" });
       return { archived: i.id };
+    },
+  }),
+
+  tool({
+    name: "journey_status",
+    effect: "read",
+    description: "Where the business stands on its marketing path: business type, the client's focus, every building block (foundations, new customers, conversion, retention, growth) with its status, and the natural next moves.",
+    input: z.object({}),
+    run: async (ctx) => {
+      const j = await journeyStatus(ctx.workspaceId);
+      return { ...j, phases: j.phases.map((p) => ({ id: p.id, title: p.title, done: p.done, total: p.total, items: p.items.map((i) => ({ id: i.id, title: i.title, status: i.status, note: i.note })) })), nextUp: j.nextUp.map((i) => ({ id: i.id, title: i.title, why: i.why, how: i.how })), active: j.active.map((i) => i.id) };
+    },
+  }),
+
+  tool({
+    name: "update_journey",
+    effect: "memory",
+    description:
+      "Keep the marketing path current. Mark building blocks done (it is in place), active (we are working on it now), next (agreed as the next move) or skipped (not relevant / the client declined), with a short note. " +
+      "Set the client's focus in her words when she tells you what matters now, and the business type once you know it.",
+    input: z.object({
+      items: z.array(z.object({ id: z.enum(ITEMS.map((i) => i.id) as [string, ...string[]]), status: z.enum(["done", "active", "next", "skipped"]), note: z.string().max(200).optional() })).max(10).default([]),
+      focus: z.string().max(200).optional(),
+      businessType: z.enum(["ecommerce", "services", "local", "content"]).optional(),
+    }),
+    run: async (ctx, i) => {
+      for (const it of i.items) await setJourney(ctx.workspaceId, it.id, it.status, it.note);
+      if (i.focus !== undefined || i.businessType) await setFocus(ctx.workspaceId, i.focus ?? null, i.businessType);
+      return { updated: i.items.map((x) => x.id), focus: i.focus, businessType: i.businessType };
+    },
+  }),
+
+  tool({
+    name: "set_dashboard",
+    effect: "memory",
+    description:
+      "Choose what the client sees on her results page: the 3-4 numbers that matter most for this kind of business, and one short Hebrew headline about the month " +
+      "(for example 'החודש: יותר פניות בפחות כסף'). Set it once you know the business type and update the headline after a weekly or monthly review. " +
+      "KPIs: spend, leads, cost_per_lead, purchases, revenue, roas, cost_per_purchase, messages, calls, link_clicks, cost_per_click, reach, followers, store_orders, store_revenue.",
+    input: z.object({
+      kpis: z.array(z.enum(Object.keys(KPIS) as [KpiId, ...KpiId[]])).min(2).max(4).optional(),
+      headline: z.string().max(120).optional(),
+      note: z.string().max(300).optional().describe("One or two sentences of context under the numbers"),
+    }),
+    run: async (ctx, i) => {
+      await setDashboard(ctx.workspaceId, i);
+      return { saved: true };
     },
   }),
 
@@ -123,11 +222,18 @@ export const TOOLS = [
     name: "scan_website",
     effect: "read",
     description: "Read the business website: key pages (about, products, services, contact, FAQ) and, for online stores, the public product list with prices and stock.",
-    input: z.object({ url: z.string().optional().describe("Defaults to the connected website"), maxPages: z.number().int().min(1).max(40).default(15) }),
+    input: z.object({ url: z.string().max(500).optional().describe("A page on the connected website; defaults to its home page. For other sites use web_fetch."), maxPages: z.number().int().min(1).max(40).default(15) }),
+    untrusted: "website",
     run: async (ctx, i) => {
       const site = await getConnection<WebsiteConfig>(ctx.workspaceId, "website");
-      const url = i.url ?? site?.config.url;
-      if (!url) return { error: "No website connected" };
+      if (!site?.config.url) return { error: "No website connected" };
+      const home = new URL(/^https?:/.test(site.config.url) ? site.config.url : `https://${site.config.url}`);
+      let url = home.toString();
+      if (i.url) {
+        const asked = new URL(/^https?:/.test(i.url) ? i.url : `https://${i.url}`);
+        if (asked.host.replace(/^www\./, "") !== home.host.replace(/^www\./, "")) return { error: "scan_website only reads the business's own website. Use web_fetch for other sites." };
+        url = asked.toString();
+      }
       const res = await scanWebsite(url, i.maxPages);
       return { ...res, products: res.products.slice(0, 120) };
     },
@@ -136,6 +242,7 @@ export const TOOLS = [
   tool({
     name: "read_store",
     effect: "read",
+    untrusted: "store",
     description: "Online store data: 'sales' = orders, revenue, monthly trend, best sellers, returning customers; 'products' = products with price and stock (exact stock when the store admin is connected).",
     input: z.object({ what: z.enum(["sales", "products"]), days: z.number().int().min(7).max(730).default(180) }),
     run: async (ctx, i) => {
@@ -179,6 +286,7 @@ export const TOOLS = [
   tool({
     name: "read_social",
     effect: "read",
+    untrusted: "social",
     description: "Recent organic posts from Instagram or the Facebook page, with engagement, to learn voice and what content works. Media URLs can be reused in ads and posts.",
     input: z.object({ channel: z.enum(["instagram", "facebook"]), limit: z.number().int().min(1).max(100).default(30) }),
     run: async (ctx, i) => {
@@ -194,6 +302,20 @@ export const TOOLS = [
       return page.all(`/${meta.pageId}/posts`, {
         fields: "message,created_time,full_picture,permalink_url,shares,reactions.summary(true).limit(0),comments.summary(true).limit(0)",
       }, i.limit);
+    },
+  }),
+
+  tool({
+    name: "search_library",
+    effect: "read",
+    description:
+      "The business's own content library: photos and videos the client uploaded or imported from Google Drive, and media created earlier. " +
+      "Search it by what is shown (Hebrew words like 'שמלה אדומה', 'צוות', 'חנות') before creating anything new; use the returned URLs in ads and posts.",
+    input: z.object({ q: z.string().max(80).optional(), kind: z.enum(["image", "video"]).optional(), limit: z.number().int().min(1).max(60).default(24) }),
+    untrusted: "library",
+    run: async (ctx, i) => {
+      const items = await listLibrary(ctx.workspaceId, { q: i.q, kind: i.kind, limit: i.limit });
+      return { count: items.length, items: items.map((m) => ({ id: m.id, url: m.url, kind: m.kind, name: m.name, description: m.description, folder: m.folder, added: m.createdAt?.slice(0, 10) })) };
     },
   }),
 
@@ -238,11 +360,14 @@ export const TOOLS = [
     name: "meta_read",
     effect: "read",
     description: "Read anything else from Meta (Graph API GET), e.g. product catalogs and sets, lead forms and leads, pixel stats, ad previews, page info. Path like '/act_123/product_catalogs' or '/{id}'. Use the ids from connections or other results.",
-    input: z.object({ path: z.string().startsWith("/"), params: z.record(z.string(), z.unknown()).default({}) }),
+    input: z.object({ path: z.string().startsWith("/").max(200), params: z.record(z.string(), z.unknown()).default({}) }),
+    untrusted: "meta",
     run: async (ctx, i) => {
+      if (!SAFE_PATH.test(i.path) || /^\/me\/accounts/.test(i.path)) return { error: "Unsupported path" };
+      const params = Object.fromEntries(Object.entries(i.params as Record<string, unknown>).filter(([k]) => !/token|secret|appsecret/i.test(k)));
+      if (JSON.stringify(params).match(/access_token|token/i)) return { error: "Tokens are never read" };
       const meta = await metaContext(ctx.workspaceId);
-      const { access_token: _, ...params } = i.params as Record<string, unknown>;
-      return meta.graph.get(i.path, params);
+      return stripTokens(await meta.graph.get(i.path, params));
     },
   }),
 
@@ -257,12 +382,10 @@ export const TOOLS = [
     }),
     run: async (ctx, i) => {
       const params = i.params as Record<string, unknown>;
-      if (GUARDED_PATH.test(i.path) || Object.keys(params).some((k) => GUARDED_PARAM.test(k))) {
-        return { error: "This changes spend, status or ads. Use propose_campaign / propose_change so the client approves it." };
-      }
       const meta = await metaContext(ctx.workspaceId);
-      const { access_token: _, ...clean } = params;
-      const res = await meta.graph.post(i.path, clean);
+      const problem = checkMetaWrite(i.path, params, { adAccount: meta.adAccountId, catalog: meta.catalogId, page: meta.pageId, pixel: meta.pixelId });
+      if (problem) return { error: problem };
+      const res = stripTokens(await meta.graph.post(i.path, params));
       await logActivity(ctx.workspaceId, "setup", i.purpose, { path: i.path });
       return res;
     },
@@ -434,7 +557,8 @@ export async function runToolIn(tools: ToolDef[], ctx: ToolContext, name: string
     return { content: `Invalid input: ${z.prettifyError(parsed.error)}`, isError: true };
   }
   try {
-    const out = await def.run(ctx, parsed.data as never);
+    const raw = await def.run(ctx, parsed.data as never);
+    const out = def.untrusted ? wrapStrings(def.untrusted, raw) : raw;
     const text = JSON.stringify(out ?? { ok: true });
     return { content: text.length > 60000 ? `${text.slice(0, 60000)}…(truncated)` : text, isError: false };
   } catch (err) {

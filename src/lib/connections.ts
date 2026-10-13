@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { decrypt, encrypt } from "./crypto";
 
-export type Provider = "meta" | "website" | "store";
+export type Provider = "meta" | "website" | "store" | "google_drive";
 
 export type MetaConfig = {
   userName?: string;

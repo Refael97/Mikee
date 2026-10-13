@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 
-export type JobKind = "turn" | "execute" | "checkin";
+export type JobKind = "turn" | "execute" | "checkin" | "describe";
 export type Job = typeof schema.jobs.$inferSelect;
 
 /** A running job that has not sent a heartbeat for this long is considered dead and is picked up again. */
@@ -15,6 +15,23 @@ export class TurnInProgress extends Error {
   }
 }
 
+export const MAX_PARALLEL_TURNS = 4;
+export class TooBusy extends Error {
+  constructor() {
+    super("מייקי עובד כרגע על כמה דברים במקביל. אפשר לשלוח שוב בעוד רגע.");
+  }
+}
+
+/** A business can have a few conversations working at once, not an unbounded number. */
+export async function assertCapacity(workspaceId: string) {
+  const d = await db();
+  const [{ n }] = await d
+    .select({ n: sql<number>`count(*)::int` })
+    .from(schema.jobs)
+    .where(and(eq(schema.jobs.workspaceId, workspaceId), inArray(schema.jobs.kind, ["turn", "checkin"]), inArray(schema.jobs.status, ["queued", "running"])));
+  if (n >= MAX_PARALLEL_TURNS) throw new TooBusy();
+}
+
 export async function enqueue(workspaceId: string, kind: JobKind, input: Record<string, unknown> = {}) {
   const d = await db();
   if (kind === "turn" || kind === "checkin") {
@@ -22,6 +39,7 @@ export async function enqueue(workspaceId: string, kind: JobKind, input: Record<
     // Different conversations run in parallel; only one scheduled check-in runs per business.
     const active = kind === "checkin" ? await activeCheckin(workspaceId) : await activeTurn(workspaceId, String(input.conversationId));
     if (active) throw new TurnInProgress(active.id);
+    await assertCapacity(workspaceId);
   }
   const [job] = await d.insert(schema.jobs).values({ workspaceId, kind, input }).returning();
   return job;

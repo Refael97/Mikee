@@ -77,7 +77,7 @@ export function MikeeToast() {
     <div className="pointer-events-none fixed inset-x-0 top-[76px] z-50 flex justify-center px-5 sm:justify-end">
       <div
         role="status"
-        className={`pointer-events-auto flex w-full max-w-[380px] items-start gap-3 rounded-[22px] bg-surface p-3.5 pe-2 shadow-[var(--shadow-float)] ${leaving ? "toast-out" : "toast-in"}`}
+        className={`pointer-events-auto flex w-full max-w-[380px] items-start gap-3 rounded-[10px] border border-line-strong bg-surface p-4 pe-2 shadow-[var(--shadow-float)] ${leaving ? "toast-out" : "toast-in"}`}
       >
         <button
           onClick={() => {
@@ -86,7 +86,7 @@ export function MikeeToast() {
           }}
           className="flex min-w-0 flex-1 items-start gap-3 text-start"
         >
-          <span className="orb orb-breathe mt-0.5 w-9 shrink-0" aria-hidden />
+          <span className="orb mt-0.5 w-8 shrink-0" aria-hidden />
           <span className="min-w-0">
             <span className="flex items-center gap-2 text-[14px] font-semibold">
               מייקי כתב לך
@@ -96,7 +96,7 @@ export function MikeeToast() {
             <span className="mt-1 line-clamp-2 text-[15px] leading-snug">{note.preview}</span>
           </span>
         </button>
-        <button onClick={close} aria-label="סגירה" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-ink">
+        <button onClick={close} aria-label="סגירה" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-ink-3 hover:bg-surface-2 hover:text-ink">
           <X className="h-4 w-4" />
         </button>
       </div>

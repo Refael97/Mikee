@@ -51,12 +51,16 @@ export class Graph {
 
   private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
     const clean = path.startsWith("/") ? path : `/${path}`;
-    const query = encode({ ...params, access_token: this.token });
+    // Paths are plain segments: a query string or traversal smuggled into the path could change the request.
+    if (!/^\/[A-Za-z0-9_./-]*$/.test(clean) || clean.includes("..")) throw new MetaError("Invalid Graph path");
+    const { access_token: _ignored, ...rest } = params;
+    const query = encode(rest);
     const url = method === "GET" || method === "DELETE" ? `${BASE}${clean}?${query}` : `${BASE}${clean}`;
+    // The token travels in a header, never in a URL that could end up in logs.
     const res = await fetch(url, {
       method,
       body: method === "POST" ? query : undefined,
-      headers: method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : undefined,
+      headers: { Authorization: `Bearer ${this.token}`, ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
       cache: "no-store",
     });
     const json = (await res.json().catch(() => ({}))) as {

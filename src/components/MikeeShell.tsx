@@ -13,7 +13,7 @@ export function MikeeShell({ children }: { children: React.ReactNode }) {
       <div className="relative flex min-w-0 flex-1 flex-col">
         <button
           onClick={() => setOpen(true)}
-          className="glass sticky top-[84px] z-30 mx-5 mt-1 flex h-10 w-fit items-center gap-2 rounded-[20px] px-3.5 text-[15px] font-medium text-ink-2 shadow-[var(--shadow)] lg:hidden"
+          className="sticky top-[72px] z-30 mx-5 mt-2 flex h-9 w-fit items-center gap-2 rounded-[7px] border border-line-strong bg-surface px-3 text-[15px] font-semibold text-ink-2 lg:hidden"
         >
           <PanelRight className="h-4 w-4" />
           השיחות

@@ -1,4 +1,4 @@
-import { boolean, customType, integer, jsonb, numeric, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, integer, jsonb, numeric, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
@@ -13,9 +13,20 @@ export type WorkspaceSettings = {
   /** Mirror the monthly budget onto the ad account's spending limit at Meta (hard stop on charges). */
   metaSpendCap?: boolean;
   metaSpendCapStatus?: { ok: boolean; at: string; detail: string };
+  /** Subscription plan (set by us, not by the client): storage and cost ceilings. */
+  plan?: string;
+  /** What the business wants to focus on now, in its own words, kept by Mikee. */
+  focus?: { text: string; since: string };
+  /** ecommerce | services | local | content: shapes the marketing path and the results page. */
+  businessType?: "ecommerce" | "services" | "local" | "content";
+  /** The results page Mikee chose for this kind of business. */
+  dashboard?: DashboardSpec;
 };
 
-export const DEFAULT_SETTINGS: Required<Omit<WorkspaceSettings, "metaSpendCapStatus">> = {
+export type KpiId = "spend" | "leads" | "cost_per_lead" | "purchases" | "revenue" | "roas" | "cost_per_purchase" | "messages" | "calls" | "link_clicks" | "cost_per_click" | "reach" | "followers" | "store_orders" | "store_revenue";
+export type DashboardSpec = { kpis: KpiId[]; headline?: string; note?: string; updatedAt: string };
+
+export const DEFAULT_SETTINGS: Required<Pick<WorkspaceSettings, "aiMonthlyLimitUsd" | "mediaMonthlyCredits" | "mediaAutoCredits" | "metaSpendCap">> = {
   aiMonthlyLimitUsd: 150,
   mediaMonthlyCredits: 0,
   mediaAutoCredits: 0,
@@ -39,8 +50,42 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  /** Bumped on password change and "sign out everywhere": every older session stops working. */
+  sessionVersion: integer("session_version").notNull().default(1),
+  passwordChangedAt: ts("password_changed_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+/** Fixed-window counters for rate limits (login attempts, messages, uploads). */
+export const rateLimits = pgTable(
+  "rate_limits",
+  { key: text("key").notNull(), windowStart: bigint("window_start", { mode: "number" }).notNull(), count: integer("count").notNull().default(0) },
+  (t) => [primaryKey({ columns: [t.key, t.windowStart] })],
+);
+
+export const supportRequests = pgTable("support_requests", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  userId: uuid("user_id"),
+  topic: text("topic").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Where the business stands on its marketing path: one row per building block. */
+export const journey = pgTable(
+  "journey",
+  {
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+    item: text("item").notNull(),
+    /** done | active | next | skipped */
+    status: text("status").notNull(),
+    note: text("note"),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.item] })],
+);
 
 /** External accounts. `secret` is encrypted at rest and never reaches the model. */
 export const connections = pgTable(
@@ -209,11 +254,24 @@ export const media = pgTable("media", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
   contentType: text("content_type").notNull(),
-  bytes: bytea("bytes").notNull(),
+  /** Bytes live here only without a bucket (local runs); otherwise `key` points into the bucket. */
+  bytes: bytea("bytes"),
+  storage: text("storage").notNull().default("db"),
+  key: text("key"),
   size: integer("size").notNull(),
+  /** upload | higgsfield | drive | generated */
   source: text("source").notNull(),
   sourceRef: text("source_ref"),
   filename: text("filename"),
+  /** image | video | pdf | text */
+  kind: text("kind"),
+  /** What is in it, written once by Mikee so he can find it later ("תמונת מוצר של השמלה האדומה על רקע לבן"). */
+  description: text("description"),
+  tags: jsonb("tags").$type<string[]>(),
+  folder: text("folder"),
+  /** Shown in the content library (chat attachments that are documents are not). */
+  inLibrary: boolean("in_library").notNull().default(true),
+  deletedAt: ts("deleted_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 

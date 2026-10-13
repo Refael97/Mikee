@@ -1,6 +1,21 @@
 import "server-only";
 import { getConnection, type StoreConfig } from "./connections";
 import type { ProductSummary } from "./website";
+import { safeFetch } from "./net";
+
+/** Store APIs are called through the network guard, with JSON capped at 20MB and pagination pinned to the store's host. */
+async function storeJson(url: string, headers: Record<string, string>, host?: string) {
+  const res = await safeFetch(url, { headers, maxBytes: 20 * 1024 * 1024, timeoutMs: 30_000, sameHost: true });
+  if (host && new URL(res.url).hostname !== host) throw new Error("The store redirected to another site");
+  return { ok: res.ok, status: res.status, headers: res.headers, json: async () => JSON.parse(await res.text()) };
+}
+
+/** A Shopify store is always reached through its myshopify.com address. */
+export function shopifyDomain(raw: string): string {
+  const d = raw.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(d)) throw new Error("כתובת חנות Shopify צריכה להיות בצורה name.myshopify.com");
+  return d;
+}
 
 const SHOPIFY_API = "2025-07";
 
@@ -12,7 +27,7 @@ async function shopifyOrders(domain: string, token: string, sinceIso: string): P
     `https://${domain}/admin/api/${SHOPIFY_API}/orders.json?status=any&limit=250&created_at_min=${encodeURIComponent(sinceIso)}` +
     `&fields=created_at,total_price,currency,customer,line_items,financial_status,cancelled_at`;
   while (url && out.length < 5000) {
-    const res: Response = await fetch(url, { headers: { "X-Shopify-Access-Token": token } });
+    const res = await storeJson(url, { "X-Shopify-Access-Token": token }, shopifyDomain(domain));
     if (!res.ok) throw new Error(`Shopify orders: HTTP ${res.status}`);
     const { orders } = (await res.json()) as { orders: any[] };
     for (const o of orders) {
@@ -26,7 +41,9 @@ async function shopifyOrders(domain: string, token: string, sinceIso: string): P
       });
     }
     const link = res.headers.get("link") ?? "";
-    url = /<([^>]+)>;\s*rel="next"/.exec(link)?.[1] ?? null;
+    const next = /<([^>]+)>;\s*rel="next"/.exec(link)?.[1] ?? null;
+    // Pagination must stay on the same store.
+    url = next && new URL(next).hostname === shopifyDomain(domain) ? next : null;
   }
   return out;
 }
@@ -35,9 +52,7 @@ async function wooOrders(site: string, key: string, secret: string, sinceIso: st
   const out: Order[] = [];
   const auth = "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
   for (let page = 1; page <= 50; page++) {
-    const res = await fetch(`${site.replace(/\/$/, "")}/wp-json/wc/v3/orders?per_page=100&page=${page}&after=${encodeURIComponent(sinceIso)}`, {
-      headers: { Authorization: auth },
-    });
+    const res = await storeJson(`${site.replace(/\/$/, "")}/wp-json/wc/v3/orders?per_page=100&page=${page}&after=${encodeURIComponent(sinceIso)}`, { Authorization: auth });
     if (!res.ok) throw new Error(`WooCommerce orders: HTTP ${res.status}`);
     const orders = (await res.json()) as any[];
     for (const o of orders) {
@@ -105,9 +120,9 @@ export async function inventory(workspaceId: string): Promise<ProductSummary[] |
   const conn = await getConnection<StoreConfig>(workspaceId, "store");
   if (!conn?.secret || !conn.config.domain) return null;
   if (conn.config.platform === "shopify") {
-    const res = await fetch(
-      `https://${conn.config.domain}/admin/api/${SHOPIFY_API}/products.json?limit=250&status=active&fields=title,handle,variants,images,product_type`,
-      { headers: { "X-Shopify-Access-Token": conn.secret } },
+    const res = await storeJson(
+      `https://${shopifyDomain(conn.config.domain)}/admin/api/${SHOPIFY_API}/products.json?limit=250&status=active&fields=title,handle,variants,images,product_type`,
+      { "X-Shopify-Access-Token": conn.secret },
     );
     if (!res.ok) throw new Error(`Shopify products: HTTP ${res.status}`);
     const { products } = (await res.json()) as { products: any[] };
@@ -117,9 +132,7 @@ export async function inventory(workspaceId: string): Promise<ProductSummary[] |
     });
   }
   const auth = "Basic " + Buffer.from(`${conn.config.consumerKey}:${conn.secret}`).toString("base64");
-  const res = await fetch(`${conn.config.domain.replace(/\/$/, "")}/wp-json/wc/v3/products?per_page=100&status=publish`, {
-    headers: { Authorization: auth },
-  });
+  const res = await storeJson(`${conn.config.domain.replace(/\/$/, "")}/wp-json/wc/v3/products?per_page=100&status=publish`, { Authorization: auth });
   if (!res.ok) throw new Error(`WooCommerce products: HTTP ${res.status}`);
   const products = (await res.json()) as any[];
   return products.map((p) => ({

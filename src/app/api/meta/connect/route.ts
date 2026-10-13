@@ -7,6 +7,6 @@ export async function GET() {
   if (!(await getSession())) return NextResponse.redirect(new URL("/login", process.env.APP_URL));
   const state = randomBytes(16).toString("hex");
   const res = NextResponse.redirect(oauthDialogUrl(state));
-  res.cookies.set("meta_oauth_state", state, { httpOnly: true, sameSite: "lax", maxAge: 600, path: "/" });
+  res.cookies.set("meta_oauth_state", state, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/api/meta" });
   return res;
 }

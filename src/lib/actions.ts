@@ -3,7 +3,9 @@
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireSession } from "./auth";
+import { requireSession, revokeSessions, startSession } from "./auth";
+import { hashPassword, passwordProblem, verifyPassword } from "./crypto";
+import { logActivity } from "./activity";
 import { db, schema } from "./db";
 import { remember, setFact, TOPICS, type Topic } from "./brain";
 import { syncMetaSpendCap } from "./budget";
@@ -12,16 +14,23 @@ import { metaContext } from "./meta/context";
 import { detectBusiness } from "./meta/detect";
 import { Graph } from "./meta/graph";
 import { checkMetaHealth } from "./meta/health";
-import { updateSettings } from "./settings";
+import { getSettings, updateSettings } from "./settings";
+import { cleanClientText, hit, LIMITS } from "./guard";
+import { checkUrl } from "./net";
+import { planOf } from "./plans";
+import { shopifyDomain } from "./store";
 
-const str = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
+/** Every form value is capped and cleaned before use. */
+const str = (form: FormData, key: string, max = 500) => cleanClientText(String(form.get(key) ?? ""), max);
+const isId = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
 
 /** Pilot shortcut: paste an access token instead of the Facebook login flow. */
 export async function saveMetaToken(form: FormData) {
   const { workspace } = await requireSession();
-  const token = str(form, "token");
-  if (!token) return;
-  const me = await new Graph(token).get<{ name: string }>("/me", { fields: "name" });
+  const token = String(form.get("token") ?? "").trim();
+  if (!token || token.length > 1000 || !/^[A-Za-z0-9_|.-]+$/.test(token)) return;
+  const me = await new Graph(token).get<{ name: string }>("/me", { fields: "name" }).catch(() => null);
+  if (!me) redirect("/settings?error=meta_token");
   await saveConnection(workspace.id, "meta", { userName: me.name, tokenExpiresAt: null }, token);
   revalidatePath("/", "layout");
 }
@@ -64,16 +73,31 @@ export async function recheckMeta() {
 
 export async function saveWebsiteAndStore(form: FormData) {
   const { workspace } = await requireSession();
-  const url = str(form, "website");
-  const platform = str(form, "storePlatform");
+  const raw = str(form, "website", 300);
+  const platform = str(form, "storePlatform", 20);
+  let url = "";
+  if (raw) {
+    try {
+      url = checkUrl(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).toString();
+    } catch {
+      redirect("/settings?error=bad_website");
+    }
+  }
   if (url) {
     await saveConnection(workspace.id, "website", {
       url,
       platform: platform === "shopify" || platform === "woocommerce" ? platform : "other",
     });
   }
-  const domain = str(form, "storeDomain");
-  const secret = str(form, "storeSecret");
+  let domain = str(form, "storeDomain", 300);
+  const secret = String(form.get("storeSecret") ?? "").trim().slice(0, 300);
+  if (domain) {
+    try {
+      domain = platform === "shopify" ? shopifyDomain(domain) : checkUrl(/^https?:\/\//i.test(domain) ? domain : `https://${domain}`).origin;
+    } catch {
+      redirect("/settings?error=bad_store");
+    }
+  }
   if ((platform === "shopify" || platform === "woocommerce") && domain) {
     await saveConnection(workspace.id, "store", { platform, domain, consumerKey: str(form, "storeKey") || undefined }, secret || undefined);
   }
@@ -83,8 +107,8 @@ export async function saveWebsiteAndStore(form: FormData) {
 export async function saveBudget(form: FormData) {
   const { workspace } = await requireSession();
   const amount = Number(str(form, "monthlyLimit").replace(/[^\d.]/g, ""));
-  if (!Number.isFinite(amount) || amount <= 0) return;
-  const currency = str(form, "currency") || "ILS";
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10_000_000) return;
+  const currency = /^[A-Z]{3}$/.test(str(form, "currency", 3)) ? str(form, "currency", 3) : "ILS";
   const d = await db();
   await d
     .insert(schema.budgets)
@@ -101,10 +125,13 @@ export async function saveLimits(form: FormData) {
     const n = Number(str(form, k));
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   };
-  const media = num("mediaMonthlyCredits");
+  // The plan sets the ceiling; the business may only lower it.
+  const plan = planOf(await getSettings(workspace.id));
+  const cap = (v: number | undefined, max: number) => (v == null ? undefined : Math.min(v, max));
+  const media = cap(num("mediaMonthlyCredits"), plan.mediaCredits);
   const auto = num("mediaAutoCredits");
   await updateSettings(workspace.id, {
-    aiMonthlyLimitUsd: num("aiMonthlyLimitUsd"),
+    aiMonthlyLimitUsd: cap(num("aiMonthlyLimitUsd"), plan.aiUsd),
     mediaMonthlyCredits: media,
     mediaAutoCredits: auto != null && media != null ? Math.min(auto, media) : auto,
     metaSpendCap: form.get("metaSpendCap") === "on",
@@ -125,8 +152,8 @@ export async function startMikee() {
 
 export async function addFact(form: FormData) {
   const { workspace } = await requireSession();
-  const topic = str(form, "topic") as Topic;
-  const text = str(form, "text");
+  const topic = str(form, "topic", 30) as Topic;
+  const text = str(form, "text", 500);
   if (!(topic in TOPICS) || !text) return;
   await remember(workspace.id, { topic, text, kind: topic === "rules" ? "rule" : "fact", source: "client" });
   revalidatePath("/brand");
@@ -134,15 +161,89 @@ export async function addFact(form: FormData) {
 
 export async function editFact(form: FormData) {
   const { workspace } = await requireSession();
-  const text = str(form, "text");
-  if (!text) await setFact(workspace.id, str(form, "id"), { status: "archived" });
-  else await setFact(workspace.id, str(form, "id"), { text });
+  const text = str(form, "text", 500);
+  const id = str(form, "id", 40);
+  if (!isId(id)) return;
+  if (!text) await setFact(workspace.id, id, { status: "archived" });
+  else await setFact(workspace.id, id, { text });
   revalidatePath("/brand");
 }
 
 export async function decideFact(form: FormData) {
   const { workspace } = await requireSession();
-  const decision = str(form, "decision");
-  await setFact(workspace.id, str(form, "id"), { status: decision === "confirm" ? "confirmed" : "archived" });
+  const decision = str(form, "decision", 20);
+  const id = str(form, "id", 40);
+  if (!isId(id)) return;
+  await setFact(workspace.id, id, { status: decision === "confirm" ? "confirmed" : "archived" });
   revalidatePath("/brand");
+}
+
+/* ---------- Account ---------- */
+
+export type FormState = { ok?: string; error?: string } | null;
+
+export async function updateProfile(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireSession();
+  const name = str(form, "name", 80);
+  if (name.length < 2) return { error: "השם קצר מדי" };
+  const d = await db();
+  await d.update(schema.users).set({ name }).where(eq(schema.users.id, user.id));
+  revalidatePath("/account");
+  return { ok: "נשמר" };
+}
+
+export async function changePassword(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireSession();
+  const current = String(form.get("current") ?? "");
+  const next = String(form.get("next") ?? "");
+  const r = await hit(`pw:${user.id}`, 5, 900);
+  if (!r.ok) return { error: "יותר מדי ניסיונות. נסי שוב בעוד רבע שעה." };
+  if (!verifyPassword(current, user.passwordHash)) return { error: "הסיסמה הנוכחית לא נכונה" };
+  const problem = passwordProblem(next);
+  if (problem) return { error: problem };
+  if (next !== String(form.get("confirm") ?? "")) return { error: "הסיסמאות לא זהות" };
+  const d = await db();
+  await d.update(schema.users).set({ passwordHash: hashPassword(next), passwordChangedAt: new Date() }).where(eq(schema.users.id, user.id));
+  // Every other device is signed out; this one continues with a fresh session.
+  const version = await revokeSessions(user.id);
+  await startSession(user.id, version);
+  await logActivity(user.workspaceId, "security", "הסיסמה הוחלפה");
+  return { ok: "הסיסמה הוחלפה. כל שאר המכשירים נותקו." };
+}
+
+export async function signOutEverywhere() {
+  const { user } = await requireSession();
+  await revokeSessions(user.id);
+  await logActivity(user.workspaceId, "security", "יציאה מכל המכשירים");
+  redirect("/login");
+}
+
+export async function disconnectDrive() {
+  const { workspace } = await requireSession();
+  await removeConnection(workspace.id, "google_drive");
+  revalidatePath("/", "layout");
+}
+
+/* ---------- Help ---------- */
+
+export async function sendSupport(_: FormState, form: FormData): Promise<FormState> {
+  const { user, workspace } = await requireSession();
+  const topic = str(form, "topic", 40) || "general";
+  const body = str(form, "body", 4000);
+  if (body.length < 5) return { error: "כתבי לנו כמה מילים על מה שקרה" };
+  const r = await hit(`support:${workspace.id}`, LIMITS.supportPerDay, 86400);
+  if (!r.ok) return { error: "שלחת כבר כמה פניות היום. נחזור אלייך בהקדם." };
+  const d = await db();
+  const [row] = await d.insert(schema.supportRequests).values({ workspaceId: workspace.id, userId: user.id, topic, body }).returning();
+  // Optional: forward to the team's inbox or Slack. The address is ours (an env var), never the client's.
+  const hook = process.env.SUPPORT_WEBHOOK_URL;
+  if (hook) {
+    await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `פנייה #${row.id} מ${workspace.name} (${user.email}) [${topic}]\n${body}` }),
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => undefined);
+  }
+  return { ok: `קיבלנו (פנייה #${row.id}). נחזור אלייך תוך יום עסקים, בדרך כלל מהר יותר.` };
 }

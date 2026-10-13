@@ -1,4 +1,5 @@
 import "server-only";
+import { planOf } from "./plans";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
@@ -39,10 +40,12 @@ export class AiBudgetExceeded extends Error {}
 
 /** Mikee does not start (or continue) thinking once this month's AI cap is reached. */
 export async function assertAiBudget(workspaceId: string, tz: string) {
-  const { aiMonthlyLimitUsd } = await getSettings(workspaceId);
+  const settings = await getSettings(workspaceId);
+  // The plan's ceiling always wins over the business's own setting.
+  const aiMonthlyLimitUsd = Math.min(settings.aiMonthlyLimitUsd, planOf(settings).aiUsd);
   const used = await monthUsage(workspaceId, tz, "claude");
   if (used >= aiMonthlyLimitUsd) {
-    throw new AiBudgetExceeded(`מייקי הגיע למגבלת השימוש החודשית ($${aiMonthlyLimitUsd}). אפשר להעלות אותה בהגדרות.`);
+    throw new AiBudgetExceeded(`מייקי הגיע למגבלת השימוש החודשית ($${aiMonthlyLimitUsd}). אפשר לשנות אותה בהגדרות, עד הגבול של המנוי.`);
   }
   return { used, limit: aiMonthlyLimitUsd };
 }
@@ -53,8 +56,8 @@ export async function mediaAllowance(workspaceId: string, tz: string) {
   const used = await monthUsage(workspaceId, tz, "higgsfield");
   return {
     used,
-    hardLimit: s.mediaMonthlyCredits,
-    remaining: Math.max(0, s.mediaMonthlyCredits - used),
+    hardLimit: Math.min(s.mediaMonthlyCredits, planOf(s).mediaCredits),
+    remaining: Math.max(0, Math.min(s.mediaMonthlyCredits, planOf(s).mediaCredits) - used),
     autoRemaining: Math.max(0, Math.min(s.mediaAutoCredits, s.mediaMonthlyCredits) - used),
   };
 }

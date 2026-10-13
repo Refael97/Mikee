@@ -1,203 +1,146 @@
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { and, eq } from "drizzle-orm";
+import { ArrowLeft } from "lucide-react";
 import { requireSession } from "@/lib/auth";
+import { db, schema } from "@/lib/db";
+import { dashboardData, type KpiValue } from "@/lib/dashboard";
+import { journeyStatus } from "@/lib/journey";
 import { metaContext, money } from "@/lib/meta/context";
-import { describeError } from "@/lib/meta/actions";
-import { type FriendlyCampaign, GOAL_LABEL, type Period, readCampaigns } from "@/lib/meta/performance";
-
-const PERIODS: { key: Period; label: string }[] = [
-  { key: "last_7d", label: "7 ימים" },
-  { key: "this_month", label: "החודש" },
-  { key: "last_30d", label: "30 יום" },
-];
-
-const VERDICT = {
-  star: { label: "מוביל", cls: "text-good" },
-  ok: { label: "בסדר", cls: "text-ink-2" },
-  weak: { label: "חלש", cls: "text-warn" },
-  new: { label: "עוד לומד", cls: "text-ink-3" },
-};
+import { Empty, Page, PageHeader } from "@/components/Page";
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
-const dateHe = (iso?: string) => (iso ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short" }).format(new Date(iso)) : null);
 
-function headline(c: FriendlyCampaign, currency: string) {
-  const g = GOAL_LABEL[c.goal];
-  const n = c.numbers;
-  if (n.spend === 0) return "עוד לא הוציא כסף בתקופה הזאת";
-  if (c.goal === "sales" && n.roas) return `${fmt(n.results)} ${g.plural} · כל שקל החזיר ${n.roas.toFixed(1)}`;
-  if (n.results > 0 && n.costPerResult != null) return `${fmt(n.results)} ${g.plural} · ${money(n.costPerResult, currency)} ל${g.result}`;
-  return `${fmt(n.reach)} אנשים ראו · עוד אין ${g.plural}`;
+function show(k: KpiValue, currency: string) {
+  if (k.value == null) return "אין עדיין";
+  if (k.format === "money") return money(k.value, currency);
+  if (k.format === "ratio") return `${k.value.toFixed(1)} ₪`;
+  return fmt(k.value);
 }
 
-function CampaignCard({ c, currency, i }: { c: FriendlyCampaign; currency: string; i: number }) {
-  const n = c.numbers;
+function Change({ k }: { k: KpiValue }) {
+  if (k.change == null) return <span className="text-ink-3">{k.previous == null ? k.hint : "כמו בחודש שעבר"}</span>;
+  const up = k.change > 0;
+  const pct = Math.round(Math.abs(k.change) * 100);
   return (
-    <article className="card rise overflow-hidden" style={{ animationDelay: `${i * 60}ms` }}>
-      <div className="p-6 sm:p-7">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium">
-              <span className={c.live ? "tag tag-good" : "tag tag-quiet"}>{c.live ? "רץ עכשיו" : "בהפסקה"}</span>
-              <span className="tag">{GOAL_LABEL[c.goal].he}</span>
-            </div>
-            <h2 className="mt-3 truncate text-[24px] font-semibold leading-[1.2]">{c.name.replace(/^Mikee · /, "").replace(/ · (mk-\w+|\d{4}-\d{2}-\d{2})$/, "")}</h2>
-            <p className="mt-1.5 text-[17px] text-ink-2">{headline(c, currency)}</p>
-          </div>
-          <div className="shrink-0 text-start">
-            <div className="text-[30px] font-bold leading-[1.08] tabular-nums">{money(n.spend, currency)}</div>
-            <div className="text-[13px] text-ink-3">הושקעו</div>
-          </div>
-        </div>
+    <span className={k.good == null ? "text-ink-2" : k.good ? "text-good" : "text-bad"}>
+      {up ? "▲" : "▼"} {pct}% לעומת אותם ימים בחודש שעבר
+    </span>
+  );
+}
 
-        <div className="mt-5 flex flex-wrap gap-2 text-[15px]">
-          <span className="tag tag-quiet">{c.audience}</span>
-          {c.budget && (
-            <span className="tag tag-quiet">
-              {money(c.budget.amount, currency)} {c.budget.per === "day" ? "ביום" : "סה״כ"}
-            </span>
-          )}
-          <span className="tag tag-quiet">
-            {dateHe(c.starts) ? `מ־${dateHe(c.starts)}` : ""} {dateHe(c.ends) ? `עד ${dateHe(c.ends)}` : "ללא תאריך סיום"}
-          </span>
-        </div>
+/** Daily results this month as thin bars: enough to see the rhythm, nothing to decode. */
+function Rhythm({ daily, days }: { daily: { date: string; results: number; spend: number }[]; days: number }) {
+  if (!daily.length) return null;
+  const max = Math.max(1, ...daily.map((d) => d.results));
+  const w = 100 / Math.max(days, daily.length);
+  return (
+    <figure className="rise mt-12 [animation-delay:120ms]">
+      <figcaption className="kicker">תוצאות בכל יום החודש</figcaption>
+      <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="mt-4 h-28 w-full" role="img" aria-label="תוצאות יומיות">
+        <line x1="0" x2="100" y1="31.8" y2="31.8" stroke="var(--line-strong)" strokeWidth="0.2" />
+        {daily.map((d, i) => {
+          const h = (d.results / max) * 28;
+          const last = i === daily.length - 1;
+          return <rect key={d.date} x={100 - (i + 1) * w + w * 0.2} width={w * 0.6} y={31.8 - h} height={h} fill={last ? "var(--brand)" : "var(--ink)"} opacity={last ? 1 : 0.85} />;
+        })}
+      </svg>
+      <div className="mt-2 flex justify-between text-[13px] text-ink-3">
+        <span>1 בחודש</span>
+        <span>היום</span>
       </div>
-
-      {c.ads.length > 0 && (
-        <div className="no-scrollbar flex snap-x gap-3 overflow-x-auto px-6 pb-6 sm:px-7">
-          {c.ads.map((a) => (
-            <figure key={a.id} className="w-40 shrink-0 snap-start">
-              <div className="relative overflow-hidden rounded-[14px] bg-surface-2 hairline">
-                {a.thumbnail ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={a.thumbnail} alt="" className="aspect-[4/5] w-full object-cover" />
-                ) : (
-                  <div className="aspect-[4/5]" />
-                )}
-                <span className={`glass absolute end-2 top-2 rounded-[14px] px-2.5 py-0.5 text-[12px] font-semibold ${VERDICT[a.verdict].cls}`}>{VERDICT[a.verdict].label}</span>
-              </div>
-              <figcaption className="mt-2 px-0.5 text-[13px] leading-snug text-ink-2">
-                {a.numbers.results > 0 && a.numbers.costPerResult != null
-                  ? `${fmt(a.numbers.results)} ${GOAL_LABEL[c.goal].plural} · ${money(a.numbers.costPerResult, currency)}`
-                  : `${money(a.numbers.spend, currency)} הושקעו`}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      )}
-
-      <details className="group border-t border-line px-6 py-4 text-[15px] sm:px-7">
-        <summary className="flex cursor-pointer select-none list-none items-center justify-between text-ink-2 [&::-webkit-details-marker]:hidden">
-          כל המספרים
-          <ChevronDown className="h-4 w-4 transition-transform duration-300 group-open:rotate-180" />
-        </summary>
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          {[
-            ["חשיפות", fmt(n.impressions)],
-            ["אנשים", fmt(n.reach)],
-            ["קליקים", fmt(n.clicks)],
-            ["אחוז הקלקה", `${n.ctr.toFixed(2)}%`],
-            ["תדירות", n.frequency.toFixed(1)],
-            [GOAL_LABEL[c.goal].plural, fmt(n.results)],
-            ["עלות לתוצאה", n.costPerResult != null ? money(n.costPerResult, currency) : "אין עדיין"],
-            ["הכנסות", n.revenue ? money(n.revenue, currency) : "אין עדיין"],
-          ].map(([k, v]) => (
-            <div key={k}>
-              <dt className="text-[13px] text-ink-3">{k}</dt>
-              <dd className="mt-0.5 font-medium tabular-nums">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
-    </article>
+    </figure>
   );
 }
 
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="card rise p-6">
-      <div className="text-[15px] text-ink-2">{label}</div>
-      <div className="mt-2 text-[34px] font-bold leading-[1.08] tabular-nums">{value}</div>
-      {sub && <div className="mt-1.5 text-[13px] text-ink-3">{sub}</div>}
-    </div>
-  );
-}
-
-export default async function ResultsPage({ searchParams }: { searchParams: Promise<{ p?: Period }> }) {
+export default async function ResultsPage() {
   const { workspace } = await requireSession();
-  const { p } = await searchParams;
-  const period = PERIODS.some((x) => x.key === p) ? p! : "last_7d";
-
-  let campaigns: FriendlyCampaign[] = [];
-  let currency = "ILS";
-  let error: string | null = null;
-  try {
-    const ctx = await metaContext(workspace.id);
-    currency = ctx.currency ?? "ILS";
-    campaigns = await readCampaigns(ctx, period);
-  } catch (e) {
-    error = describeError(e);
-  }
-  campaigns.sort((a, b) => Number(b.live) - Number(a.live) || b.numbers.spend - a.numbers.spend);
-  const total = campaigns.reduce((s, c) => s + c.numbers.spend, 0);
-  const results = campaigns.reduce((s, c) => s + (c.goal === "awareness" ? 0 : c.numbers.results), 0);
-  const revenue = campaigns.reduce((s, c) => s + c.numbers.revenue, 0);
+  const ctx = await metaContext(workspace.id).catch(() => null);
+  const [data, journey, pending] = await Promise.all([
+    dashboardData(workspace.id, workspace.timezone, ctx).catch(() => null),
+    journeyStatus(workspace.id).catch(() => null),
+    db().then((d) => d.select({ id: schema.proposals.id, conv: schema.proposals.conversationId, card: schema.proposals.card }).from(schema.proposals).where(and(eq(schema.proposals.workspaceId, workspace.id), eq(schema.proposals.status, "pending")))),
+  ]);
+  const spec = data?.spec;
+  const updated = spec?.updatedAt ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long" }).format(new Date(spec.updatedAt)) : null;
 
   return (
-    <main className="mx-auto w-full max-w-[1160px] px-5 pb-16 pt-6 sm:pt-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <span className="kicker">התמונה המלאה</span>
-          <h1 className="display mt-2">
-            <span className="accent-word">תוצאות</span>
-          </h1>
-          <p className="lead mt-3">מה רץ, מה עובד ומה פחות.</p>
-        </div>
-        <div className="glass flex gap-1 rounded-[26px] p-1.5 shadow-[var(--shadow)]">
-          {PERIODS.map((x) => (
-            <Link
-              key={x.key}
-              href={`/results?p=${x.key}`}
-              className={`flex h-9 items-center rounded-[18px] px-4 text-[15px] font-medium transition-colors ${x.key === period ? "bg-brand-tint text-brand" : "text-ink-2 hover:text-ink"}`}
-            >
-              {x.label}
+    <Page>
+      <PageHeader
+        kicker="החודש עד היום"
+        title={spec?.headline ? spec.headline : <><span className="marked">תוצאות</span> במבט אחד</>}
+        lead={spec?.note ?? "המספרים שמייקי בחר כחשובים לעסק שלך, בהשוואה הוגנת לאותם ימים בחודש שעבר."}
+        action={updated ? <span className="text-[14px] text-ink-3">מייקי עדכן ב־{updated}</span> : undefined}
+      />
+
+      {!ctx && (
+        <Empty
+          title="עוד אין כאן מספרים"
+          text="כשחשבון המודעות מחובר, המספרים החשובים לעסק יופיעו כאן לבד."
+          action={
+            <Link href="/settings" className="btn btn-primary">
+              לחיבור החשבון
             </Link>
-          ))}
-        </div>
-      </header>
-
-      {!error && campaigns.length > 0 && (
-        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Metric label="הושקעו" value={money(total, currency)} sub={`${campaigns.filter((c) => c.live).length} קמפיינים רצים`} />
-          <Metric label="תוצאות" value={fmt(results)} sub="רכישות, פניות וכניסות" />
-          <Metric label={revenue ? "הכנסות מהקמפיינים" : "עלות ממוצעת לתוצאה"} value={revenue ? money(revenue, currency) : results ? money(total / results, currency) : "אין עדיין"} />
-        </div>
+          }
+        />
       )}
 
-      {error && (
-        <div className="card-float rise flex flex-col items-center px-6 py-14 text-center">
-          <span className="orb orb-breathe w-14" />
-          <p className="mt-6 text-lg font-medium">עוד אין כאן תוצאות להציג</p>
-          <p className="mt-1 max-w-sm text-ink-2">כשחשבון המודעות מחובר, כל הקמפיינים יופיעו כאן בשפה פשוטה.</p>
-          <Link href="/settings" className="btn btn-quiet mt-6">
-            לחיבור החשבון
-          </Link>
-        </div>
+      {ctx && data && (
+        <>
+          <section className="rise grid grid-cols-2 border-y border-line lg:grid-cols-4">
+            {data.kpis.map((k, i) => (
+              <div key={k.id} className={`border-line py-6 ${i % 2 ? "border-s ps-5" : "pe-5"} ${i >= 2 ? "border-t lg:border-t-0" : ""} ${i > 0 ? "lg:border-s lg:ps-6" : "lg:ps-0"} lg:pe-6`}>
+                <div className="text-[15px] font-semibold text-ink-2">{k.label}</div>
+                <div className="serif num mt-2 text-[38px] leading-none sm:text-[46px]">{show(k, data.currency)}</div>
+                <div className="mt-3 text-[13.5px] leading-snug">
+                  <Change k={k} />
+                </div>
+              </div>
+            ))}
+          </section>
+          <Rhythm daily={data.daily} days={new Date(data.ranges.current.until).getUTCDate()} />
+        </>
       )}
-      {!error && campaigns.length === 0 && (
-        <div className="card-float rise flex flex-col items-center px-6 py-14 text-center">
-          <span className="orb orb-breathe w-14" />
-          <p className="mt-6 text-lg font-medium">עוד אין קמפיינים פעילים</p>
-          <Link href="/mikee" className="btn btn-primary mt-6">
-            לבקש ממייקי להתחיל
-          </Link>
+
+      <section className="mt-14 grid gap-x-10 gap-y-8 lg:grid-cols-2">
+        <div>
+          <span className="kicker">מחכה לך</span>
+          {pending.length ? (
+            <ul className="mt-3 border-t border-line">
+              {pending.slice(0, 5).map((p) => (
+                <li key={p.id} className="border-b border-line">
+                  <Link href={p.conv ? `/mikee/${p.conv}` : "/mikee"} className="group flex items-center justify-between gap-4 py-3.5">
+                    <span className="font-semibold group-hover:underline group-hover:underline-offset-4">{String((p.card as { title?: string }).title ?? "")}</span>
+                    <ArrowLeft className="h-4 w-4 shrink-0 text-ink-3" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-ink-2">אין הצעות שמחכות לאישור.</p>
+          )}
         </div>
-      )}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {campaigns.map((c, i) => (
-          <CampaignCard key={c.id} c={c} currency={currency} i={i} />
-        ))}
+        <div>
+          <span className="kicker">הצעד הבא בתוכנית</span>
+          {journey?.nextUp[0] ? (
+            <div className="mt-3 border-t border-line pt-4">
+              <p className="text-[19px] font-semibold">{journey.nextUp[0].title}</p>
+              <p className="mt-1 text-ink-2">{journey.nextUp[0].why}</p>
+              <Link href={`/mikee?q=${encodeURIComponent(`בוא נדבר על הצעד הבא: ${journey.nextUp[0].title}`)}`} className="link mt-3 inline-block">
+                לדבר על זה עם מייקי
+              </Link>
+            </div>
+          ) : (
+            <p className="mt-3 text-ink-2">התוכנית מעודכנת. מייקי יציע את הצעד הבא בזמן הנכון.</p>
+          )}
+        </div>
+      </section>
+
+      <div className="mt-14 border-t border-line pt-5">
+        <Link href="/campaigns" className="group inline-flex items-center gap-2 text-[17px] font-semibold">
+          כל הקמפיינים והמודעות
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+        </Link>
       </div>
-    </main>
+    </Page>
   );
 }
