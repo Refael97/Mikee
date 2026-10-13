@@ -12,17 +12,17 @@ export function Section({ step, title, hint, done, children }: { step?: number; 
       <div className="mb-3 flex items-center gap-2.5 px-1.5">
         {step != null && (
           <span
-            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-              done ? "bg-good text-white" : "bg-surface-3 text-ink-2"
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold transition-colors ${
+              done ? "bg-good-tint text-good" : "bg-brand-tint text-brand"
             }`}
           >
             {done ? "✓" : step}
           </span>
         )}
-        <h2 className="text-[1.05rem] font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-[20px] font-semibold">{title}</h2>
       </div>
-      {hint && <p className="-mt-1.5 mb-3 px-1.5 text-sm text-ink-3">{hint}</p>}
-      <div className="float rounded-[24px] p-5 sm:p-6">{children}</div>
+      {hint && <p className="-mt-1.5 mb-3 px-1.5 text-[15px] text-ink-3">{hint}</p>}
+      <div className="card p-5 sm:p-7">{children}</div>
     </section>
   );
 }
@@ -32,8 +32,8 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
   if (conn?.secret && conn.status === "broken") {
     return (
       <div className="space-y-3">
-        <p className="font-medium text-warn">החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.</p>
-        <p className="text-sm text-ink-2">זה קורה כשמשנים סיסמה, מסירים הרשאה או כשמישהו מוציא את החשבון מהעסק.</p>
+        <p className="rounded-[14px] bg-warn-tint px-4 py-3 font-medium text-warn">החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.</p>
+        <p className="text-[15px] text-ink-2">זה קורה כשמשנים סיסמה, מסירים הרשאה או כשמישהו מוציא את החשבון מהעסק.</p>
         <div className="flex flex-wrap gap-2">
           {process.env.META_APP_ID && (
             <a href="/api/meta/connect" className="btn btn-primary">
@@ -63,7 +63,7 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
 
 function TokenForm() {
   return (
-    <details className="text-sm text-ink-2">
+    <details className="text-[15px] text-ink-2">
       <summary className="cursor-pointer select-none">יש לי מפתח גישה מוכן</summary>
       <form action={saveMetaToken} className="mt-3 flex gap-2">
         <input name="token" className="field" placeholder="מפתח גישה ממטא" dir="ltr" />
@@ -104,7 +104,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-3 text-sm text-ink-3">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
+        <p className="mb-3 text-[15px] text-ink-3">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
         <ul className="group-list text-[0.95rem] [&>li]:px-4 [&>li]:py-3">
           {page && (
             <li>
@@ -130,7 +130,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
           <button className="btn btn-primary">כן, זה העסק שלי</button>
         </form>
       )}
-      <details className="text-sm">
+      <details className="text-[15px]">
         <summary className="cursor-pointer select-none text-ink-2">{saved ? "להחליף" : "לא, אבחר בעצמי"}</summary>
         <form action={saveMetaAssets} className="mt-4 grid gap-4 sm:grid-cols-2">
           <Select label="דף הפייסבוק" name="page" value={chosen.pageId} options={found.pages.map((p) => [p.id, `${p.name}${p.ig?.username ? ` · @${p.ig.username}` : ""}`])} />
@@ -180,7 +180,7 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
   return (
     <form action={saveWebsiteAndStore} className="space-y-4">
       <input name="website" className="field" placeholder="www.your-site.co.il" dir="ltr" defaultValue={site?.config.url} required />
-      <details className="text-sm" open={!!store?.config.domain}>
+      <details className="text-[15px]" open={!!store?.config.domain}>
         <summary className="cursor-pointer select-none text-ink-2">יש חנות אונליין? חברו גם את ההזמנות</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <select name="storePlatform" className="field" defaultValue={store?.config.platform ?? site?.config.platform ?? ""}>

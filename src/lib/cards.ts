@@ -127,7 +127,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         rows: [
           { label: "מה ניצור", value: `${s.count > 1 ? `${s.count} ` : ""}${s.type === "video" ? "סרטון" : "תמונה"}${s.count > 1 ? "ים" : ""}${s.duration ? ` של ${s.duration} שניות` : ""}` },
           { label: "הרעיון", value: s.prompt.length > 160 ? `${s.prompt.slice(0, 160)}…` : s.prompt },
-          { label: "עלות", value: extra.credits != null ? `${extra.credits} קרדיטים` : "—" },
+          { label: "עלות", value: extra.credits != null ? `${extra.credits} קרדיטים` : "יחושב לפני האישור" },
         ],
         media: s.referenceUrls.map((url) => ({ type: "image" as const, url })),
         approveLabel: "יאללה, צור",

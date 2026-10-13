@@ -17,11 +17,11 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
     return (
       <div className="mt-6">
         <div className="flex h-3 overflow-hidden rounded-full bg-surface-2">
-          <div className="rounded-full bg-ink" style={{ width: pct(s.spent) }} />
-          <div className="bg-ink/35" style={{ width: pct(s.committed + s.buffer) }} />
-          <div className="bg-ink/12" style={{ width: pct(s.reserved) }} />
+          <div className="rounded-full bg-brand" style={{ width: pct(s.spent) }} />
+          <div className="bg-brand/40" style={{ width: pct(s.committed + s.buffer) }} />
+          <div className="bg-brand/15" style={{ width: pct(s.reserved) }} />
         </div>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-2">
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[15px] text-ink-2">
           <span>הושקעו {money(s.spent, c)}</span>
           <span>צפוי עד סוף החודש {money(s.committed + s.buffer, c)}</span>
           {s.reserved > 0 && <span>שמור להצעות שמחכות לך {money(s.reserved, c)}</span>}
@@ -29,7 +29,7 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
           {s.extensions > 0 && <span>כולל תוספת שאישרת {money(s.extensions, c)}</span>}
         </div>
         {s.paused.length > 0 && (
-          <p className="mt-2 text-xs text-ink-3">
+          <p className="mt-2 text-[13px] text-ink-3">
             קמפיינים בהפסקה לא נספרים. אם מייקי ירצה להפעיל אחד מהם, הוא יבקש אישור והתקציב ייבדק שוב.
           </p>
         )}
@@ -48,26 +48,26 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
       <label className="flex items-center justify-between gap-4">
         <span className="min-w-0 flex-1">
           <span className="block">תקרה קשיחה גם בחשבון המודעות</span>
-          <span className="text-sm text-ink-3">מטא עצמה תעצור חיובים מעבר לתקציב, גם אם משהו משתנה מחוץ למייקי.</span>
-          {cap && <span className={`block text-xs ${cap.ok ? "text-good" : "text-warn"}`}>{cap.ok ? "פעיל" : "לא הוגדר"} · {cap.detail}</span>}
+          <span className="text-[15px] text-ink-3">מטא עצמה תעצור חיובים מעבר לתקציב, גם אם משהו משתנה מחוץ למייקי.</span>
+          {cap && <span className={`mt-2 ${cap.ok ? "tag tag-good" : "tag tag-warn"}`}>{cap.ok ? "פעיל" : "לא הוגדר"}: {cap.detail}</span>}
         </span>
         <input type="checkbox" name="metaSpendCap" defaultChecked={settings.metaSpendCap} className="switch" />
       </label>
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="space-y-1.5">
-          <span className="text-sm text-ink-2">שימוש של מייקי בחודש ($)</span>
+          <span className="text-[15px] text-ink-2">שימוש של מייקי בחודש ($)</span>
           <input name="aiMonthlyLimitUsd" inputMode="decimal" defaultValue={settings.aiMonthlyLimitUsd} className="field" />
-          <span className="text-xs text-ink-3">החודש: ${ai.toFixed(2)}</span>
+          <span className="text-[13px] text-ink-3">החודש: ${ai.toFixed(2)}</span>
         </label>
         <label className="space-y-1.5">
-          <span className="text-sm text-ink-2">קרדיטים ליצירת מדיה בחודש</span>
+          <span className="text-[15px] text-ink-2">קרדיטים ליצירת מדיה בחודש</span>
           <input name="mediaMonthlyCredits" inputMode="numeric" defaultValue={settings.mediaMonthlyCredits} className="field" />
-          <span className="text-xs text-ink-3">נוצלו: {credits}</span>
+          <span className="text-[13px] text-ink-3">נוצלו: {credits}</span>
         </label>
         <label className="space-y-1.5">
-          <span className="text-sm text-ink-2">מתוכם בלי לשאול אותי</span>
+          <span className="text-[15px] text-ink-2">מתוכם בלי לשאול אותי</span>
           <input name="mediaAutoCredits" inputMode="numeric" defaultValue={settings.mediaAutoCredits} className="field" />
-          <span className="text-xs text-ink-3">0 = כל תמונה וסרטון באישור</span>
+          <span className="text-[13px] text-ink-3">0 = כל תמונה וסרטון באישור</span>
         </label>
       </div>
       <button className="btn btn-primary">שמירה</button>
@@ -80,11 +80,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { error } = await searchParams;
   const meta = await getConnection<MetaConfig>(workspace.id, "meta");
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-9 px-4 pb-16 pt-6 sm:pt-10">
+    <main className="mx-auto w-full max-w-[760px] space-y-10 px-5 pb-16 pt-6 sm:pt-10">
       <header>
-        <h1 className="text-[2.4rem] font-semibold tracking-[-0.02em]">הגדרות</h1>
+        <span className="kicker">החשבון והכללים</span>
+        <h1 className="display mt-2">הגדרות</h1>
       </header>
-      {error && <p className="float rounded-2xl p-4 text-warn">{error}</p>}
+      {error && <p className="card rounded-2xl p-4 text-warn">{error}</p>}
 
       <Section title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
         <BudgetForm workspaceId={workspace.id} />
@@ -102,7 +103,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <>
               <MetaAssets workspaceId={workspace.id} businessName={workspace.name} />
               <form action={disconnectMeta}>
-                <button className="text-sm text-warn">ניתוק</button>
+                <button className="text-[15px] font-medium text-bad">ניתוק</button>
               </form>
             </>
           )}
@@ -116,16 +117,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <Section title="החשבון">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-3 font-semibold">{user.name.slice(0, 1)}</span>
+            <span className="icon-chip h-11 w-11 rounded-full text-[18px] font-semibold">{user.name.slice(0, 1)}</span>
             <span className="leading-tight">
               <span className="block font-medium">{user.name}</span>
-              <span className="block text-sm text-ink-3" dir="ltr">
+              <span className="block text-[15px] text-ink-3" dir="ltr">
                 {user.email}
               </span>
             </span>
           </span>
           <form action={logout}>
-            <button className="btn btn-quiet">יציאה</button>
+            <button className="btn btn-quiet btn-sm">יציאה</button>
           </form>
         </div>
       </Section>

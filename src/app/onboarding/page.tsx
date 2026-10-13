@@ -24,16 +24,19 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   const ready = connected && assets && !!site?.config.url;
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-12 sm:py-20">
+    <main className="mx-auto max-w-[760px] px-5 py-12 sm:py-20">
       <header className="mb-14 text-center">
-        <div className="orb orb-glow orb-breathe mx-auto h-16 w-16" />
-        <h1 className="rise mt-9 text-[2.4rem] font-semibold tracking-[-0.02em] sm:text-[3rem]">נעים מאוד, {user.name.split(" ")[0]}.</h1>
-        <p className="rise mx-auto mt-4 max-w-md text-[1.1rem] leading-relaxed text-ink-2 [animation-delay:60ms]">
+        <div className="orb orb-glow orb-breathe mx-auto w-20" />
+        <span className="kicker rise mt-10">בואי נתחיל</span>
+        <h1 className="display rise mt-3 [animation-delay:40ms]">
+          נעים מאוד, <span className="accent-word">{user.name.split(" ")[0]}</span>.
+        </h1>
+        <p className="lead rise mx-auto mt-4 max-w-md [animation-delay:80ms]">
           אני מייקי. חברי אותי לעסק, ואני אלמד אותו לעומק לפני שנדבר: את האתר, המוצרים, הקמפיינים והפוסטים.
         </p>
       </header>
 
-      {error && <p className="float mb-6 rounded-2xl p-4 text-warn">{error}</p>}
+      {error && <p className="card mb-6 rounded-2xl p-4 text-warn">{error}</p>}
 
       <div className="space-y-10">
         <Section step={1} title="האתר" hint="אקרא אותו כמו לקוחה חדשה, ואם זו חנות גם את המוצרים וההזמנות." done={!!site?.config.url}>
@@ -54,10 +57,10 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
       </div>
 
       <form action={startMikee} className="mt-10 text-center">
-        <button className="btn btn-primary px-9 py-4 text-[1.05rem]" disabled={!ready}>
+        <button className="btn btn-primary px-10" disabled={!ready}>
           בוא נתחיל, מייקי
         </button>
-        {!ready && <p className="mt-3 text-sm text-ink-3">צריך להוסיף אתר, לחבר את פייסבוק ולאשר את העסק.</p>}
+        {!ready && <p className="mt-3 text-[15px] text-ink-3">צריך להוסיף אתר, לחבר את פייסבוק ולאשר את העסק.</p>}
       </form>
     </main>
   );

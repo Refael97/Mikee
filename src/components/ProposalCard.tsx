@@ -15,13 +15,13 @@ const KIND: Record<Card["kind"], { label: string; icon: typeof Megaphone }> = {
   media: { label: "ויז׳ואל חדש", icon: Wand2 },
 };
 
-const STATUS: Record<string, { label: string; dot: string }> = {
-  executing: { label: "מייקי על זה", dot: "bg-accent animate-pulse" },
-  done: { label: "בוצע", dot: "bg-good" },
-  failed: { label: "לא הצליח", dot: "bg-warn" },
-  declined: { label: "לא הפעם", dot: "bg-ink-3" },
-  cancelled: { label: "בוטל", dot: "bg-ink-3" },
-  superseded: { label: "הוחלף בגרסה חדשה", dot: "bg-ink-3" },
+const STATUS: Record<string, { label: string; tag: string }> = {
+  executing: { label: "מייקי על זה", tag: "tag" },
+  done: { label: "בוצע", tag: "tag tag-good" },
+  failed: { label: "לא הצליח", tag: "tag tag-bad" },
+  declined: { label: "לא הפעם", tag: "tag tag-quiet" },
+  cancelled: { label: "בוטל", tag: "tag tag-quiet" },
+  superseded: { label: "הוחלף בגרסה חדשה", tag: "tag tag-quiet" },
 };
 
 type Media = NonNullable<Card["media"]>[number];
@@ -29,7 +29,7 @@ type Media = NonNullable<Card["media"]>[number];
 /** How the ad or post will look in the feed: the client approves what her customers will see. */
 function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsored: boolean }) {
   return (
-    <div className="overflow-hidden rounded-[18px] bg-surface hairline">
+    <div className="overflow-hidden rounded-[14px] bg-surface hairline">
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#feda75] via-[#d62976] to-[#4f5bd5] p-[1.5px]">
           <span className="flex h-full w-full items-center justify-center rounded-full bg-surface text-xs font-semibold">{brand.name.slice(0, 1)}</span>
@@ -53,7 +53,7 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
         <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2.5">
           <span className="truncate text-[0.85rem] font-semibold">{m.headline}</span>
           {m.cta && (
-            <span className="flex shrink-0 items-center gap-0.5 text-[0.82rem] font-semibold text-accent">
+            <span className="flex shrink-0 items-center gap-0.5 text-[0.82rem] font-semibold text-[#0095f6]">
               {m.cta}
               <ChevronLeft className="h-4 w-4" />
             </span>
@@ -80,13 +80,13 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
       <div className="flex gap-2 px-5 pb-1">
         {media.map((m, i) => (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-xl object-cover hairline" />
+          <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-[14px] object-cover hairline" />
         ))}
       </div>
     );
   }
   const textOnly = media.length === 1 && !media[0].url;
-  if (textOnly) return <p className="mx-5 whitespace-pre-line rounded-[18px] bg-surface-2 p-4 text-[0.95rem] leading-relaxed">{media[0].text}</p>;
+  if (textOnly) return <p className="tile mx-5 whitespace-pre-line p-4 text-[16px] leading-relaxed">{media[0].text}</p>;
 
   return (
     <div>
@@ -107,7 +107,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
       {media.length > 1 && (
         <div className="mt-3 flex justify-center gap-1.5">
           {media.map((_, i) => (
-            <span key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? "w-4 bg-ink" : "w-1.5 bg-ink-3/40"}`} />
+            <span key={i} className={`h-1.5 rounded-full transition-all duration-300 ease-[var(--ease)] ${i === index ? "w-4 bg-brand" : "w-1.5 bg-ink-3/40"}`} />
           ))}
         </div>
       )}
@@ -139,6 +139,9 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
     if (busy) return;
     setBusy(true);
     setNotice(null);
+    // Immediate feedback: show the new state now, and roll back only if the server refuses.
+    const before = view;
+    setView((v) => ({ ...v, status: decision === "approve" ? "executing" : "declined", error: undefined }));
     try {
       const res = await fetch(`/api/proposals/${view.id}`, {
         method: "POST",
@@ -148,6 +151,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
       });
       const data = await res.json().catch(() => ({}));
       if (!data.ok) {
+        setView(before);
         setNotice(data.error ?? "משהו השתבש");
         return;
       }
@@ -166,46 +170,37 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
   const settled = ["declined", "cancelled", "superseded"].includes(view.status);
 
   return (
-    <article className={`float rise w-full max-w-[460px] overflow-hidden rounded-[28px] transition-opacity duration-500 ${settled ? "opacity-55" : ""}`}>
-      {view.status === "executing" && (
-        <div className="h-0.5 w-full overflow-hidden bg-surface-2">
-          <div className="h-full w-1/3 animate-[shimmer_1.4s_linear_infinite] bg-gradient-to-l from-transparent via-accent to-transparent" />
-        </div>
-      )}
+    <article className={`card-float rise w-full max-w-[460px] overflow-hidden transition-opacity duration-500 ${settled ? "opacity-55" : ""}`}>
+      <div className="h-[3px] w-full overflow-hidden">{view.status === "executing" && <div className="progress-light h-full w-1/3" />}</div>
 
-      <header className="flex items-center justify-between gap-3 px-5 pt-5">
-        <span className="flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-2">
-          <kind.icon className="h-3.5 w-3.5" strokeWidth={2} />
+      <header className="flex items-center justify-between gap-3 px-5 pt-[18px]">
+        <span className="tag">
+          <kind.icon className="h-3.5 w-3.5" strokeWidth={2.2} />
           {kind.label}
         </span>
-        {status && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-ink-2">
-            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-            {status.label}
-          </span>
-        )}
+        {status && <span className={status.tag}>{status.label}</span>}
       </header>
 
-      <div className="px-5 pb-4 pt-3">
-        <h3 className="text-[1.3rem] font-semibold leading-snug tracking-[-0.01em]">{card.title}</h3>
-        {card.why && <p className="mt-1.5 text-[0.95rem] leading-relaxed text-ink-2">{card.why}</p>}
+      <div className="px-5 pb-5 pt-3.5">
+        <h3 className="text-[22px] font-semibold leading-[1.25]">{card.title}</h3>
+        {card.why && <p className="mt-2 text-[16px] leading-[1.55] text-ink-2">{card.why}</p>}
       </div>
 
       <Previews card={card} brand={brand} />
 
       <dl className="grid grid-cols-2 gap-2 p-5 pb-0">
         {card.rows.map((r) => (
-          <div key={r.label} className={`rounded-2xl bg-surface-2 px-3.5 py-3 ${r.value.length > 26 ? "col-span-2" : ""}`}>
-            <dt className="text-xs text-ink-3">{r.label}</dt>
-            <dd className="mt-0.5 text-[0.95rem] font-medium leading-snug">{r.value}</dd>
+          <div key={r.label} className={`tile px-4 py-3 ${r.value.length > 26 ? "col-span-2" : ""}`}>
+            <dt className="text-[13px] text-ink-3">{r.label}</dt>
+            <dd className="mt-0.5 text-[16px] font-medium leading-snug">{r.value}</dd>
           </div>
         ))}
       </dl>
 
       <footer className="p-5">
         {view.status === "pending" && (
-          <div className="flex gap-2">
-            <button className="btn btn-primary flex-1" disabled={busy} onClick={() => decide("approve")}>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button className="btn btn-primary sm:flex-1" disabled={busy} onClick={() => decide("approve")}>
               <Check className="h-4 w-4" strokeWidth={2.4} />
               {card.approveLabel}
             </button>
@@ -214,14 +209,18 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
             </button>
           </div>
         )}
-        {view.status === "executing" && <p className="text-sm text-ink-2">אפשר לסגור את המסך, זה ימשיך לרוץ ומייקי יעדכן כשזה מוכן.</p>}
-        {view.status === "done" && <p className="flex items-center gap-2 text-sm font-medium text-good"><Check className="h-4 w-4" /> בוצע בהצלחה</p>}
+        {view.status === "executing" && <p className="text-[15px] text-ink-2">אפשר לסגור את המסך. זה ימשיך לרוץ, ומייקי יעדכן כשזה מוכן.</p>}
+        {view.status === "done" && (
+          <p className="flex items-center gap-2 text-[15px] font-medium text-good">
+            <Check className="h-4 w-4" strokeWidth={2.4} /> בוצע בהצלחה
+          </p>
+        )}
         {view.status === "failed" && (
           <div className="space-y-3">
-            <p className="rounded-2xl bg-warn/8 px-3.5 py-3 text-sm leading-relaxed text-ink-2">{view.error}</p>
-            <div className="flex gap-2">
+            <p className="rounded-[14px] bg-bad-tint px-4 py-3 text-[15px] leading-relaxed text-bad">{view.error}</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
               {view.retryable !== false && (
-                <button className="btn btn-primary flex-1" disabled={busy} onClick={() => decide("approve")}>
+                <button className="btn btn-primary sm:flex-1" disabled={busy} onClick={() => decide("approve")}>
                   <RotateCcw className="h-4 w-4" />
                   לנסות שוב
                 </button>
@@ -232,7 +231,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
             </div>
           </div>
         )}
-        {notice && <p className="mt-3 text-sm text-warn">{notice}</p>}
+        {notice && <p className="mt-3 rounded-[14px] bg-warn-tint px-4 py-2.5 text-[15px] text-warn">{notice}</p>}
       </footer>
     </article>
   );

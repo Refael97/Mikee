@@ -37,10 +37,10 @@ export function RichText({ text }: { text: string }) {
 function inline(s: string) {
   const parts = s.split(/(\*\*[^*]+\*\*|https?:\/\/\S+)/g);
   return parts.map((p, i) => {
-    if (p.startsWith("**") && p.endsWith("**")) return <strong key={i} className="font-semibold">{p.slice(2, -2)}</strong>;
+    if (p.startsWith("**") && p.endsWith("**")) return <strong key={i} className="font-semibold text-ink">{p.slice(2, -2)}</strong>;
     if (/^https?:\/\//.test(p)) {
       return (
-        <a key={i} href={p} target="_blank" rel="noreferrer" className="text-accent underline-offset-2 hover:underline" dir="ltr">
+        <a key={i} href={p} target="_blank" rel="noreferrer" className="text-brand underline-offset-2 hover:underline" dir="ltr">
           {p.replace(/^https?:\/\/(www\.)?/, "").slice(0, 40)}
         </a>
       );

@@ -42,7 +42,7 @@ function appendText(live: Live | null, delta: string): Live {
 }
 
 function MikeeMark({ live = false }: { live?: boolean }) {
-  return <span className={`orb mt-0.5 h-7 w-7 shrink-0 ${live ? "orb-live" : ""}`} aria-hidden />;
+  return <span className={`orb mt-0.5 w-7 shrink-0 ${live ? "orb-live" : ""}`} aria-hidden />;
 }
 
 export function Chat({ initialItems, stage, firstName, brand }: { initialItems: TimelineItem[]; stage: string; firstName: string; brand: Brand }) {
@@ -150,27 +150,30 @@ export function Chat({ initialItems, stage, firstName, brand }: { initialItems: 
   const change = (title: string) => submit(`בוא נשנה משהו ב"${title}"`);
 
   return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-4">
+    <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-5">
       <div className="flex-1 pb-10 pt-8 sm:pt-12">
         {empty ? (
           <div className="flex flex-col items-center pt-[8vh] text-center">
-            <span className="orb orb-glow orb-breathe h-16 w-16" aria-hidden />
-            <h1 className="rise mt-9 text-[2.1rem] font-semibold leading-tight tracking-[-0.02em] sm:text-[2.6rem]">היי {firstName}, מה עושים היום?</h1>
-            <p className="rise mt-3 text-[1.05rem] text-ink-2 [animation-delay:60ms]">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
-            <div className="mt-10 grid w-full max-w-xl grid-cols-2 gap-3">
+            <span className="orb orb-glow orb-breathe w-20" aria-hidden />
+            <span className="kicker rise mt-10">מייקי, איש השיווק שלך</span>
+            <h1 className="title rise mt-3 [animation-delay:40ms]">
+              היי {firstName}, <span className="accent-word">מה עושים</span> היום?
+            </h1>
+            <p className="lead rise mt-4 [animation-delay:80ms]">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
+            <div className="mt-12 grid w-full max-w-xl grid-cols-2 gap-3">
               {SUGGESTIONS.map(({ icon: Icon, title, sub }, i) => (
                 <button
                   key={title}
                   onClick={() => submit(title)}
                   style={{ animationDelay: `${120 + i * 50}ms` }}
-                  className="float-sm rise group flex flex-col items-start gap-3 rounded-[22px] p-4 text-start transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--float)]"
+                  className="card rise flex flex-col items-start gap-4 p-5 text-start transition-[transform,box-shadow] duration-300 ease-[var(--ease)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-float)] active:scale-[0.97]"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-ink-2 transition-colors group-hover:bg-ink group-hover:text-on-ink">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                  <span className="icon-chip h-10 w-10">
+                    <Icon className="h-5 w-5" strokeWidth={1.9} />
                   </span>
                   <span>
-                    <span className="block font-medium">{title}</span>
-                    <span className="mt-0.5 block text-sm text-ink-3">{sub}</span>
+                    <span className="block font-semibold">{title}</span>
+                    <span className="mt-0.5 block text-[15px] text-ink-2">{sub}</span>
                   </span>
                 </button>
               ))}
@@ -183,21 +186,21 @@ export function Chat({ initialItems, stage, firstName, brand }: { initialItems: 
               if (item.type === "user")
                 return (
                   <div key={item.id} className="rise flex justify-end">
-                    <div className="max-w-[80%] whitespace-pre-line rounded-[22px] bg-surface-3/70 px-5 py-3 text-[1.02rem] leading-7">{item.text}</div>
+                    <div className="card max-w-[80%] whitespace-pre-line rounded-[18px] px-5 py-3 text-[17px]">{item.text}</div>
                   </div>
                 );
               if (item.type === "mikee")
                 return (
                   <div key={item.id} className="rise flex gap-3.5">
                     {prev?.type === "mikee" || prev?.type === "activity" || prev?.type === "card" ? <span className="w-7 shrink-0" /> : <MikeeMark />}
-                    <div className="min-w-0 flex-1 pt-0.5 text-[1.04rem] leading-[1.8]">
+                    <div className="min-w-0 flex-1 pt-0.5 text-[18px] leading-[1.6]">
                       <RichText text={item.text} />
                     </div>
                   </div>
                 );
               if (item.type === "activity")
                 return (
-                  <div key={item.id} className="flex items-center gap-3.5 text-sm text-ink-3">
+                  <div key={item.id} className="flex items-center gap-3.5 text-[15px] text-ink-3">
                     {prev?.type === "user" ? <MikeeMark /> : <span className="w-7 shrink-0" />}
                     <span className="flex items-center gap-2">
                       <span className="h-1 w-1 rounded-full bg-ink-3" />
@@ -216,7 +219,7 @@ export function Chat({ initialItems, stage, firstName, brand }: { initialItems: 
             {live && (
               <div className="flex gap-3.5">
                 <MikeeMark live />
-                <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[1.04rem] leading-[1.8] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
+                <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[18px] leading-[1.6] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
                   {live.segments.map((seg, i) =>
                     seg.kind === "text" ? (
                       <RichText key={i} text={seg.text} />
@@ -224,14 +227,14 @@ export function Chat({ initialItems, stage, firstName, brand }: { initialItems: 
                       <ProposalCard key={seg.proposal.id} proposal={seg.proposal} brand={brand} onChange={change} />
                     ),
                   )}
-                  {(live.activity || !live.segments.length) && <div className="shimmer text-[0.95rem] font-medium">{live.activity ?? "חושב"}…</div>}
+                  {(live.activity || !live.segments.length) && <div className="shimmer text-[16px] font-medium">{live.activity ?? "חושב"}…</div>}
                 </div>
               </div>
             )}
             {error && (
               <div className="flex gap-3.5">
                 <span className="w-7 shrink-0" />
-                <p className="rounded-2xl bg-warn/8 px-4 py-2.5 text-sm text-warn">{error}</p>
+                <p className="rounded-[14px] bg-bad-tint px-4 py-2.5 text-[15px] text-bad">{error}</p>
               </div>
             )}
           </div>
@@ -239,9 +242,9 @@ export function Chat({ initialItems, stage, firstName, brand }: { initialItems: 
         <div ref={bottom} />
       </div>
 
-      <div className="sticky bottom-0 z-20 -mx-4 bg-gradient-to-t from-bg from-60% to-transparent px-4 pb-4 pt-10 sm:pb-6">
+      <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-60% to-transparent px-5 pb-4 pt-10 sm:pb-6">
         <form
-          className="float mx-auto flex items-end gap-2 rounded-[28px] p-2 ps-5 transition-shadow focus-within:shadow-[var(--float),0_0_0_4px_color-mix(in_srgb,var(--accent)_10%,transparent)]"
+          className="glass mx-auto flex items-end gap-2 rounded-[28px] p-2 ps-5 shadow-[var(--shadow-float)] transition-shadow duration-300 focus-within:shadow-[var(--shadow-float),0_0_0_5px_var(--brand-tint)]"
           onSubmit={(e) => {
             e.preventDefault();
             submit();
@@ -259,17 +262,17 @@ export function Chat({ initialItems, stage, firstName, brand }: { initialItems: 
             }}
             rows={1}
             placeholder={stage === "scanning" && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"}
-            className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-3 text-[1.04rem] leading-6 outline-none placeholder:text-ink-3"
+            className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-3 text-[18px] leading-6 outline-none placeholder:text-ink-3"
           />
           <button
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-on-ink transition-all duration-200 hover:opacity-85 active:scale-95 disabled:bg-surface-3 disabled:text-ink-3"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand transition-[transform,opacity,background-color] duration-200 ease-[var(--ease)] hover:opacity-90 active:scale-[0.97] disabled:bg-surface-2 disabled:text-ink-3"
             disabled={!input.trim() || !!live}
             aria-label="שליחה"
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} />
           </button>
         </form>
-        <p className="mt-2.5 text-center text-xs text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
+        <p className="mt-2.5 text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
       </div>
     </div>
   );
