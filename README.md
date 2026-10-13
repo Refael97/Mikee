@@ -181,15 +181,17 @@ Without `DATABASE_URL`, an embedded Postgres in `./.data` is used, with no extra
 
 ## Deploying to Railway
 
-Mikee's turns (a first scan, building a campaign) can take minutes, so the app runs as a regular server on Railway, which has no time limits like serverless functions.
-
-1. New project on Railway → Deploy from GitHub repo → this repo. `railway.json` already defines build, start and health check.
-2. Add Postgres to the project and link `DATABASE_URL` to the service.
-3. Variables: everything in `.env.example`. `APP_URL` is the service's public address.
-4. Create the user: `railway run npm run create-user -- "..." "..." email "password"`.
-5. Maintenance and proactive outreach: in the same project, add a Cron service that runs **every hour** (`0 * * * *`). It checks the connection, syncs the hard ceiling at Meta (including at the start of a month), and lets Mikee decide whether to reach out now:
+1. **Repo + Postgres:** New project → Deploy from GitHub repo, then Add → Database → PostgreSQL. `railway.json` and `nixpacks.toml` already define Node 22, the build, start and the health check.
+2. **Mikee service variables** (Mikee → Variables):
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (a reference to the database)
+   - `SESSION_SECRET`, `MIKEE_ENCRYPTION_KEY`, `CRON_SECRET`: three different random values (`openssl rand -hex 32`)
+   - `APP_URL`: the service's public address (Settings → Networking → Generate Domain), with https
+   - `ANTHROPIC_API_KEY`
+   - The first user: `MIKEE_BUSINESS_NAME`, `MIKEE_OWNER_NAME`, `MIKEE_OWNER_EMAIL`, `MIKEE_OWNER_PASSWORD` (at least 10 characters). On first startup the business and user are created; after you sign in, delete `MIKEE_OWNER_PASSWORD`.
+3. **Health check:** `/api/health` reports exactly which settings are missing (names only) and whether the database responds. If a deploy fails, open this address.
+4. **Cron:** add a Cron service that runs **every hour** (`0 * * * *`) with the command:
    `curl -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/cron/checkin`
-6. In the Meta app, under Facebook Login, add the redirect address: `https://<APP_URL>/api/meta/callback`.
+5. **Later:** `META_APP_ID`/`META_APP_SECRET` (plus a redirect address in the Meta app: `{APP_URL}/api/meta/callback`), a file bucket (`S3_*`), Google Drive (`GOOGLE_*`), support (`SUPPORT_*`). The full list is in `.env.example`.
 
 Netlify fits Mikee's public landing page (a separate site). The app itself stays on Railway.
 

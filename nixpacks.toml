@@ -1,0 +1,3 @@
+# Railway (Nixpacks) defaults to Node 18; Tailwind v4 and undici 7 need Node 22.
+[variables]
+NIXPACKS_NODE_VERSION = "22"

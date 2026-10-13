@@ -16,6 +16,10 @@ async function connect(): Promise<DB> {
     await client.unsafe(INIT_SQL);
     return drizzle(client, { schema }) as unknown as DB;
   }
+  // In production a missing DATABASE_URL is a setup mistake: never fall back to a throwaway local database.
+  if (process.env.NODE_ENV === "production" && process.env.MIKEE_DB !== "pglite") {
+    throw new Error("DATABASE_URL is not set. On Railway: Mikee service → Variables → add DATABASE_URL = ${{Postgres.DATABASE_URL}}");
+  }
   // Local development and tests: embedded Postgres, persisted under ./.data (or in memory for tests)
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
