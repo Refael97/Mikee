@@ -105,8 +105,8 @@ export function Composer({ busy, placeholder, onSend, initialText }: { busy: boo
 
   return (
     <div
-      className={`relative rounded-[12px] border bg-surface shadow-[var(--shadow-float)] transition-[border-color,box-shadow] duration-200 focus-within:border-ink ${
-        dragging ? "border-brand shadow-[0_0_0_3px_var(--brand-tint)]" : "border-line-strong"
+      className={`relative rounded-[10px] border bg-surface shadow-[var(--shadow)] transition-[border-color,box-shadow] duration-150 focus-within:border-brand focus-within:shadow-[var(--ring)] ${
+        dragging ? "border-brand shadow-[var(--ring)]" : "border-line-strong"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -170,7 +170,7 @@ export function Composer({ busy, placeholder, onSend, initialText }: { busy: boo
         }}
         rows={1}
         placeholder={listening ? "מקשיב…" : placeholder}
-        className="block max-h-[220px] min-h-14 w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-[18px] leading-[1.5] outline-none placeholder:text-ink-3"
+        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[16px] leading-[1.5] outline-none placeholder:text-ink-3"
       />
 
       <div className="flex items-center gap-1 px-2 pb-2">
@@ -179,7 +179,7 @@ export function Composer({ busy, placeholder, onSend, initialText }: { busy: boo
             type="button"
             aria-label="צירוף"
             onClick={() => setMenu((m) => !m)}
-            className={`flex h-9 w-9 items-center justify-center rounded-[7px] transition-colors duration-200 ${menu ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2"}`}
+            className={`flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors duration-100 ${menu ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2"}`}
           >
             <Plus className={`h-5 w-5 transition-transform duration-300 ${menu ? "rotate-45" : ""}`} strokeWidth={2} />
           </button>
@@ -219,7 +219,7 @@ export function Composer({ busy, placeholder, onSend, initialText }: { busy: boo
               type="button"
               aria-label={listening ? "עצירת הקלטה" : "הקלטה"}
               onClick={toggleDictation}
-              className={`relative flex h-9 w-9 items-center justify-center rounded-[7px] transition-colors duration-200 ${
+              className={`relative flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors duration-100 ${
                 listening ? "bg-bad-tint text-bad" : "text-ink-2 hover:bg-surface-2"
               }`}
             >
@@ -232,9 +232,9 @@ export function Composer({ busy, placeholder, onSend, initialText }: { busy: boo
             onClick={submit}
             disabled={!canSend}
             aria-label="שליחה"
-            className="flex h-9 w-9 items-center justify-center rounded-[7px] bg-ink text-bg transition-[transform,background-color] duration-150 hover:bg-brand active:translate-y-px disabled:bg-surface-2 disabled:text-ink-3"
+            className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-brand text-on-brand transition-colors duration-100 hover:bg-[var(--brand-hover)] disabled:bg-surface-2 disabled:text-ink-3"
           >
-            <ArrowUp className="h-5 w-5" strokeWidth={2.2} />
+            <ArrowUp className="h-4 w-4" strokeWidth={2.2} />
           </button>
         </div>
       </div>

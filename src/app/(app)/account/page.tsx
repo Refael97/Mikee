@@ -18,15 +18,15 @@ const size = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)}GB` 
 function Meter({ label, used, limit, show }: { label: string; used: number; limit: number; show: (n: number) => string }) {
   const pct = Math.min(100, (used / Math.max(1, limit)) * 100);
   return (
-    <div className="border-b border-line py-4">
+    <div className="border-b border-line py-3 last:border-b-0">
       <div className="flex items-baseline justify-between gap-4">
-        <span className="font-semibold">{label}</span>
+        <span className="text-[15px] font-medium">{label}</span>
         <span className="num text-[15px] text-ink-2">
           {show(used)} מתוך {show(limit)}
         </span>
       </div>
-      <div className="mt-2.5 h-1 bg-line">
-        <div className={`h-full ${pct > 90 ? "bg-bad" : "bg-ink"}`} style={{ width: `${pct}%` }} />
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+        <div className={`h-full rounded-full ${pct > 90 ? "bg-bad" : "bg-brand"}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -55,12 +55,7 @@ export default async function AccountPage() {
   return (
     <Page>
       <PageHeader
-        kicker="האזור האישי"
-        title={
-          <>
-            שלום, <span className="marked">{user.name.split(" ")[0]}</span>
-          </>
-        }
+        title="הפרופיל שלי"
         lead={`${workspace.name} · מנוי ${plan.name}`}
         action={
           <form action={logout}>
@@ -74,9 +69,9 @@ export default async function AccountPage() {
       </Section>
 
       <Section title="המנוי והשימוש" hint="מה כלול במנוי ומה כבר נוצל החודש. תקציב הפרסום עצמו משולם ישירות למטא ולא נספר כאן.">
-        <div className="max-w-xl border-t border-line">
+        <div className="max-w-xl">
           <Meter label="אחסון בספרייה" used={storage.used} limit={storage.limit} show={size} />
-          <Meter label="שימוש של מייקי החודש" used={ai} limit={Math.min(settings.aiMonthlyLimitUsd, plan.aiUsd)} show={(n) => `$${n.toFixed(n < 10 ? 2 : 0)}`} />
+          <Meter label="שימוש של מייקי החודש (בדולרים)" used={ai} limit={Math.min(settings.aiMonthlyLimitUsd, plan.aiUsd)} show={(n) => `$${n.toFixed(n < 10 ? 2 : 0)}`} />
           <Meter label="קרדיטים ליצירת תמונות וסרטונים" used={credits} limit={Math.min(settings.mediaMonthlyCredits || plan.mediaCredits, plan.mediaCredits)} show={(n) => String(Math.round(n))} />
         </div>
         <p className="mt-4 text-[15px] text-ink-2">
@@ -85,14 +80,14 @@ export default async function AccountPage() {
       </Section>
 
       <Section title="נכסים מחוברים" hint="כל חיבור אפשר לנתק או לחבר מחדש בהגדרות.">
-        <ul className="max-w-xl border-t border-line">
+        <ul className="max-w-xl divide-y divide-line">
           {CONNECTORS.filter((c) => c.status === "live").map((c) => {
             const conn = byId.get(c.id === "google_drive" ? "google_drive" : c.id);
             const state = !conn ? "לא מחובר" : conn.status === "broken" ? "נותק" : "מחובר";
             return (
-              <li key={c.id} className="flex items-baseline justify-between gap-4 border-b border-line py-3">
+              <li key={c.id} className="flex items-center justify-between gap-4 py-2.5">
                 <span>
-                  <span className="block font-semibold">{c.name}</span>
+                  <span className="block font-medium">{c.name}</span>
                   <span className="text-[14px] text-ink-3">{c.does}</span>
                 </span>
                 <span className={`tag shrink-0 ${!conn ? "tag-quiet" : conn.status === "broken" ? "tag-bad" : "tag-good"}`}>{state}</span>
@@ -108,7 +103,7 @@ export default async function AccountPage() {
       <Section title="אבטחה" hint="סיסמה, כניסות אחרונות, ויציאה מכל המכשירים.">
         <PasswordForm />
         <div className="mt-10 max-w-xl">
-          <span className="kicker">פעילות אחרונה בחשבון</span>
+          <h3 className="font-semibold">פעילות אחרונה בחשבון</h3>
           <ul className="mt-3 border-t border-line">
             {security.map((a) => (
               <li key={a.id} className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 text-[15px]">

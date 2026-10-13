@@ -41,6 +41,8 @@ export function dedupeKey(kind: ProposalKind, a: any): string {
       return `budget:${a.month}`;
     case "media":
       return `media:${sha(`${a.type}:${a.model}:${a.prompt}`).slice(0, 24)}`;
+    case "activate":
+      return `activate:${a.campaignId}`;
   }
 }
 
@@ -213,8 +215,10 @@ export async function finishProposal(p: Proposal, ok: boolean, result: Record<st
     {
       type: "text",
       text: ok
-        ? `[Platform event, not typed by the client] "${title}" was carried out successfully. Result: ${JSON.stringify(result)}`
-        : `[Platform event, not typed by the client] "${title}" failed: ${String(result.error)}. ${result.retryable === false ? "It cannot be retried automatically." : "The client can retry from the card; progress is kept, nothing is duplicated."} Explain simply if she asks.`,
+        ? p.kind === "campaign"
+          ? `[Platform event, not typed by the client] "${title}" was built PAUSED at Meta and read back; it matches the approved card. An activation card is now waiting for the client: nothing spends until she approves it. Meta review: ${String(result.review ?? "")}${(result.blockers as string[] | undefined)?.length ? ` Blockers: ${JSON.stringify(result.blockers)}` : ""}. Tell her briefly, in one or two sentences.${result.activationProposalId ? ` {"proposalId":"${String(result.activationProposalId)}"}` : ""}`
+          : `[Platform event, not typed by the client] "${title}" was carried out successfully. Result: ${JSON.stringify(result)}`
+        : `[Platform event, not typed by the client] "${title}" failed: ${String(result.detail ?? result.error)}. ${result.retryable === false ? "It cannot be retried automatically." : "The client can retry from the card; progress is kept, nothing is duplicated."} Explain simply if she asks.`,
     },
   ]);
 }

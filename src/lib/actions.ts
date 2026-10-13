@@ -12,7 +12,7 @@ import { syncMetaSpendCap } from "./budget";
 import { getConnection, removeConnection, saveConnection, type WebsiteConfig } from "./connections";
 import { metaContext } from "./meta/context";
 import { detectBusiness } from "./meta/detect";
-import { Graph } from "./meta/graph";
+import { Graph, inspectToken } from "./meta/graph";
 import { checkMetaHealth } from "./meta/health";
 import { getSettings, updateSettings } from "./settings";
 import { cleanClientText, hit, LIMITS } from "./guard";
@@ -29,9 +29,12 @@ export async function saveMetaToken(form: FormData) {
   const { workspace } = await requireSession();
   const token = String(form.get("token") ?? "").trim();
   if (!token || token.length > 1000 || !/^[A-Za-z0-9_|.-]+$/.test(token)) return;
+  // A pasted token must come from this app (not an older or test app) and still be valid.
+  const info = await inspectToken(token).catch(() => null);
+  if (info && (!info.valid || info.appId !== process.env.META_APP_ID)) redirect("/settings?error=meta_wrong_app");
   const me = await new Graph(token).get<{ name: string }>("/me", { fields: "name" }).catch(() => null);
   if (!me) redirect("/settings?error=meta_token");
-  await saveConnection(workspace.id, "meta", { userName: me.name, tokenExpiresAt: null }, token);
+  await saveConnection(workspace.id, "meta", { userName: me.name, tokenExpiresAt: info?.expiresAt ?? null, scopes: info?.scopes, appId: info?.appId, tokenType: info?.type }, token);
   revalidatePath("/", "layout");
 }
 

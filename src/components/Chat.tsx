@@ -194,6 +194,12 @@ export function Chat({
     })();
   }, [autoScan, send, follow]);
 
+  useEffect(() => {
+    const h = () => void refresh();
+    window.addEventListener("mikee:timeline", h);
+    return () => window.removeEventListener("mikee:timeline", h);
+  }, [refresh]);
+
   // Mikee can start talking here on his own (a reminder about a waiting card, a fix for a failed one).
   // While the conversation is open and quiet, look for that every few seconds and show it live.
   const liveRef = useRef(live);
@@ -230,45 +236,40 @@ export function Chat({
     <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-5">
       <div className="flex-1 pb-10 pt-8 sm:pt-12">
         {empty ? (
-          <div className="pt-[4vh]">
-            <span className="orb orb-breathe w-12" aria-hidden />
-            <h1 className="title rise mt-6">
-              היי {firstName}, <span className="marked">מה עושים</span> היום?
-            </h1>
-            <p className="lead rise mt-3 [animation-delay:60ms]">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
+          <div className="mx-auto max-w-[640px] pt-[6vh]">
+            <span className="orb w-10" aria-hidden />
+            <h1 className="display mt-5">היי {firstName}, מה עושים היום?</h1>
+            <p className="lead mt-2">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
 
             {nextMoves.length > 0 && (
-              <section className="rise mt-10 [animation-delay:100ms]">
-                <span className="kicker">מייקי מציע להמשיך</span>
-                <div className="mt-3 divide-y divide-line border-y border-line">
+              <section className="mt-8">
+                <h2 className="label mb-2">מייקי מציע להמשיך</h2>
+                <ul className="group-list">
                   {nextMoves.map((m) => (
-                    <button key={m.title} onClick={() => submit(`בוא נדבר על הצעד הבא: ${m.title}`)} className="group flex w-full items-center gap-4 py-4 text-start">
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[18px] font-semibold group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-4">{m.title}</span>
-                        <span className="mt-0.5 block text-[15.5px] text-ink-2">{m.why}</span>
-                      </span>
-                      <ArrowLeft className="h-5 w-5 shrink-0 text-ink-3 transition-transform group-hover:-translate-x-1 group-hover:text-ink" strokeWidth={1.8} />
-                    </button>
+                    <li key={m.title}>
+                      <button onClick={() => submit(`בוא נדבר על הצעד הבא: ${m.title}`)} className="group flex w-full items-center gap-3 px-4 py-3 text-start hover:bg-surface-2">
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium">{m.title}</span>
+                          <span className="mt-0.5 block text-[14.5px] text-ink-2">{m.why}</span>
+                        </span>
+                        <ArrowLeft className="h-4 w-4 shrink-0 text-ink-3 transition-transform group-hover:-translate-x-0.5 group-hover:text-brand" strokeWidth={1.75} />
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </section>
             )}
 
-            <section className="rise mt-10 [animation-delay:140ms]">
-              <span className="kicker">או להתחיל מכאן</span>
-              <ol className="mt-3 grid border-t border-line sm:grid-cols-2">
-                {SUGGESTIONS.map(({ title, sub }, i) => (
-                  <li key={title} className="border-b border-line sm:odd:border-e sm:odd:pe-5 sm:even:ps-5">
-                    <button onClick={() => submit(title)} className="group flex w-full items-baseline gap-3 py-4 text-start">
-                      <span className="num text-[13px] text-ink-3">{String(i + 1).padStart(2, "0")}</span>
-                      <span>
-                        <span className="block font-semibold group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-4">{title}</span>
-                        <span className="mt-0.5 block text-[15px] text-ink-2">{sub}</span>
-                      </span>
-                    </button>
-                  </li>
+            <section className="mt-6">
+              <h2 className="label mb-2">או להתחיל מכאן</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {SUGGESTIONS.map(({ title, sub }) => (
+                  <button key={title} onClick={() => submit(title)} className="card px-4 py-3 text-start transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-[var(--shadow)]">
+                    <span className="block text-[15px] font-medium">{title}</span>
+                    <span className="mt-0.5 block text-[14px] text-ink-2">{sub}</span>
+                  </button>
                 ))}
-              </ol>
+              </div>
             </section>
           </div>
         ) : (
@@ -294,7 +295,7 @@ export function Chat({
                       </div>
                     ) : null}
                     {item.text && item.text !== "(קבצים מצורפים)" && (
-                      <div className="max-w-[80%] whitespace-pre-line rounded-[10px] bg-surface-2 px-4 py-2.5 text-[17px]">{item.text}</div>
+                      <div className="max-w-[80%] whitespace-pre-line rounded-[10px] bg-surface-2 px-3.5 py-2 text-[16px]">{item.text}</div>
                     )}
                   </div>
                 );
@@ -302,7 +303,7 @@ export function Chat({
                 return (
                   <div key={item.id} className="rise flex gap-3.5">
                     {prev?.type === "mikee" || prev?.type === "activity" || prev?.type === "card" ? <span className="w-7 shrink-0" /> : <MikeeMark />}
-                    <div className="min-w-0 flex-1 space-y-3 pt-0.5 text-[18px] leading-[1.6]">
+                    <div className="min-w-0 flex-1 space-y-3 pt-0.5 text-[16.5px] leading-[1.65]">
                       <RichText text={splitReplies(item.text).text} />
                       {item === lastItem && <QuickReplies replies={replies} onPick={(r) => submit(r)} />}
                     </div>
@@ -329,7 +330,7 @@ export function Chat({
             {live && (
               <div className="flex gap-3.5">
                 <MikeeMark live />
-                <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[18px] leading-[1.6] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
+                <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[16.5px] leading-[1.65] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
                   <Steps steps={live.steps} />
                   {live.segments.map((seg, i) =>
                     seg.kind === "text" ? (
@@ -353,9 +354,9 @@ export function Chat({
         <div ref={bottom} />
       </div>
 
-      <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-60% to-transparent px-5 pb-4 pt-10 sm:pb-6">
+      <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-70% to-transparent px-5 pb-3 pt-8 sm:pb-5">
         <Composer busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
-        <p className="mt-2 text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
+        <p className="mt-2 text-center text-[12.5px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
       </div>
     </div>
   );

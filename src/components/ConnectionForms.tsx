@@ -1,22 +1,28 @@
+import { CheckCircle2, ChevronDown } from "lucide-react";
 import { getConnection, type MetaConfig, type StoreConfig, type WebsiteConfig } from "@/lib/connections";
 import { type Detected, detectBusiness } from "@/lib/meta/detect";
-import { Graph } from "@/lib/meta/graph";
+import { Graph, NEEDED_SCOPES } from "@/lib/meta/graph";
 import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndStore } from "@/lib/actions";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
-/** A section of a settings-like page: a title with a short rule, a quiet hint, then the content. */
+/** A settings group: title and explanation on the start side, the controls in a card beside them. */
 export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="rise grid gap-x-10 gap-y-4 border-t border-line py-8 lg:grid-cols-[260px_1fr]">
+    <section id={id} className="grid scroll-mt-6 gap-x-10 gap-y-3 border-t border-line py-7 first-of-type:border-t-0 lg:grid-cols-[260px_1fr]">
       <div>
-        <h2 className="h2 flex items-baseline gap-3">
-          {step != null && <span className={`num text-[15px] font-semibold ${done ? "text-good" : "text-ink-3"}`}>{done ? "✓" : String(step).padStart(2, "0")}</span>}
+        <h2 className="flex items-center gap-2 font-semibold">
+          {step != null &&
+            (done ? (
+              <CheckCircle2 className="h-5 w-5 text-good" strokeWidth={1.75} aria-label="הושלם" />
+            ) : (
+              <span className="num flex h-5 w-5 items-center justify-center rounded-full border border-line-strong text-[12px] text-ink-2">{step}</span>
+            ))}
           {title}
         </h2>
-        {hint && <p className="mt-2 text-[15.5px] leading-relaxed text-ink-2">{hint}</p>}
+        {hint && <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{hint}</p>}
       </div>
-      <div className="min-w-0">{children}</div>
+      <div className="card min-w-0 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -42,7 +48,19 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
       </div>
     );
   }
-  if (conn?.secret) return <p className="tag tag-good">מחובר בתור {conn.config.userName ?? "החשבון שלך"}</p>;
+  if (conn?.secret) {
+    const missing = conn.config.scopes ? NEEDED_SCOPES.filter((x) => !conn.config.scopes!.includes(x)) : [];
+    return (
+      <div className="space-y-2">
+        <p className="tag tag-good">מחובר בתור {conn.config.userName ?? "החשבון שלך"}</p>
+        {missing.length > 0 && (
+          <p className="note note-warn text-[14px]">
+            חסרות הרשאות, ולכן חלק מהפעולות לא יעבדו: <span dir="ltr">{missing.join(", ")}</span>. אפשר לחבר מחדש ולאשר את כולן.
+          </p>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       {process.env.META_APP_ID && (
@@ -57,8 +75,8 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
 
 function TokenForm() {
   return (
-    <details className="text-[15px] text-ink-2">
-      <summary className="cursor-pointer select-none">יש לי מפתח גישה מוכן</summary>
+    <details className="group text-[15px] text-ink-2">
+      <summary className="cursor-pointer select-none flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />יש לי מפתח גישה מוכן</summary>
       <form action={saveMetaToken} className="mt-3 flex gap-2">
         <input name="token" className="field" placeholder="מפתח גישה ממטא" dir="ltr" />
         <button className="btn btn-quiet shrink-0">שמירה</button>
@@ -99,7 +117,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
     <div className="space-y-4">
       <div>
         <p className="mb-3 text-[15px] text-ink-3">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
-        <ul className="border-y border-line text-[16px] [&>li+li]:border-t [&>li+li]:border-line [&>li]:py-3">
+        <ul className="group-list text-[15px] [&>li]:px-4 [&>li]:py-2.5">
           {page && (
             <li>
               דף הפייסבוק <strong>{page.name}</strong>
@@ -124,8 +142,8 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
           <button className="btn btn-primary">כן, זה העסק שלי</button>
         </form>
       )}
-      <details className="text-[15px]">
-        <summary className="cursor-pointer select-none text-ink-2">{saved ? "להחליף" : "לא, אבחר בעצמי"}</summary>
+      <details className="group text-[15px]">
+        <summary className="cursor-pointer select-none text-ink-2 flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />{saved ? "להחליף" : "לא, אבחר בעצמי"}</summary>
         <form action={saveMetaAssets} className="mt-4 grid gap-4 sm:grid-cols-2">
           <Select label="דף הפייסבוק" name="page" value={chosen.pageId} options={found.pages.map((p) => [p.id, `${p.name}${p.ig?.username ? ` · @${p.ig.username}` : ""}`])} />
           <Select label="חשבון המודעות" name="adAccount" value={chosen.adAccountId} options={found.adAccounts.map((a) => [a.id, a.name])} />
@@ -173,9 +191,12 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
   ]);
   return (
     <form action={saveWebsiteAndStore} className="space-y-4">
-      <input name="website" className="field" placeholder="www.your-site.co.il" dir="ltr" defaultValue={site?.config.url} required />
-      <details className="text-[15px]" open={!!store?.config.domain}>
-        <summary className="cursor-pointer select-none text-ink-2">יש חנות אונליין? חברו גם את ההזמנות</summary>
+      <label className="block space-y-1.5">
+        <span className="label">כתובת האתר</span>
+        <input name="website" className="field" placeholder="www.your-site.co.il" dir="ltr" defaultValue={site?.config.url} required />
+      </label>
+      <details className="group text-[15px]" open={!!store?.config.domain}>
+        <summary className="cursor-pointer select-none text-ink-2 flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />יש חנות אונליין? חברו גם את ההזמנות</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <select name="storePlatform" className="field" defaultValue={store?.config.platform ?? site?.config.platform ?? ""}>
             <option value="">פלטפורמת החנות</option>
@@ -203,12 +224,12 @@ export async function BudgetForm({ workspaceId }: { workspaceId: string }) {
         <input
           name="monthlyLimit"
           inputMode="decimal"
-          className="field pe-12 text-lg font-medium"
+          className="field num pe-10 font-medium"
           placeholder="3,000"
           defaultValue={row ? String(row.monthlyLimit) : undefined}
           required
         />
-        <span className="pointer-events-none absolute inset-y-0 end-4 flex items-center text-ink-2">{currency === "ILS" ? "₪" : currency}</span>
+        <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-ink-2">{currency === "ILS" ? "₪" : currency}</span>
       </div>
       <input type="hidden" name="currency" value={currency} />
       <span className="text-ink-2">לחודש</span>

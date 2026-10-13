@@ -24,14 +24,11 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   const ready = connected && assets && !!site?.config.url;
 
   return (
-    <main className="mx-auto max-w-[1000px] px-5 py-12 sm:py-20">
-      <header className="mb-12">
-        <div className="orb orb-breathe w-14" />
-        <span className="kicker rise mt-8">ארבעה צעדים, עשר דקות</span>
-        <h1 className="display rise mt-3 [animation-delay:40ms]">
-          נעים מאוד, <span className="marked">{user.name.split(" ")[0]}</span>.
-        </h1>
-        <p className="lead rise mt-4 max-w-xl [animation-delay:80ms]">
+    <main className="mx-auto max-w-[1000px] px-4 py-10 sm:px-8 sm:py-14">
+      <header className="mb-8">
+        <span className="orb w-10" />
+        <h1 className="display mt-5">נעים מאוד, {user.name.split(" ")[0]}.</h1>
+        <p className="lead mt-2 max-w-xl">
           אני מייקי. חברי אותי לעסק, ואני אלמד אותו לעומק לפני שנדבר: את האתר, המוצרים, הקמפיינים והפוסטים.
         </p>
       </header>
@@ -56,8 +53,8 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         </Section>
       </div>
 
-      <form action={startMikee} className="mt-4 flex flex-wrap items-center gap-5 border-t border-line pt-8">
-        <button className="btn btn-primary px-10" disabled={!ready}>
+      <form action={startMikee} className="mt-2 flex flex-wrap items-center gap-4 border-t border-line pt-6">
+        <button className="btn btn-primary btn-lg" disabled={!ready}>
           בוא נתחיל, מייקי
         </button>
         {!ready && <p className="text-[15px] text-ink-3">צריך להוסיף אתר, לחבר את פייסבוק ולאשר את העסק.</p>}

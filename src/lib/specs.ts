@@ -31,7 +31,7 @@ export const AdSpec = z.object({
 });
 
 export const CampaignSpec = z.object({
-  title: z.string().describe("Friendly card headline for the client, e.g. 'נותנים לקולקציה החדשה את הבמה ✨'"),
+  title: z.string().describe("Friendly card headline for the client, plain words without emoji, e.g. 'נותנים לקולקציה החדשה את הבמה'"),
   why: z.string().describe("One or two sentences: what this is for and why it is good for the business"),
   goal: z.enum(["sales", "leads", "traffic", "engagement", "awareness"]),
   dailyBudget: z.number().positive().describe("Daily budget in the ad account currency (major units, e.g. 50 = ₪50)"),
@@ -108,7 +108,25 @@ export type MediaSpec = z.infer<typeof MediaSpec>;
 export const BudgetRequestSpec = z.object({ amount: z.number().positive(), reason: z.string().min(10), month: z.string() });
 export type BudgetRequestSpec = z.infer<typeof BudgetRequestSpec>;
 
-export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media";
+/**
+ * Switching a built campaign on. Created by the platform (never by the model) after a campaign card was
+ * approved, built paused, and read back from Meta; spending starts only when this card is approved.
+ */
+export const ActivateSpec = z.object({
+  fromProposal: z.string().uuid(),
+  title: z.string(),
+  campaignId: z.string(),
+  adsetId: z.string(),
+  adIds: z.array(z.string()),
+  dailyBudget: z.number().positive(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  review: z.string().describe("Plain-language state of Meta's ad review at build time"),
+  media: z.array(z.object({ type: z.enum(["image", "video"]), url: z.string(), text: z.string().optional(), headline: z.string().optional(), cta: z.string().optional() })).default([]),
+});
+export type ActivateSpec = z.infer<typeof ActivateSpec>;
+
+export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media" | "activate";
 
 /** What the chat UI renders for a proposal. Built server-side from the specs above. */
 export type ProposalCard = {

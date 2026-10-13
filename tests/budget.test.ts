@@ -83,7 +83,8 @@ describe("the monthly ceiling", () => {
 
     const p = await proposal(id);
     expect(p.status).toBe("failed");
-    expect((p.result as any).error).toMatch(/monthly budget/);
+    expect((p.result as any).detail).toMatch(/monthly budget/);
+    expect((p.result as any).error).toMatch(/התקציב החודשי/); // the client reads plain Hebrew
     expect(meta.writes(/campaigns|adsets|ads$/)).toEqual([]);
   });
 

@@ -385,7 +385,9 @@ export const TOOLS = [
       const meta = await metaContext(ctx.workspaceId);
       const problem = checkMetaWrite(i.path, params, { adAccount: meta.adAccountId, catalog: meta.catalogId, page: meta.pageId, pixel: meta.pixelId });
       if (problem) return { error: problem };
-      const res = stripTokens(await meta.graph.post(i.path, params));
+      // Page objects (instant forms) need the page's own token; account objects use the user token.
+      const graph = /leadgen_forms$/.test(i.path) && meta.pageId ? await meta.graph.forPage(meta.pageId) : meta.graph;
+      const res = stripTokens(await graph.post(i.path, params));
       await logActivity(ctx.workspaceId, "setup", i.purpose, { path: i.path });
       return res;
     },

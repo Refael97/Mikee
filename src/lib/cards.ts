@@ -1,4 +1,4 @@
-import type { BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, ProposalCard, ProposalKind } from "./specs";
+import type { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, ProposalCard, ProposalKind } from "./specs";
 
 const money = (amount: number, currency = "ILS") =>
   new Intl.NumberFormat("he-IL", { style: "currency", currency, maximumFractionDigits: amount >= 100 ? 0 : 2 }).format(amount);
@@ -54,14 +54,32 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         why: s.why,
         rows: [
           { label: "המטרה", value: GOAL_HE[s.goal] },
-          { label: "תקציב", value: `${money(s.dailyBudget, currency)} ביום` },
+          { label: "תקציב", value: `${money(s.dailyBudget, currency)} ביום בממוצע` },
           { label: "למי נגיע", value: s.audience.description },
           { label: "מתי", value: when },
           { label: "לאן מגיעים", value: links },
+          { label: "מה יקרה באישור", value: "מייקי בונה את הקמפיין במצב מושהה ובודק אותו. הוא יעלה לאוויר רק אחרי אישור נוסף שלך." },
         ],
         media: s.ads.map((a) => ({ type: a.media.type, url: a.media.url, text: a.primaryText, headline: a.headline, cta: CTA_HE[a.cta] })),
-        approveLabel: "נראה טוב, קדימה",
+        approveLabel: "נראה טוב, לבנות",
         changeLabel: "בוא נשנה משהו",
+      };
+    }
+    case "activate": {
+      const s = action as ActivateSpec;
+      const when = [s.startTime ? `מ־${dateHe(s.startTime)}` : "מרגע האישור", s.endTime ? `עד ${dateHe(s.endTime)}` : "עד שנעצור"].join(" ");
+      return {
+        kind,
+        title: s.title,
+        why: "הקמפיין בנוי, מושהה, ובדקתי מול מטא שהוא תואם בדיוק למה שאישרת. הוא יתחיל להוציא כסף רק אחרי האישור הזה.",
+        rows: [
+          { label: "תקציב", value: `${money(s.dailyBudget, currency)} ביום בממוצע. ביום מסוים מטא יכולה להוציא קצת יותר, והתקרה החודשית נשמרת` },
+          { label: "מתי", value: when },
+          { label: "בדיקת מטא", value: s.review },
+        ],
+        media: s.media,
+        approveLabel: "להפעיל עכשיו",
+        changeLabel: "עוד לא",
       };
     }
     case "change": {

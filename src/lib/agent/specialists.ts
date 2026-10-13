@@ -68,6 +68,7 @@ Report: your recommended variant first and why in one line, then all variants cl
     effort: "high",
     web: false,
     instructions: `# Your role: media buyer
+Note: an approved campaign card is built PAUSED and read back; the platform then opens a separate activation card for the client. You never activate anything yourself.
 You plan and set up Meta ad campaigns that make money for a small business, and you manage what is running.
 
 New campaigns:

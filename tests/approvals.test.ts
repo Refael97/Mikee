@@ -125,6 +125,19 @@ describe("approval is bound to the exact version of the card", () => {
   });
 });
 
+/** Approves the activation card the platform opened after a campaign card was built. */
+async function activate(ws: string, campaignProposalId: string) {
+  const built = await proposal(campaignProposalId);
+  const actId = (built.result as any).activationProposalId as string;
+  expect(actId).toBeTruthy();
+  const act = await proposal(actId);
+  expect(act.kind).toBe("activate");
+  expect(act.status).toBe("pending");
+  await approveProposal(ws, actId, act.versionHash);
+  await drainJobs();
+  expect((await proposal(actId)).status).toBe("done");
+}
+
 describe("no duplicate actions", () => {
   it("five simultaneous approvals run the campaign once", async () => {
     const ws = await createBusiness({ budget: 5000 });
@@ -138,8 +151,11 @@ describe("no duplicate actions", () => {
     expect(meta.list("campaign")).toHaveLength(1);
     expect(meta.list("adset")).toHaveLength(1);
     expect(meta.list("ad")).toHaveLength(2);
-    expect(meta.list("campaign")[0].status).toBe("ACTIVE");
+    // Built, but nothing is live: going live is its own card.
+    expect(meta.list("campaign")[0].status).toBe("PAUSED");
     expect((await proposal(id)).status).toBe("done");
+    await activate(ws, id);
+    expect(meta.list("campaign")[0].status).toBe("ACTIVE");
 
     // Approving again after it is done changes nothing.
     await approveProposal(ws, id, versionHash);
@@ -169,6 +185,8 @@ describe("no duplicate actions", () => {
     expect(meta.list("campaign")).toHaveLength(1);
     expect(meta.list("adset")).toHaveLength(1);
     expect(meta.list("ad")).toHaveLength(2);
+    expect(meta.list("campaign")[0].status).toBe("PAUSED");
+    await activate(ws, id);
     expect(meta.list("campaign")[0].status).toBe("ACTIVE");
   });
 

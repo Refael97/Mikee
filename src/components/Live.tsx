@@ -130,7 +130,7 @@ export function QuickReplies({ replies, onPick }: { replies: string[]; onPick: (
           key={r}
           onClick={() => onPick(r)}
           style={{ animationDelay: `${120 + i * 70}ms` }}
-          className="rise h-9 rounded-[7px] border border-line-strong bg-surface px-3.5 text-[15px] font-semibold text-ink transition-[transform,background-color,border-color] duration-150 hover:border-ink active:translate-y-px"
+          className="rise h-8 rounded-[6px] border border-line-strong bg-surface px-3 text-[14.5px] font-medium text-ink shadow-[0_1px_1px_rgba(26,31,54,0.05)] transition-colors duration-100 hover:border-brand hover:text-brand"
         >
           {r}
         </button>

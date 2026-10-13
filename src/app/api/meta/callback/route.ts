@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { saveConnection } from "@/lib/connections";
 import { discoverAssets } from "@/lib/meta/context";
-import { exchangeCode, Graph } from "@/lib/meta/graph";
+import { exchangeCode, Graph, inspectToken } from "@/lib/meta/graph";
 
 export async function GET(req: NextRequest) {
   const base = process.env.APP_URL ?? req.nextUrl.origin;
@@ -17,8 +17,15 @@ export async function GET(req: NextRequest) {
   }
   try {
     const { token, expiresAt } = await exchangeCode(code);
+    const info = await inspectToken(token);
+    if (info && (!info.valid || info.appId !== process.env.META_APP_ID)) return NextResponse.redirect(new URL(`${back}?error=meta_wrong_app`, base));
     const { me } = await discoverAssets(new Graph(token));
-    await saveConnection(session.workspace.id, "meta", { userName: me.name, tokenExpiresAt: expiresAt }, token);
+    await saveConnection(
+      session.workspace.id,
+      "meta",
+      { userName: me.name, tokenExpiresAt: info?.expiresAt ?? expiresAt, dataAccessExpiresAt: info?.dataAccessExpiresAt, scopes: info?.scopes, appId: info?.appId },
+      token,
+    );
     const res = NextResponse.redirect(new URL(back, base));
     res.cookies.delete("meta_oauth_state");
     return res;

@@ -149,7 +149,15 @@ export async function timeline(workspaceId: string, conversationId: string): Pro
       if (found.length) proposalByToolUse.set(b.tool_use_id, found);
     }
   }
-  const ids = [...proposalByToolUse.values()].flat();
+  // Cards the platform opened itself (a campaign's activation card) are announced in event rows.
+  const fromEvents = new Map<number, string[]>();
+  for (const r of rows) {
+    if (r.kind !== "event") continue;
+    const text = (r.content as any[]).map((b) => b?.text ?? "").join("");
+    const found = [...new Set([...text.matchAll(/"proposalId":"([0-9a-f-]{36})"/g)].map((m) => m[1]))];
+    if (found.length) fromEvents.set(r.id, found);
+  }
+  const ids = [...proposalByToolUse.values(), ...fromEvents.values()].flat();
   const proposals = ids.length
     ? await d.select().from(schema.proposals).where(inArray(schema.proposals.id, ids))
     : [];
@@ -157,6 +165,13 @@ export async function timeline(workspaceId: string, conversationId: string): Pro
 
   const items: TimelineItem[] = [];
   for (const r of rows) {
+    if (r.kind === "event") {
+      for (const pid of fromEvents.get(r.id) ?? []) {
+        const p = byId.get(pid);
+        if (p) items.push({ type: "card", id: `e${r.id}-${p.id}`, proposal: cardView(p) });
+      }
+      continue;
+    }
     if (r.kind !== "chat") continue;
     const blocks = r.content as any[];
     if (r.role === "user") {

@@ -5,9 +5,11 @@ import { assertWithinBudget, BudgetExceeded, dailyCommit, syncMetaSpendCap } fro
 import { mediaGenerator } from "./higgsfield";
 import { storeFromUrl } from "./media";
 import { metaContext } from "./meta/context";
-import { applyChange, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, launchCampaign, publishPost } from "./meta/actions";
-import { finishProposal, type Proposal, saveProgress } from "./proposals";
-import { BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "./specs";
+import { activateCampaign, applyChange, buildCampaign, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild } from "./meta/actions";
+import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
+import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard } from "./specs";
+import { friendlyError } from "./errors";
+import { CTA_HE } from "./cards";
 import { mediaAllowance, recordUsage } from "./usage";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -57,14 +59,27 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         break;
       }
       case "campaign": {
+        // Step one of two: build everything paused, read it back, and put the activation card in front of
+        // the client. Nothing spends money here.
         const spec = CampaignSpec.parse(p.action);
         const ctx = await metaContext(p.workspaceId);
-        // Re-check against live numbers at execution time. A campaign switched on by an earlier attempt is
-        // already counted in Meta's figures, so it is not counted a second time.
-        if (!cp.data.activated) {
+        await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
+        const ids = await buildCampaign(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp);
+        const check = await verifyBuild(ctx, spec, ids);
+        if (!check.ok) throw new NotRetryable(`The built campaign does not match the approved card (${check.mismatches.join("; ")}). It stays paused.`);
+        const activation = await openActivation(p, spec, ids, check.review, tz, ctx.currency).catch((e) => (e instanceof ProposalConflict ? null : Promise.reject(e)));
+        result = { ...ids, built: true, paused: true, review: check.review, blockers: check.blockers, activationProposalId: activation?.id };
+        break;
+      }
+      case "activate": {
+        // Step two: the client approved going live. The budget is checked again against live numbers.
+        const spec = ActivateSpec.parse(p.action);
+        const ctx = await metaContext(p.workspaceId);
+        const live = await ctx.graph.get<{ effective_status?: string }>(`/${spec.campaignId}`, { fields: "effective_status" });
+        if (live.effective_status !== "ACTIVE") {
           await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
         }
-        result = await launchCampaign(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp);
+        result = await activateCampaign(ctx, spec);
         await syncMetaSpendCap(p.workspaceId, tz, ctx).catch(() => undefined);
         break;
       }
@@ -98,11 +113,41 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
   } catch (err) {
     const retryable = !(err instanceof NotRetryable);
     await finishProposal(p, false, {
-      error: describeError(err),
+      error: friendlyError(err),
+      detail: describeError(err),
       retryable,
       budget: err instanceof BudgetExceeded || undefined,
     });
   }
+}
+
+/** The second card of a campaign: the built, paused campaign, ready to go live with one more approval. */
+async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId: string; adsetId: string; adIds: string[] }, review: string, tz: string, currency?: string) {
+  const card = p.card as unknown as ProposalCard;
+  const action: ActivateSpec = {
+    fromProposal: p.id,
+    title: card.title,
+    campaignId: ids.campaignId,
+    adsetId: ids.adsetId,
+    adIds: ids.adIds,
+    dailyBudget: spec.dailyBudget,
+    startTime: spec.startTime,
+    endTime: spec.endTime,
+    review,
+    media: spec.ads.map((a) => ({ type: a.media.type, url: a.media.url, text: a.primaryText, headline: a.headline, cta: CTA_HE[a.cta] })),
+  };
+  const d = await db();
+  const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, p.workspaceId) });
+  return createProposal({
+    workspaceId: p.workspaceId,
+    conversationId: p.conversationId ?? undefined,
+    kind: "activate",
+    action: action as unknown as Record<string, unknown>,
+    month: p.month,
+    currency,
+    reserved: dailyCommit(spec.dailyBudget, ws?.timezone ?? tz, spec.endTime, spec.startTime),
+    clientAsked: true,
+  });
 }
 
 async function executeMedia(p: Proposal, cp: Checkpoint, tz: string) {

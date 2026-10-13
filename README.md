@@ -128,6 +128,17 @@ How it's tracked and used:
 - **No duplicates.** Approval is a single atomic status change, so a double click or two tabs produce one execution. Execution saves a checkpoint after every object it creates. A retry or a restart resumes from the checkpoint or from an object tagged with the card's ID at Meta (`mk-xxxxxxxx`). For posts, it checks before republishing whether an identical text already went out. For media, a job ID that was already sent is never sent again.
 - **No repeated suggestions.** Only one card can wait per topic (a unique index in the database). A suggestion the client declined doesn't come back for a week unless she asks.
 
+### A campaign goes live in two approvals (`src/lib/executor.ts`, `src/lib/meta/actions.ts`)
+Following the Meta developer handoff (section 7):
+1. **Building.** The campaign card is approved, and Mikee builds the campaign, the ad set, the creatives and the ads. **Every object is created paused**, and each ID is saved as soon as it is returned.
+2. **Read-back.** The platform reads everything back from Meta and compares it with the approval: budget in minor units, dates, nothing live, and every ad present. It also reports Meta's review status in plain language. A mismatch stops the process, and everything stays paused.
+3. **Activation card.** The platform opens it by itself in the same conversation and reserves its budget. Only approving this card switches things on (ads, then the ad set, then the campaign), after another budget check against live numbers.
+4. **When the card is declined:** the campaign stays built and paused and is never deleted.
+
+The model has no tool to create or approve an activation. Errors are shown to the client in plain Hebrew (`src/lib/errors.ts`), including the case of an app in development mode (subcode 1885183). The technical detail is stored separately for Mikee and the admin.
+
+**Verifying the Meta token:** with `META_APP_ID` and `META_APP_SECRET`, every token (whether from login or pasted in) is checked with `debug_token`. It must come from the MIKEE app, not from an old app such as simpleAd, and it must be valid. The permissions it carries and its expiry are stored, and settings shows any missing permissions. Instant forms are created with the page's own token.
+
 ### Monthly budget (`src/lib/budget.ts`)
 The calculation is a projection. The policy:
 - **spent:** what Meta reports for this month. Today is always counted as a full day, which covers the lag in Meta's reporting.
@@ -156,7 +167,7 @@ Simple sentences, each with a source (client / website / store / results / Mikee
 npm test
 ```
 
-105 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
+111 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
 - `tests/approvals.test.ts`: tool classification and blocking, the version-bound approval, five simultaneous approvals → one campaign, a failure mid-run and retry without duplicates, adopting an orphaned campaign after a crash, a post retry only on the channel that failed, blocking repeated suggestions.
 - `tests/budget.test.ts`: the projection (scheduled, paused, external changes), the ceiling, reservations for pending cards, the check at execution time, increases, and the hard ceiling at Meta.
 - `tests/team.test.ts`: tool permissions per role (Mikee doesn't build or publish himself; each specialist only gets its own tools; no further delegation), a full delegation flow (brief, tools, card reaches the client, the team stays invisible), parallel tasks, and a specialist failure.

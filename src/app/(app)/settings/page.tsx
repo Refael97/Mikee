@@ -19,10 +19,10 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
     const c = s.currency;
     return (
       <div className="mt-6">
-        <div className="flex h-2 overflow-hidden bg-line">
-          <div className="bg-ink" style={{ width: pct(s.spent) }} />
-          <div className="bg-ink/40" style={{ width: pct(s.committed + s.buffer) }} />
-          <div className="bg-brand/40" style={{ width: pct(s.reserved) }} />
+        <div className="flex h-2 overflow-hidden rounded-full bg-surface-2">
+          <div className="bg-brand" style={{ width: pct(s.spent) }} />
+          <div className="bg-brand/45" style={{ width: pct(s.committed + s.buffer) }} />
+          <div className="bg-brand/20" style={{ width: pct(s.reserved) }} />
         </div>
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[15px] text-ink-2">
           <span>הושקעו {money(s.spent, c)}</span>
@@ -59,9 +59,9 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
       </label>
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="space-y-1.5">
-          <span className="text-[15px] text-ink-2">שימוש של מייקי בחודש ($)</span>
+          <span className="text-[15px] text-ink-2">שימוש של מייקי ($)</span>
           <input name="aiMonthlyLimitUsd" inputMode="decimal" defaultValue={Math.min(settings.aiMonthlyLimitUsd, plan.aiUsd)} className="field" />
-          <span className="text-[13px] text-ink-3">החודש: ${ai.toFixed(2)} · עד ${plan.aiUsd} במנוי</span>
+          <span className="text-[13px] text-ink-3">החודש: ${ai.toFixed(2)} · עד ${plan.aiUsd} במנוי. החיוב על החשיבה של מייקי הוא בדולרים, בנפרד מתקציב הפרסום בשקלים.</span>
         </label>
         <label className="space-y-1.5">
           <span className="text-[15px] text-ink-2">קרדיטים ליצירת מדיה בחודש</span>
@@ -83,6 +83,7 @@ const ERRORS: Record<string, string> = {
   meta_cancelled: "החיבור לפייסבוק בוטל או פג. נסי שוב.",
   meta_failed: "החיבור לפייסבוק נכשל. נסי שוב, ואם זה חוזר כתבי לנו בעזרה.",
   meta_token: "מפתח הגישה לא עבד. בדקי שהעתקת אותו במלואו.",
+  meta_wrong_app: "המפתח שייך לאפליקציית מטא אחרת (למשל אפליקציה ישנה), או שהוא כבר לא תקף. צריך מפתח שהונפק דרך אפליקציית MIKEE.",
   bad_website: "כתובת האתר לא תקינה.",
   bad_store: "כתובת החנות לא תקינה. ב־Shopify זו הכתובת שנגמרת ב־myshopify.com.",
   drive_unavailable: "החיבור לגוגל דרייב עוד לא זמין בחשבון הזה.",
@@ -95,33 +96,33 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
   const live = CONNECTORS.filter((c) => c.status === "live");
   const soon = CONNECTORS.filter((c) => c.status === "soon");
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       <div>
-        <h3 className="text-[18px] font-semibold">פייסבוק ואינסטגרם</h3>
-        <p className="mb-4 text-[15px] text-ink-2">{live[0].does}</p>
+        <h3 className="font-semibold">פייסבוק ואינסטגרם</h3>
+        <p className="mb-4 text-[14px] text-ink-2">{live[0].does}</p>
         <div className="space-y-6">
           <MetaConnect workspaceId={workspaceId} />
           {meta?.secret && (
             <>
               <MetaAssets workspaceId={workspaceId} businessName={businessName} />
               <form action={disconnectMeta}>
-                <button className="text-[15px] font-semibold text-bad underline-offset-4 hover:underline">ניתוק</button>
+                <button className="btn btn-danger btn-sm">ניתוק</button>
               </form>
             </>
           )}
         </div>
       </div>
 
-      <div className="border-t border-line pt-8">
-        <h3 className="text-[18px] font-semibold">האתר והחנות</h3>
-        <p className="mb-4 text-[15px] text-ink-2">מייקי קורא את האתר, המוצרים, ההזמנות והמלאי</p>
+      <div className="border-t border-line pt-6">
+        <h3 className="font-semibold">האתר והחנות</h3>
+        <p className="mb-4 text-[14px] text-ink-2">מייקי קורא את האתר, המוצרים, ההזמנות והמלאי</p>
         <WebsiteStore workspaceId={workspaceId} />
       </div>
 
-      <div className="border-t border-line pt-8">
+      <div className="border-t border-line pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h3 className="text-[18px] font-semibold">גוגל דרייב</h3>
+            <h3 className="font-semibold">גוגל דרייב</h3>
             <p className="text-[15px] text-ink-2">ייבוא תמונות וסרטונים לספרייה. מייקי רואה רק את הקבצים שבוחרים.</p>
           </div>
           {!driveConfigured() ? (
@@ -130,7 +131,7 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
             <div className="flex items-center gap-4">
               <span className="tag tag-good">מחובר{(drive.config as { email?: string }).email ? ` · ${(drive.config as { email?: string }).email}` : ""}</span>
               <form action={disconnectDrive}>
-                <button className="text-[15px] font-semibold text-bad underline-offset-4 hover:underline">ניתוק</button>
+                <button className="btn btn-danger btn-sm">ניתוק</button>
               </form>
             </div>
           ) : (
@@ -141,8 +142,8 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
         </div>
       </div>
 
-      <div className="border-t border-line pt-8">
-        <h3 className="text-[18px] font-semibold">בקרוב</h3>
+      <div className="border-t border-line pt-6">
+        <h3 className="font-semibold">בקרוב</h3>
         <p className="text-[15px] text-ink-2">חיבורים שאנחנו בונים עכשיו. רוצה אחד מהם קודם? ספרי לנו דרך העזרה.</p>
         <ul className="mt-4 grid gap-x-8 sm:grid-cols-2">
           {soon.map((c) => (
@@ -165,15 +166,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { error } = await searchParams;
   return (
     <Page>
-      <PageHeader
-        kicker="הכללים והחיבורים"
-        title={
-          <>
-            הגדרות <span className="marked">וחיבורים</span>
-          </>
-        }
-        lead="התקציב, המגבלות, וכל מה שמחובר למייקי."
-      />
+      <PageHeader title="הגדרות" lead="התקציב, המגבלות, וכל מה שמחובר למייקי." />
       {error && ERRORS[error] && <p className="note note-warn mb-6">{ERRORS[error]}</p>}
 
       <Section id="budget" title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">

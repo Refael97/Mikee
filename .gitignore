@@ -6,3 +6,11 @@ node_modules
 next-env.d.ts
 *.tsbuildinfo
 public/demo
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+
+# impeccable working files
+.impeccable/review/
+.impeccable/questions/
+.impeccable/mocks/
+.claude/skills/huashu-design/assets/*.mp3

@@ -17,6 +17,11 @@ export type MetaConfig = {
   pixelId?: string;
   catalogId?: string;
   tokenExpiresAt?: string | null;
+  dataAccessExpiresAt?: string | null;
+  /** Permissions the token actually carries (from Meta's token inspection). */
+  scopes?: string[];
+  appId?: string;
+  tokenType?: string;
 };
 
 export type WebsiteConfig = { url?: string; platform?: "shopify" | "woocommerce" | "other" };

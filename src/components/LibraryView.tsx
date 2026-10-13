@@ -148,25 +148,20 @@ export function LibraryView({
       className="relative"
     >
       <PageHeader
-        kicker="התמונות והסרטונים של העסק"
-        title={
-          <>
-            <span className="marked">ספריית</span> התוכן
-          </>
-        }
-        lead="מייקי מחפש כאן קודם, לפני שהוא יוצר משהו חדש. כל תמונה מקבלת תיאור קצר כדי שיהיה אפשר למצוא אותה לפי מה שרואים בה."
+        title="ספרייה"
+        lead="התמונות והסרטונים של העסק. מייקי מחפש כאן לפני שהוא יוצר משהו חדש, ומוצא כל תמונה לפי מה שרואים בה."
         action={
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => fileInput.current?.click()} className="btn btn-primary">
+            <button onClick={() => fileInput.current?.click()} className="btn btn-primary btn-sm">
               <Upload className="h-4 w-4" strokeWidth={2} /> העלאה
             </button>
             {drive.available &&
               (drive.connected ? (
-                <button onClick={pickFromDrive} className="btn btn-quiet">
+                <button onClick={pickFromDrive} className="btn btn-quiet btn-sm">
                   <FolderInput className="h-4 w-4" strokeWidth={1.8} /> מגוגל דרייב
                 </button>
               ) : (
-                <a href="/api/google/connect" className="btn btn-quiet">
+                <a href="/api/google/connect" className="btn btn-quiet btn-sm">
                   <FolderInput className="h-4 w-4" strokeWidth={1.8} /> לחבר את גוגל דרייב
                 </a>
               ))}
@@ -175,21 +170,25 @@ export function LibraryView({
         }
       />
 
-      <div className="rise flex flex-wrap items-center gap-x-6 gap-y-3 border-y border-line py-3">
-        <label className="flex min-w-48 flex-1 items-center gap-2">
-          <Search className="h-4 w-4 text-ink-3" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות" className="w-full bg-transparent py-1 outline-none placeholder:text-ink-3" />
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="relative min-w-56 flex-1">
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" strokeWidth={1.75} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות" className="field ps-9" />
         </label>
-        <div className="flex gap-4 text-[15px] font-semibold">
+        <div className="inline-flex rounded-[6px] border border-line-strong bg-surface-2 p-0.5">
           {([["", "הכל"], ["image", "תמונות"], ["video", "סרטונים"]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setKind(k)} className={kind === k ? "text-ink underline decoration-2 underline-offset-[10px]" : "text-ink-3 hover:text-ink"}>
+            <button
+              key={k}
+              onClick={() => setKind(k)}
+              className={`flex h-7 items-center rounded-[5px] px-3 text-[14px] font-medium ${kind === k ? "bg-surface text-ink shadow-[0_1px_2px_rgba(26,31,54,0.12)]" : "text-ink-2 hover:text-ink"}`}
+            >
               {l}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 text-[13.5px] text-ink-3">
-          <span className="relative h-1 w-24 overflow-hidden bg-line">
-            <span className={`absolute inset-y-0 start-0 ${pct > 90 ? "bg-bad" : "bg-ink"}`} style={{ width: `${pct}%` }} />
+        <div className="flex items-center gap-2.5 text-[13px] text-ink-3" title="אחסון בספרייה">
+          <span className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-2">
+            <span className={`block h-full rounded-full ${pct > 90 ? "bg-bad" : "bg-brand"}`} style={{ width: `${pct}%` }} />
           </span>
           <span className="num">
             {size(usage.used)} מתוך {size(usage.limit)}
@@ -203,7 +202,7 @@ export function LibraryView({
             <button
               key={f.name || "all"}
               onClick={() => setFolder(f.name)}
-              className={`rounded-[6px] border px-2.5 py-1 font-semibold ${folder === f.name ? "border-ink bg-ink text-bg" : "border-line-strong text-ink-2 hover:text-ink"}`}
+              className={`h-7 rounded-[6px] border px-2.5 font-medium ${folder === f.name ? "border-brand bg-brand-tint text-brand" : "border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
             >
               {f.name || "כל התיקיות"}
               {f.count ? <span className="num ms-1.5 font-normal opacity-70">{f.count}</span> : null}
@@ -215,25 +214,25 @@ export function LibraryView({
       {notice && <p className="note mt-5 text-[15px]">{notice}</p>}
 
       {items.length === 0 && pending.length === 0 ? (
-        <div className="mt-10 flex flex-col items-start gap-3 border border-dashed border-line-strong px-6 py-14">
+        <div className="mt-6 flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-line-strong px-6 py-14 text-center">
           <span className="h2">{q || kind || folder ? "לא מצאתי משהו כזה" : "הספרייה עוד ריקה"}</span>
           <p className="max-w-lg text-ink-2">
             {q || kind || folder ? "נסי מילה אחרת, או לנקות את הסינון." : "גוררים לכאן תמונות וסרטונים של המוצרים, החנות, הצוות והלקוחות. ככל שיש יותר תוכן אמיתי, המודעות טובות יותר."}
           </p>
         </div>
       ) : (
-        <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
           {pending.map((p) => (
             <li key={p.localId}>
-              <div className={`relative aspect-square overflow-hidden rounded-[6px] ${p.error ? "border border-bad bg-bad-tint" : "dot-grid bg-surface-2"}`}>
+              <div className={`relative aspect-square overflow-hidden rounded-[8px] ${p.error ? "border border-bad bg-bad-tint" : "dot-grid bg-surface-2"}`}>
                 {!p.error && <div className="dot-grid-lit absolute inset-0" />}
               </div>
-              <p className={`mt-2 truncate text-[14px] ${p.error ? "text-bad" : "shimmer font-semibold"}`}>{p.error ?? `מעלה את ${p.name}`}</p>
+              <p className={`mt-2 truncate text-[14px] ${p.error ? "text-bad" : "shimmer font-medium"}`}>{p.error ?? `מעלה את ${p.name}`}</p>
             </li>
           ))}
           {items.map((m) => (
-            <li key={m.id} className="group rise">
-              <a href={m.url} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden rounded-[6px] border border-line bg-surface-2">
+            <li key={m.id} className="group rise card overflow-hidden">
+              <a href={m.url} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden border-b border-line bg-surface-2">
                 {m.kind === "video" ? (
                   <>
                     <video src={m.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
@@ -246,16 +245,16 @@ export function LibraryView({
                   <img src={m.url} alt={m.description ?? m.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
                 )}
               </a>
-              <div className="mt-2 flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-2 px-3 pt-2.5">
                 <div className="min-w-0">
-                  <p className="truncate text-[14px] font-semibold">{m.name}</p>
+                  <p className="truncate text-[14px] font-medium">{m.name}</p>
                   <p className="line-clamp-2 text-[13px] leading-snug text-ink-3">{m.description ?? (m.kind === "image" ? "מייקי עוד לא תיאר את התמונה" : m.source === "higgsfield" ? "נוצר על ידי מייקי" : "")}</p>
                 </div>
                 <button onClick={() => remove(m.id)} aria-label="מחיקה" className="shrink-0 rounded-[5px] p-1 text-ink-3 opacity-0 transition-opacity hover:bg-bad-tint hover:text-bad group-hover:opacity-100 max-lg:opacity-100">
                   <Trash2 className="h-4 w-4" strokeWidth={1.8} />
                 </button>
               </div>
-              <Link href={`/mikee?q=${encodeURIComponent(`בוא נשתמש בקובץ "${m.name}" מהספרייה`)}`} className="mt-1 inline-block text-[13px] text-ink-2 underline decoration-line-strong underline-offset-4 hover:text-ink">
+              <Link href={`/mikee?q=${encodeURIComponent(`בוא נשתמש בקובץ "${m.name}" מהספרייה`)}`} className="link mx-3 mb-3 mt-1.5 inline-block text-[13.5px]">
                 להשתמש עם מייקי
               </Link>
             </li>
@@ -264,8 +263,8 @@ export function LibraryView({
       )}
 
       {dragging && (
-        <div className="pointer-events-none fixed inset-4 z-50 flex items-center justify-center rounded-[12px] border-2 border-dashed border-ink bg-bg/85">
-          <span className="serif text-[34px]">לשחרר כאן כדי להוסיף לספרייה</span>
+        <div className="pointer-events-none fixed inset-4 z-50 flex items-center justify-center rounded-[10px] border-2 border-dashed border-brand bg-bg/90">
+          <span className="title">לשחרר כאן כדי להוסיף לספרייה</span>
         </div>
       )}
     </div>

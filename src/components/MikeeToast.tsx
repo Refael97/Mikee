@@ -74,10 +74,10 @@ export function MikeeToast() {
 
   if (!note) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-[76px] z-50 flex justify-center px-5 sm:justify-end">
+    <div className={`pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 lg:justify-end lg:px-6 ${path.startsWith("/mikee") ? "bottom-[150px] lg:bottom-[150px]" : "bottom-4 lg:bottom-6"}`}>
       <div
         role="status"
-        className={`pointer-events-auto flex w-full max-w-[380px] items-start gap-3 rounded-[10px] border border-line-strong bg-surface p-4 pe-2 shadow-[var(--shadow-float)] ${leaving ? "toast-out" : "toast-in"}`}
+        className={`pointer-events-auto flex w-full max-w-[380px] items-start gap-3 rounded-[8px] bg-surface p-3.5 pe-2 shadow-[0_0_0_1px_rgba(26,31,54,0.08),var(--shadow-float)] ${leaving ? "toast-out" : "toast-in"}`}
       >
         <button
           onClick={() => {
@@ -86,7 +86,7 @@ export function MikeeToast() {
           }}
           className="flex min-w-0 flex-1 items-start gap-3 text-start"
         >
-          <span className="orb mt-0.5 w-8 shrink-0" aria-hidden />
+          <span className="orb mt-0.5 w-7 shrink-0" aria-hidden />
           <span className="min-w-0">
             <span className="flex items-center gap-2 text-[14px] font-semibold">
               מייקי כתב לך

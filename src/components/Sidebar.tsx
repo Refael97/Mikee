@@ -85,42 +85,42 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         onClick={onClose}
       />
       <aside
-        className={`fixed inset-y-0 start-0 z-50 flex w-[300px] flex-col border-e border-line bg-bg p-4 transition-transform duration-[380ms] ease-[var(--ease)] lg:sticky lg:top-16 lg:z-0 lg:h-[calc(100dvh-64px)] lg:w-[280px] lg:translate-x-0 lg:px-4 lg:pt-6 ${
+        className={`fixed inset-y-0 start-0 z-50 flex w-[288px] flex-col border-e border-line bg-surface p-3 transition-transform duration-300 ease-[var(--ease)] lg:sticky lg:top-0 lg:z-0 lg:h-dvh lg:w-[264px] lg:translate-x-0 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="mb-3 flex items-center gap-2 lg:hidden">
-          <span className="serif text-[22px]">שיחות</span>
+          <span className="text-[16px] font-semibold">שיחות</span>
           <button onClick={onClose} aria-label="סגירה" className="btn btn-ghost btn-sm ms-auto px-2">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <Link href="/mikee" onClick={onClose} className="btn btn-primary btn-sm w-full justify-start">
+        <Link href="/mikee" onClick={onClose} className="btn btn-primary btn-sm w-full">
           <Plus className="h-4 w-4" strokeWidth={2.2} />
           שיחה חדשה
         </Link>
 
-        <label className="mt-3 flex h-9 items-center gap-2 border-b border-line-strong px-1 focus-within:border-ink">
-          <Search className="h-4 w-4 text-ink-3" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-3" />
+        <label className="relative mt-2.5 block">
+          <Search className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" strokeWidth={1.75} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="field h-8 ps-8 text-[14px]" />
         </label>
 
-        <nav className="no-scrollbar -mx-1 mt-4 flex-1 overflow-y-auto px-1 pb-6">
+        <nav className="-mx-1 mt-3 flex-1 overflow-y-auto px-1 pb-6">
           {items === null && <p className="px-2 text-[14px] text-ink-3">טוען…</p>}
           {items?.length === 0 && <p className="px-2 text-[14px] leading-relaxed text-ink-3">כאן יופיעו השיחות שלך, מסודרות לפי נושא.</p>}
           {groups.map(({ cat, list }) => {
             const { title } = CATEGORY_UI[cat];
             const isCollapsed = collapsed[cat];
             return (
-              <section key={cat} className="mb-5">
+              <section key={cat} className="mb-3">
                 <button
                   onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))}
-                  className="flex w-full items-center gap-2 px-1 py-1.5 text-[13px] font-semibold text-ink-3 hover:text-ink"
+                  className="flex w-full items-center gap-1.5 px-2 py-1 text-[12.5px] font-medium text-ink-3 hover:text-ink"
                 >
                   {title}
                   <span className="num font-normal">{list.length}</span>
-                  <ChevronDown className={`ms-auto h-4 w-4 text-ink-3 transition-transform duration-300 ${isCollapsed ? "rotate-90" : ""}`} />
+                  <ChevronDown className={`ms-auto h-3.5 w-3.5 text-ink-3 transition-transform duration-200 ${isCollapsed ? "rotate-90" : ""}`} strokeWidth={1.75} />
                 </button>
                 {!isCollapsed && (
                   <ul className="mt-1 space-y-0.5">
@@ -131,13 +131,13 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                           <Link
                             href={`/mikee/${c.id}`}
                             onClick={onClose}
-                            className={`flex h-9 items-center gap-2 rounded-[6px] pe-9 ps-2.5 transition-colors duration-150 ${
-                              active ? "bg-surface text-ink shadow-[inset_0_0_0_1px_var(--line)]" : "text-ink-2 hover:bg-surface/60 hover:text-ink"
+                            className={`flex h-8 items-center gap-2 rounded-[6px] pe-8 ps-2 transition-colors duration-100 ${
+                              active ? "bg-brand-tint text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                             }`}
                           >
                             {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="חדש" />}
-                            <span className={`min-w-0 flex-1 truncate text-[15px] ${active || c.unread ? "font-semibold text-ink" : ""}`}>{c.title}</span>
-                            <span className="num shrink-0 text-[12.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
+                            <span className={`min-w-0 flex-1 truncate text-[14.5px] ${active ? "font-medium" : c.unread ? "font-semibold text-ink" : ""}`}>{c.title}</span>
+                            <span className="num shrink-0 text-[12px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
                           </Link>
                           <button
                             aria-label="אפשרויות"

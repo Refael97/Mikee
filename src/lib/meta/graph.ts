@@ -165,3 +165,28 @@ export async function exchangeCode(code: string): Promise<{ token: string; expir
   const expiresIn = long.expires_in ?? short.expires_in;
   return { token, expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null };
 }
+
+export type TokenInfo = { appId: string; valid: boolean; scopes: string[]; expiresAt: string | null; dataAccessExpiresAt: string | null; type?: string };
+
+/**
+ * Checks what a token really is, with the app's own credentials: which app issued it, whether it is valid,
+ * its scopes and expiry. A token belongs to the app that issued it; one from an older app (or a test app)
+ * is refused instead of failing later in the middle of a campaign.
+ */
+export async function inspectToken(token: string): Promise<TokenInfo | null> {
+  const appId = process.env.META_APP_ID;
+  const secret = process.env.META_APP_SECRET;
+  if (!appId || !secret) return null;
+  const res = await fetch(`${BASE}/debug_token?${new URLSearchParams({ input_token: token })}`, {
+    headers: { Authorization: `Bearer ${appId}|${secret}` },
+    cache: "no-store",
+  });
+  const json = (await res.json().catch(() => ({}))) as { data?: { app_id?: string; is_valid?: boolean; scopes?: string[]; expires_at?: number; data_access_expires_at?: number; type?: string } };
+  const d = json.data;
+  if (!d) throw new MetaError("Could not inspect the token");
+  const when = (s?: number) => (s ? new Date(s * 1000).toISOString() : null);
+  return { appId: String(d.app_id ?? ""), valid: !!d.is_valid, scopes: d.scopes ?? [], expiresAt: when(d.expires_at), dataAccessExpiresAt: when(d.data_access_expires_at), type: d.type };
+}
+
+/** The permissions Mikee's features rely on; the settings page shows which of them the token lacks. */
+export const NEEDED_SCOPES = ["ads_read", "ads_management", "pages_show_list", "pages_read_engagement", "pages_manage_ads", "pages_manage_posts", "business_management", "instagram_basic", "instagram_content_publish", "instagram_manage_insights", "leads_retrieval"];

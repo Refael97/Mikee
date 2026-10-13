@@ -151,12 +151,12 @@ async function findTagged(ctx: MetaContext, edge: string, tag: string): Promise<
 }
 
 /**
- * Builds campaign -> ad set -> creatives -> ads, saving each id as it goes, and switches the campaign on
- * last. A retry (after a failure or a restart) resumes from the saved ids or from objects tagged with the
- * proposal's tag, so it never creates a second campaign or a second copy of an ad. Until the final step
- * the campaign is paused and spends nothing.
+ * Builds campaign -> ad set -> creatives -> ads, every object PAUSED, saving each id as it goes. It never
+ * switches anything on: going live is a separate card the client approves after the build was read back.
+ * A retry (after a failure or a restart) resumes from the saved ids or from objects tagged with the
+ * proposal's tag, so it never creates a second campaign or a second copy of an ad.
  */
-export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint): Promise<LaunchResult> {
+export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint): Promise<LaunchResult> {
   const account = requireAdAccount(ctx);
   const currency = ctx.currency ?? "ILS";
   const name = `Mikee · ${spec.title.replace(/[^\p{L}\p{N} ]/gu, "").trim()} · ${tag}`;
@@ -186,7 +186,7 @@ export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec, tag: 
       targeting: targeting(spec),
       start_time: spec.startTime,
       end_time: spec.endTime,
-      status: "ACTIVE",
+      status: "PAUSED",
       ...optimization(ctx, spec),
     }));
   }
@@ -205,21 +205,77 @@ export async function launchCampaign(ctx: MetaContext, spec: CampaignSpec, tag: 
         name: adName,
         adset_id: adsetId,
         creative: { creative_id: creativeId },
-        status: "ACTIVE",
+        status: "PAUSED",
       });
       ads[i] = id;
     }
     await cp.save({ ads });
   }
 
-  await ctx.graph.post(`/${campaignId}`, { status: "ACTIVE" });
-  await cp.save({ activated: true });
   return { campaignId: campaignId!, adsetId: adsetId!, adIds: Object.values(ads) };
+}
+
+export type BuildCheck = { ok: boolean; mismatches: string[]; review: string; blockers: string[] };
+
+const REVIEW_HE: Record<string, string> = {
+  PENDING_REVIEW: "בבדיקה של מטא",
+  IN_PROCESS: "בעיבוד",
+  DISAPPROVED: "נדחתה",
+  WITH_ISSUES: "עם בעיה",
+  PAUSED: "מוכנה",
+  CAMPAIGN_PAUSED: "מוכנה",
+  ADSET_PAUSED: "מוכנה",
+  ACTIVE: "מוכנה",
+};
+
+/**
+ * Reads the built campaign back from Meta and compares it with what the client approved: budget, dates,
+ * that nothing is live, and every ad present. Also reports Meta's review state in plain words, with the
+ * reason for any rejected ad. Meta's review is not guaranteed to pass, so this is said, never assumed.
+ */
+export async function verifyBuild(ctx: MetaContext, spec: CampaignSpec, ids: LaunchResult): Promise<BuildCheck> {
+  const currency = ctx.currency ?? "ILS";
+  const mismatches: string[] = [];
+  const blockers: string[] = [];
+  const campaign = await ctx.graph.get<{ status?: string; effective_status?: string }>(`/${ids.campaignId}`, { fields: "status,effective_status" });
+  if (campaign.status && campaign.status !== "PAUSED") mismatches.push(`campaign status is ${campaign.status}, expected PAUSED`);
+  const adset = await ctx.graph.get<{ daily_budget?: string; end_time?: string; status?: string }>(`/${ids.adsetId}`, { fields: "daily_budget,end_time,status" });
+  if (adset.daily_budget != null && Number(adset.daily_budget) !== toMinor(spec.dailyBudget, currency)) {
+    mismatches.push(`daily budget is ${toMajor(adset.daily_budget, currency)}, approved ${spec.dailyBudget}`);
+  }
+  if (spec.endTime && adset.end_time && Math.abs(new Date(adset.end_time).getTime() - new Date(spec.endTime).getTime()) > 60_000) {
+    mismatches.push(`end date is ${adset.end_time}, approved ${spec.endTime}`);
+  }
+  if (ids.adIds.length !== spec.ads.length) mismatches.push(`${ids.adIds.length} ads exist, ${spec.ads.length} were approved`);
+  const states: string[] = [];
+  for (const id of ids.adIds) {
+    const ad = await ctx.graph
+      .get<{ effective_status?: string; ad_review_feedback?: Record<string, unknown> }>(`/${id}`, { fields: "effective_status,ad_review_feedback" })
+      .catch(() => ({}) as { effective_status?: string; ad_review_feedback?: Record<string, unknown> });
+    states.push(ad.effective_status ?? "UNKNOWN");
+    if (ad.effective_status === "DISAPPROVED" || ad.effective_status === "WITH_ISSUES") {
+      blockers.push(JSON.stringify(ad.ad_review_feedback ?? {}).slice(0, 300));
+    }
+  }
+  const counts = states.reduce<Record<string, number>>((m, x) => ((m[REVIEW_HE[x] ?? "מוכנה"] = (m[REVIEW_HE[x] ?? "מוכנה"] ?? 0) + 1), m), {});
+  const review =
+    Object.entries(counts)
+      .map(([k, n]) => `${n} ${n === 1 ? "מודעה" : "מודעות"} ${k}`)
+      .join(", ") + ". מטא בודקת כל מודעה לפני שהיא מוצגת, ואישור שלה לא מובטח.";
+  return { ok: mismatches.length === 0, mismatches, review, blockers };
+}
+
+/** Switches a built campaign on: ads, then the ad set, then the campaign. Safe to run twice. */
+export async function activateCampaign(ctx: MetaContext, ids: { campaignId: string; adsetId: string; adIds: string[] }) {
+  for (const id of ids.adIds) await ctx.graph.post(`/${id}`, { status: "ACTIVE" });
+  await ctx.graph.post(`/${ids.adsetId}`, { status: "ACTIVE" });
+  await ctx.graph.post(`/${ids.campaignId}`, { status: "ACTIVE" });
+  return { activated: true, campaignId: ids.campaignId };
 }
 
 /** Removes a paused, half-built campaign when the client cancels a failed launch. */
 export async function cleanupLaunch(ctx: MetaContext, cp: Checkpoint) {
-  if (cp.data.campaignId && !cp.data.activated) {
+  if (cp.data.campaignId) {
     await ctx.graph.delete(`/${cp.data.campaignId}`).catch(() => undefined);
     await cp.save({ campaignId: null, adsetId: null, ads: {} });
   }

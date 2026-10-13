@@ -1,0 +1,653 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T21:30:41+00:00",
+  "title": "Design System: Mikee",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "לבן עבודה",
+        "canonical": "oklch(100% 0 0)",
+        "dark": "#12141c",
+        "cssVar": "--bg",
+        "tonalRamp": [
+          "oklch(15% 0.003 264.5)",
+          "oklch(27% 0.003 264.5)",
+          "oklch(39% 0.003 264.5)",
+          "oklch(51% 0.003 264.5)",
+          "oklch(63% 0.003 264.5)",
+          "oklch(75% 0.003 264.5)",
+          "oklch(86% 0.003 264.5)",
+          "oklch(95% 0.003 264.5)"
+        ]
+      },
+      "shell": {
+        "role": "neutral",
+        "displayName": "מעטפת קרירה",
+        "canonical": "oklch(97.9% 0.003 264.5)",
+        "dark": "#0d0f15",
+        "cssVar": "--shell",
+        "tonalRamp": [
+          "oklch(15% 0.003 264.5)",
+          "oklch(27% 0.003 264.5)",
+          "oklch(39% 0.003 264.5)",
+          "oklch(51% 0.003 264.5)",
+          "oklch(63% 0.003 264.5)",
+          "oklch(75% 0.003 264.5)",
+          "oklch(86% 0.003 264.5)",
+          "oklch(95% 0.003 264.5)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "משטח",
+        "canonical": "oklch(100% 0 0)",
+        "dark": "#171a23",
+        "cssVar": "--surface",
+        "tonalRamp": [
+          "oklch(15% 0.003 264.5)",
+          "oklch(27% 0.003 264.5)",
+          "oklch(39% 0.003 264.5)",
+          "oklch(51% 0.003 264.5)",
+          "oklch(63% 0.003 264.5)",
+          "oklch(75% 0.003 264.5)",
+          "oklch(86% 0.003 264.5)",
+          "oklch(95% 0.003 264.5)"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "משטח משני",
+        "canonical": "oklch(97.3% 0.003 264.5)",
+        "dark": "#1e2230",
+        "cssVar": "--surface-2",
+        "tonalRamp": [
+          "oklch(15% 0.003 264.5)",
+          "oklch(27% 0.003 264.5)",
+          "oklch(39% 0.003 264.5)",
+          "oklch(51% 0.003 264.5)",
+          "oklch(63% 0.003 264.5)",
+          "oklch(75% 0.003 264.5)",
+          "oklch(86% 0.003 264.5)",
+          "oklch(95% 0.003 264.5)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "דיו",
+        "canonical": "oklch(24.7% 0.044 273.4)",
+        "dark": "#eef0f5",
+        "cssVar": "--ink",
+        "tonalRamp": [
+          "oklch(15% 0.044 273.4)",
+          "oklch(27% 0.044 273.4)",
+          "oklch(39% 0.044 273.4)",
+          "oklch(51% 0.044 273.4)",
+          "oklch(63% 0.044 273.4)",
+          "oklch(75% 0.044 273.4)",
+          "oklch(86% 0.035 273.4)",
+          "oklch(95% 0.030 273.4)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "דיו משני",
+        "canonical": "oklch(46.6% 0.027 271.6)",
+        "dark": "#a8afc0",
+        "cssVar": "--ink-2",
+        "tonalRamp": [
+          "oklch(15% 0.027 271.6)",
+          "oklch(27% 0.027 271.6)",
+          "oklch(39% 0.027 271.6)",
+          "oklch(51% 0.027 271.6)",
+          "oklch(63% 0.027 271.6)",
+          "oklch(75% 0.027 271.6)",
+          "oklch(86% 0.027 271.6)",
+          "oklch(95% 0.027 271.6)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "דיו חלש",
+        "canonical": "oklch(65.6% 0.027 257.7)",
+        "dark": "#6e778a",
+        "cssVar": "--ink-3",
+        "tonalRamp": [
+          "oklch(15% 0.027 257.7)",
+          "oklch(27% 0.027 257.7)",
+          "oklch(39% 0.027 257.7)",
+          "oklch(51% 0.027 257.7)",
+          "oklch(63% 0.027 257.7)",
+          "oklch(75% 0.027 257.7)",
+          "oklch(86% 0.027 257.7)",
+          "oklch(95% 0.027 257.7)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "קו שיער",
+        "canonical": "oklch(94.8% 0.005 247.9)",
+        "dark": "#262b39",
+        "cssVar": "--line",
+        "tonalRamp": [
+          "oklch(15% 0.011 247.9)",
+          "oklch(27% 0.011 247.9)",
+          "oklch(39% 0.011 247.9)",
+          "oklch(51% 0.011 247.9)",
+          "oklch(63% 0.011 247.9)",
+          "oklch(75% 0.011 247.9)",
+          "oklch(86% 0.011 247.9)",
+          "oklch(95% 0.011 247.9)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "קו חזק",
+        "canonical": "oklch(88.9% 0.011 247.9)",
+        "dark": "#353b4d",
+        "cssVar": "--line-strong",
+        "tonalRamp": [
+          "oklch(15% 0.011 247.9)",
+          "oklch(27% 0.011 247.9)",
+          "oklch(39% 0.011 247.9)",
+          "oklch(51% 0.011 247.9)",
+          "oklch(63% 0.011 247.9)",
+          "oklch(75% 0.011 247.9)",
+          "oklch(86% 0.011 247.9)",
+          "oklch(95% 0.011 247.9)"
+        ]
+      },
+      "brand": {
+        "role": "primary",
+        "displayName": "סגול מייקי",
+        "canonical": "oklch(49.3% 0.232 277.0)",
+        "dark": "#8b84ff",
+        "cssVar": "--brand",
+        "tonalRamp": [
+          "oklch(15% 0.232 277.0)",
+          "oklch(27% 0.232 277.0)",
+          "oklch(39% 0.232 277.0)",
+          "oklch(51% 0.232 277.0)",
+          "oklch(63% 0.232 277.0)",
+          "oklch(75% 0.232 277.0)",
+          "oklch(86% 0.056 277.0)",
+          "oklch(95% 0.030 277.0)"
+        ]
+      },
+      "brand-hover": {
+        "role": "primary",
+        "displayName": "סגול מייקי עמוק",
+        "canonical": "oklch(44.0% 0.213 276.4)",
+        "dark": "#a29cff",
+        "cssVar": "--brand-hover",
+        "tonalRamp": [
+          "oklch(15% 0.213 276.4)",
+          "oklch(27% 0.213 276.4)",
+          "oklch(39% 0.213 276.4)",
+          "oklch(51% 0.213 276.4)",
+          "oklch(63% 0.213 276.4)",
+          "oklch(75% 0.213 276.4)",
+          "oklch(86% 0.054 276.4)",
+          "oklch(95% 0.030 276.4)"
+        ]
+      },
+      "brand-tint": {
+        "role": "primary",
+        "displayName": "סגול בהיר",
+        "canonical": "oklch(95.4% 0.020 289.1)",
+        "dark": "rgba(139, 132, 255, 0.14)",
+        "cssVar": "--brand-tint",
+        "tonalRamp": [
+          "oklch(15% 0.232 277.0)",
+          "oklch(27% 0.232 277.0)",
+          "oklch(39% 0.232 277.0)",
+          "oklch(51% 0.232 277.0)",
+          "oklch(63% 0.232 277.0)",
+          "oklch(75% 0.232 277.0)",
+          "oklch(86% 0.056 277.0)",
+          "oklch(95% 0.030 277.0)"
+        ]
+      },
+      "on-brand": {
+        "role": "primary",
+        "displayName": "על הסגול",
+        "canonical": "oklch(100% 0 0)",
+        "dark": "#0d0f15",
+        "cssVar": "--on-brand",
+        "tonalRamp": [
+          "oklch(15% 0.000 277.0)",
+          "oklch(27% 0.000 277.0)",
+          "oklch(39% 0.000 277.0)",
+          "oklch(51% 0.000 277.0)",
+          "oklch(63% 0.000 277.0)",
+          "oklch(75% 0.000 277.0)",
+          "oklch(86% 0.000 277.0)",
+          "oklch(95% 0.000 277.0)"
+        ]
+      },
+      "good": {
+        "role": "tertiary",
+        "displayName": "ירוק טוב",
+        "canonical": "oklch(46.5% 0.113 153.4)",
+        "dark": "#6fd69a",
+        "cssVar": "--good",
+        "tonalRamp": [
+          "oklch(15% 0.113 153.4)",
+          "oklch(27% 0.113 153.4)",
+          "oklch(39% 0.113 153.4)",
+          "oklch(51% 0.113 153.4)",
+          "oklch(63% 0.113 153.4)",
+          "oklch(75% 0.113 153.4)",
+          "oklch(86% 0.043 153.4)",
+          "oklch(95% 0.030 153.4)"
+        ]
+      },
+      "good-tint": {
+        "role": "tertiary",
+        "displayName": "ירוק בהיר",
+        "canonical": "#e3f6e9",
+        "dark": "rgba(111, 214, 154, 0.12)",
+        "cssVar": "--good-tint",
+        "tonalRamp": [
+          "oklch(15% 0.113 153.4)",
+          "oklch(27% 0.113 153.4)",
+          "oklch(39% 0.113 153.4)",
+          "oklch(51% 0.113 153.4)",
+          "oklch(63% 0.113 153.4)",
+          "oklch(75% 0.113 153.4)",
+          "oklch(86% 0.043 153.4)",
+          "oklch(95% 0.030 153.4)"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "ענבר אזהרה",
+        "canonical": "oklch(50.3% 0.127 53.2)",
+        "dark": "#f0b860",
+        "cssVar": "--warn",
+        "tonalRamp": [
+          "oklch(15% 0.127 53.2)",
+          "oklch(27% 0.127 53.2)",
+          "oklch(39% 0.127 53.2)",
+          "oklch(51% 0.127 53.2)",
+          "oklch(63% 0.127 53.2)",
+          "oklch(75% 0.127 53.2)",
+          "oklch(86% 0.044 53.2)",
+          "oklch(95% 0.030 53.2)"
+        ]
+      },
+      "warn-tint": {
+        "role": "tertiary",
+        "displayName": "ענבר בהיר",
+        "canonical": "#fdf1d6",
+        "dark": "rgba(240, 184, 96, 0.12)",
+        "cssVar": "--warn-tint",
+        "tonalRamp": [
+          "oklch(15% 0.127 53.2)",
+          "oklch(27% 0.127 53.2)",
+          "oklch(39% 0.127 53.2)",
+          "oklch(51% 0.127 53.2)",
+          "oklch(63% 0.127 53.2)",
+          "oklch(75% 0.127 53.2)",
+          "oklch(86% 0.044 53.2)",
+          "oklch(95% 0.030 53.2)"
+        ]
+      },
+      "bad": {
+        "role": "tertiary",
+        "displayName": "אדום שגיאה",
+        "canonical": "oklch(49.0% 0.192 14.8)",
+        "dark": "#ff8aa8",
+        "cssVar": "--bad",
+        "tonalRamp": [
+          "oklch(15% 0.192 14.8)",
+          "oklch(27% 0.192 14.8)",
+          "oklch(39% 0.192 14.8)",
+          "oklch(51% 0.192 14.8)",
+          "oklch(63% 0.192 14.8)",
+          "oklch(75% 0.192 14.8)",
+          "oklch(86% 0.052 14.8)",
+          "oklch(95% 0.030 14.8)"
+        ]
+      },
+      "bad-tint": {
+        "role": "tertiary",
+        "displayName": "אדום בהיר",
+        "canonical": "#fde8ee",
+        "dark": "rgba(255, 138, 168, 0.12)",
+        "cssVar": "--bad-tint",
+        "tonalRamp": [
+          "oklch(15% 0.192 14.8)",
+          "oklch(27% 0.192 14.8)",
+          "oklch(39% 0.192 14.8)",
+          "oklch(51% 0.192 14.8)",
+          "oklch(63% 0.192 14.8)",
+          "oklch(75% 0.192 14.8)",
+          "oklch(86% 0.052 14.8)",
+          "oklch(95% 0.030 14.8)"
+        ]
+      },
+      "info": {
+        "role": "tertiary",
+        "displayName": "כחול מידע",
+        "canonical": "oklch(47.8% 0.147 254.3)",
+        "dark": "#7cb6f5",
+        "cssVar": "--info",
+        "tonalRamp": [
+          "oklch(15% 0.147 254.3)",
+          "oklch(27% 0.147 254.3)",
+          "oklch(39% 0.147 254.3)",
+          "oklch(51% 0.147 254.3)",
+          "oklch(63% 0.147 254.3)",
+          "oklch(75% 0.147 254.3)",
+          "oklch(86% 0.047 254.3)",
+          "oklch(95% 0.030 254.3)"
+        ]
+      },
+      "info-tint": {
+        "role": "tertiary",
+        "displayName": "כחול בהיר",
+        "canonical": "#e6f0fb",
+        "dark": "rgba(124, 182, 245, 0.12)",
+        "cssVar": "--info-tint",
+        "tonalRamp": [
+          "oklch(15% 0.147 254.3)",
+          "oklch(27% 0.147 254.3)",
+          "oklch(39% 0.147 254.3)",
+          "oklch(51% 0.147 254.3)",
+          "oklch(63% 0.147 254.3)",
+          "oklch(75% 0.147 254.3)",
+          "oklch(86% 0.047 254.3)",
+          "oklch(95% 0.030 254.3)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "כותרת גדולה במסכי פתיחה. נדיר בתוך האפליקציה. מחלקה: .display"
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "כותרת עמוד (.title בתוך PageHeader)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "כותרת בלוק (.h2), כותרת כרטיס הצעה, כותרת מצב ריק."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "המספרים בעמוד התוצאות, טבלאיים. ריק מוצג כ־— ב־ink-3."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "טקסט רץ ובועות שיחה. .lead: 16px, 1.6, ink-2."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "הגודל הנפוץ ביותר: ניווט, כפתורים (500), שדות, טקסט בכרטיסים."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "תווית מעל מספר ושם סוג בכרטיס הצעה (.label, ink-2). תגית: 13px/500."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "חותמות זמן, מונים, שם העסק. 12 עד 13px ב־ink-3."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow",
+        "value": "0 1px 1px rgba(26, 31, 54, 0.04), 0 2px 5px rgba(26, 31, 54, 0.04)",
+        "dark": "0 1px 1px rgba(0, 0, 0, 0.3), 0 2px 5px rgba(0, 0, 0, 0.3)",
+        "purpose": "Resting: שורת הכתיבה."
+      },
+      {
+        "name": "shadow-float",
+        "value": "0 0 0 1px rgba(26, 31, 54, 0.06), 0 7px 14px rgba(26, 31, 54, 0.08), 0 3px 6px rgba(26, 31, 54, 0.06)",
+        "dark": "0 7px 14px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.35)",
+        "purpose": "Float: .card-float ו־.pop-over. כרטיס הצעה, תפריטים, מגירה."
+      },
+      {
+        "name": "control",
+        "value": "0 1px 1px rgba(26, 31, 54, 0.05)",
+        "purpose": "כפתור שקט; שדה ב־0.04."
+      },
+      {
+        "name": "primary-press",
+        "value": "0 1px 1px rgba(26, 31, 54, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.12)",
+        "purpose": "הכפתור הראשי."
+      },
+      {
+        "name": "ring",
+        "value": "0 0 0 4px rgba(75, 63, 224, 0.18)",
+        "dark": "0 0 0 4px rgba(139, 132, 255, 0.25)",
+        "purpose": "פוקוס מקלדת, שדה בפוקוס, שורת כתיבה בפוקוס או בגרירה."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "העקומה היחידה. רכה, אף פעם לא קופצנית."
+      },
+      {
+        "name": "control",
+        "value": "120ms ease",
+        "purpose": "רקע, גבול, צל וצבע של כפתורים ושדות."
+      },
+      {
+        "name": "rise",
+        "value": "380ms var(--ease), translateY(8px) + opacity",
+        "purpose": "רכיב חדש (כרטיס הצעה, תפריט)."
+      },
+      {
+        "name": "fade",
+        "value": "260ms var(--ease)",
+        "purpose": "הופעה שקטה."
+      },
+      {
+        "name": "word-in",
+        "value": "420ms var(--ease), blur(4px) + opacity",
+        "purpose": "מילים של מייקי בזמן כתיבה."
+      },
+      {
+        "name": "reveal",
+        "value": "900ms var(--ease), blur(18px) + scale(1.04)",
+        "purpose": "תמונה מוכנה מתחדדת."
+      },
+      {
+        "name": "flash",
+        "value": "1600ms var(--ease), brand-tint",
+        "purpose": "פריט חדש או הצעה שבוצעה מבזיקים פעם אחת."
+      },
+      {
+        "name": "blink",
+        "value": "6s infinite",
+        "purpose": "עיני מייקי ממצמצות."
+      },
+      {
+        "name": "look",
+        "value": "1.6s var(--ease) infinite",
+        "purpose": "מייקי מסתכל לצדדים כשהוא עובד (.orb-live)."
+      },
+      {
+        "name": "switch",
+        "value": "200ms var(--ease)",
+        "purpose": "ידית המתג."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "הכל נעצר תחת prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "שוליים של 32px במקום 16px."
+      },
+      {
+        "name": "lg",
+        "value": "1024px",
+        "purpose": "סרגל צדדי כפס אייקונים (64px) במקום פס עליון ומגירה."
+      },
+      {
+        "name": "xl",
+        "value": "1280px",
+        "purpose": "סרגל צדדי מלא עם תוויות (232px)."
+      }
+    ],
+    "source": "src/app/globals.css"
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "הפעולה הראשית היחידה באזור: אישור הצעה, שיחה חדשה, חיבור.",
+      "html": "<div dir=\"rtl\"><button class=\"ds-btn ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>לאשר ולהעלות</button></div>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;font-family:Heebo,sans-serif;font-size:15px;font-weight:500;white-space:nowrap;border:1px solid transparent;cursor:pointer;transition:background-color 120ms ease,border-color 120ms ease,box-shadow 120ms ease,color 120ms ease;}.ds-btn:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 4px rgba(75,63,224,.18));}.ds-btn:disabled{opacity:.45;pointer-events:none;}.ds-btn-primary{background:var(--brand,#4b3fe0);color:var(--on-brand,#fff);box-shadow:0 1px 1px rgba(26,31,54,.12),inset 0 -1px 0 rgba(0,0,0,.12);}.ds-btn-primary:hover{background:var(--brand-hover,#3e33c4);}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "הפעולה המשנית לצד הראשי, ופעולות בכותרת עמוד.",
+      "html": "<div dir=\"rtl\"><button class=\"ds-btn ds-btn-quiet\">לא הפעם</button></div>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;font-family:Heebo,sans-serif;font-size:15px;font-weight:500;white-space:nowrap;border:1px solid transparent;cursor:pointer;transition:background-color 120ms ease,border-color 120ms ease,box-shadow 120ms ease,color 120ms ease;}.ds-btn:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 4px rgba(75,63,224,.18));}.ds-btn:disabled{opacity:.45;pointer-events:none;}.ds-btn-quiet{background:var(--surface,#fff);border-color:var(--line-strong,#d5dbe1);color:var(--ink,#1a1f36);box-shadow:0 1px 1px rgba(26,31,54,.05);}.ds-btn-quiet:hover{border-color:var(--ink-3,#8792a2);}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "כפתורי אייקון וטקסט בלי רקע: תפריט, עזרה, סגירה.",
+      "html": "<div dir=\"rtl\"><button class=\"ds-btn ds-btn-ghost\">ביטול</button></div>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;font-family:Heebo,sans-serif;font-size:15px;font-weight:500;white-space:nowrap;border:1px solid transparent;cursor:pointer;transition:background-color 120ms ease,border-color 120ms ease,box-shadow 120ms ease,color 120ms ease;}.ds-btn:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 4px rgba(75,63,224,.18));}.ds-btn:disabled{opacity:.45;pointer-events:none;}.ds-btn-ghost{background:transparent;color:var(--ink-2,#545969);}.ds-btn-ghost:hover{background:var(--surface-2,#f5f6f8);color:var(--ink,#1a1f36);}"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "שדה טקסט: גבול line-strong, פוקוס בגבול סגול וטבעת.",
+      "html": "<div dir=\"rtl\"><input class=\"ds-field\" placeholder=\"שם העסק\"></div>",
+      "css": ".ds-field{width:260px;height:38px;background:var(--surface,#fff);color:var(--ink,#1a1f36);border:1px solid var(--line-strong,#d5dbe1);border-radius:6px;padding:0 11px;font-family:Heebo,sans-serif;font-size:15px;outline:none;box-shadow:0 1px 1px rgba(26,31,54,.04);transition:border-color 120ms ease,box-shadow 120ms ease;caret-color:var(--brand,#4b3fe0);}.ds-field:hover{border-color:var(--ink-3,#8792a2);}.ds-field:focus{border-color:var(--brand,#4b3fe0);box-shadow:var(--ring,0 0 0 4px rgba(75,63,224,.18));}.ds-field::placeholder{color:var(--ink-3,#8792a2);}"
+    },
+    {
+      "name": "Status Tags",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "סטטוס כמלבן של 22px עם פינה של 4px, טקסט על גוון בהיר מאותו צבע. אף פעם לא גלולה.",
+      "html": "<div dir=\"rtl\" class=\"ds-row\"><span class=\"ds-tag ds-tag-brand\">מחכה לך</span><span class=\"ds-tag ds-tag-good\">עלה לאוויר</span><span class=\"ds-tag ds-tag-warn\">לבדוק</span><span class=\"ds-tag ds-tag-bad\">לא הצליח</span><span class=\"ds-tag ds-tag-quiet\">בוטל</span></div>",
+      "css": ".ds-row{display:flex;gap:8px;flex-wrap:wrap;}.ds-tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:4px;font-family:Heebo,sans-serif;font-size:13px;font-weight:500;line-height:1;white-space:nowrap;background:var(--surface-2,#f5f6f8);color:var(--ink-2,#545969);}.ds-tag-brand{background:var(--brand-tint,#efeefd);color:var(--brand,#4b3fe0);}.ds-tag-good{background:var(--good-tint,#e3f6e9);color:var(--good,#0f6b3a);}.ds-tag-warn{background:var(--warn-tint,#fdf1d6);color:var(--warn,#9a4b00);}.ds-tag-bad{background:var(--bad-tint,#fde8ee);color:var(--bad,#b3093c);}.ds-tag-quiet{color:var(--ink-3,#8792a2);}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "פריטי ניווט על מעטפת shell: אייקון Lucide 18px בקו 1.75, פעיל בסגול בהיר.",
+      "html": "<nav dir=\"rtl\" class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z\"/><path d=\"M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1\"/></svg>שיחות</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 3v18h18\"/><path d=\"M18 17V9\"/><path d=\"M13 17V5\"/><path d=\"M8 17v-3\"/></svg>תוצאות</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m3 11 18-5v12L3 14v-3z\"/><path d=\"M11.6 16.8a3 3 0 1 1-5.8-1.6\"/></svg>קמפיינים</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:208px;padding:12px;background:var(--shell,#f7f8fa);border-inline-end:1px solid var(--line,#ebeef1);}.ds-nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;font-family:Heebo,sans-serif;font-size:15px;font-weight:500;color:var(--ink-2,#545969);text-decoration:none;transition:background-color 120ms ease,color 120ms ease;}.ds-nav-item:hover{background:var(--surface-2,#f5f6f8);color:var(--ink,#1a1f36);}.ds-nav-item:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 4px rgba(75,63,224,.18));}.ds-nav-active,.ds-nav-active:hover{background:var(--brand-tint,#efeefd);color:var(--brand,#4b3fe0);}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "כרטיס במנוחה: לבן, קו של 1px, פינה של 8px, בלי צל. כאן כאריח מספר מעמוד התוצאות.",
+      "html": "<div dir=\"rtl\" class=\"ds-card\"><div class=\"ds-label\">הכנסות מהמודעות</div><div class=\"ds-figure\">₪4,280</div><span class=\"ds-tag-good\">12%</span></div>",
+      "css": ".ds-card{width:220px;padding:20px;background:var(--surface,#fff);border:1px solid var(--line,#ebeef1);border-radius:8px;font-family:Heebo,sans-serif;color:var(--ink,#1a1f36);}.ds-label{font-size:13.5px;font-weight:500;color:var(--ink-2,#545969);}.ds-figure{margin-top:6px;font-size:26px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums;}.ds-tag-good{display:inline-flex;align-items:center;margin-top:8px;height:22px;padding:0 7px;border-radius:4px;font-size:13px;font-weight:500;background:var(--good-tint,#e3f6e9);color:var(--good,#0f6b3a);font-variant-numeric:tabular-nums;}"
+    },
+    {
+      "name": "Proposal Card",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "הרכיב שמגדיר את המוצר: כרטיס צף עם סוג וסטטוס, כותרת, פרטים, ואישור בלחיצה אחת.",
+      "html": "<article dir=\"rtl\" class=\"ds-proposal\"><header class=\"ds-p-head\"><span class=\"ds-p-kind\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m3 11 18-5v12L3 14v-3z\"/><path d=\"M11.6 16.8a3 3 0 1 1-5.8-1.6\"/></svg>קמפיין חדש</span><span class=\"ds-p-tag\">מחכה לך</span></header><div class=\"ds-p-body\"><h3>קולקציית החורף לקהל שכבר קנה</h3><p>מי שקנתה בשנה האחרונה מגיבה הכי טוב לפריטים חדשים.</p></div><dl class=\"ds-p-rows\"><div><dt>תקציב</dt><dd>₪60 ליום</dd></div><div><dt>משך</dt><dd>7 ימים</dd></div></dl><footer class=\"ds-p-foot\"><button class=\"ds-p-ok\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>לאשר ולהעלות</button><button class=\"ds-p-no\">לא הפעם</button></footer></article>",
+      "css": ".ds-proposal{width:380px;overflow:hidden;background:var(--surface,#fff);border-radius:8px;box-shadow:0 0 0 1px rgba(26,31,54,.06),0 7px 14px rgba(26,31,54,.08),0 3px 6px rgba(26,31,54,.06);font-family:Heebo,sans-serif;color:var(--ink,#1a1f36);}.ds-p-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;background:var(--surface-2,#f5f6f8);border-bottom:1px solid var(--line,#ebeef1);}.ds-p-kind{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500;color:var(--ink-2,#545969);}.ds-p-tag{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:4px;font-size:13px;font-weight:500;background:var(--brand-tint,#efeefd);color:var(--brand,#4b3fe0);}.ds-p-body{padding:14px 16px 12px;}.ds-p-body h3{margin:0;font-size:18px;font-weight:600;line-height:1.35;}.ds-p-body p{margin:4px 0 0;font-size:15px;line-height:1.55;color:var(--ink-2,#545969);}.ds-p-rows{margin:0 16px;border:1px solid var(--line,#ebeef1);border-radius:6px;}.ds-p-rows div{display:flex;justify-content:space-between;gap:24px;padding:8px 12px;}.ds-p-rows div+div{border-top:1px solid var(--line,#ebeef1);}.ds-p-rows dt{font-size:14px;color:var(--ink-2,#545969);}.ds-p-rows dd{margin:0;font-size:14.5px;font-weight:500;font-variant-numeric:tabular-nums;}.ds-p-foot{display:flex;gap:8px;padding:16px;}.ds-p-ok,.ds-p-no{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:42px;padding:0 18px;border-radius:6px;font-family:inherit;font-size:16px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background-color 120ms ease,border-color 120ms ease;}.ds-p-ok{flex:1;background:var(--brand,#4b3fe0);color:var(--on-brand,#fff);box-shadow:0 1px 1px rgba(26,31,54,.12),inset 0 -1px 0 rgba(0,0,0,.12);}.ds-p-ok:hover{background:var(--brand-hover,#3e33c4);}.ds-p-no{background:var(--surface,#fff);border-color:var(--line-strong,#d5dbe1);color:var(--ink,#1a1f36);}.ds-p-no:hover{border-color:var(--ink-3,#8792a2);}.ds-p-ok:focus-visible,.ds-p-no:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 4px rgba(75,63,224,.18));}"
+    },
+    {
+      "name": "Mikee Mark",
+      "kind": "custom",
+      "refersTo": "brand",
+      "description": "מייקי: בועת דיבור סגולה עם עיניים שממצמצות כל 6 שניות.",
+      "html": "<div dir=\"rtl\" class=\"ds-row\"><span class=\"ds-orb\" style=\"width:28px\"></span><span class=\"ds-orb\" style=\"width:36px\"></span></div>",
+      "css": ".ds-row{display:flex;gap:16px;align-items:center;}.ds-orb{position:relative;display:inline-block;aspect-ratio:1;background:var(--brand,#4b3fe0);border-radius:50% 50% 14% 50%;}.ds-orb::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 36% 46%,var(--on-brand,#fff) 0 7.5%,transparent 8.5%),radial-gradient(circle at 64% 46%,var(--on-brand,#fff) 0 7.5%,transparent 8.5%);animation:ds-blink 6s infinite;transform-origin:50% 46%;}@keyframes ds-blink{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.1)}}@media (prefers-reduced-motion:reduce){.ds-orb::after{animation:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "הקונסולה השקטה",
+    "overview": "מייקי נראה כמו הסטנדרט של הקטגוריה, משוחק ישר, ברמת הדיוק של לוח הבקרה של Stripe. משטחים לבנים על מעטפת קרירה כמעט לבנה, קווי שיער במקום קופסאות כבדות, דיו אחד לטקסט, וצבע אחד של מייקי (סגול) רק על מה שפועל. אין עולם מעוצב, אין תחפושת, אין נייר חם או סריף. האופי מגיע מהדיוק, מהסימן של מייקי ומהקול שלו.\n\nהצפיפות היא של כלי עבודה: שורות של 32 עד 36 פיקסלים, כותרות קטנות וברורות, מספרים טבלאיים שמתיישרים בעמודה. הבעלים צריכה לראות בשנייה מה מחכה לאישור שלה, מה קרה, ואיך לדבר עם מייקי. לכן ההיררכיה נבנית ממשקל וגוון של דיו, לא מצבע ולא מגודל. העומק כמעט שטוח: כרטיסים עם קו, וצל רך רק למה שצף (תפריט, כרטיס הצעה, מגירה).\n\nהשפה מסרבת למראה ה\"עריכתי\" (קרם, סריף, מרקר) ולכל עולם תמטי, ובהתאם לבקשת הבעלים: בלי פינות מעוגלות מדי ובלי תגיות בצורת גלולה.",
+    "keyCharacteristics": [
+      "משטח לבן על מעטפת `shell`, וקווי שיער `line` כמבנה.",
+      "דיו אחד בשלוש דרגות (`ink`, `ink-2`, `ink-3`) נושא את כל ההיררכיה.",
+      "סגול מייקי רק על פעולה ראשית, קישור, בחירה, פוקוס, ועל מייקי עצמו.",
+      "משפחה אחת (Heebo) בארבעה משקלים, ספרות טבלאיות בכל מקום.",
+      "פינות קטנות ומדורגות: 4 לתגית, 6 לפקד, 8 לכרטיס.",
+      "אייקוני Lucide בקו 1.75.",
+      "מצב כהה מלא דרך `prefers-color-scheme`, אותם תפקידים ואותם שמות."
+    ],
+    "rules": [
+      {
+        "name": "The One Violet Rule",
+        "body": "סגול מופיע רק על מה שפועל (כפתור ראשי, קישור, בחירה, פוקוס) ועל מייקי. כותרת, אייקון דקורטיבי או רקע של אזור לא מקבלים סגול.",
+        "section": "colors"
+      },
+      {
+        "name": "The Paired Status Rule",
+        "body": "סטטוס הוא תמיד זוג: טקסט בצבע הסטטוס על הגוון הבהיר שלו. אין טקסט סטטוס על לבן ואין רקע סטטוס עם טקסט דיו (חוץ מ־`.note` במידע).",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Hierarchy Rule",
+        "body": "היררכיה נבנית מ־`ink` / `ink-2` / `ink-3` ומשקל, לא מצבע. אם צריך להבליט, קודם משקל, אחר כך דרגת דיו.",
+        "section": "colors"
+      },
+      {
+        "name": "The Zero Tracking Rule",
+        "body": "`letter-spacing: 0` בכל מקום. אותיות עבריות נדבקות בריווח שלילי, ואין אותיות רישיות לרווח.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "כל מספר מתיישר: `tabular-nums` על הגוף, ו־`.num` מוסיף `\"tnum\"` במקום שבו מספר עומד לבד (מונה, זמן, אחוז).",
+        "section": "typography"
+      },
+      {
+        "name": "The Start-Side Frame Rule",
+        "body": "הניווט תמיד בצד ההתחלה והפעולות של העמוד תמיד בצד הסוף. משתמשים במאפיינים לוגיים (`start`, `end`, `ps`, `pe`, `border-s`) ולא ב־left/right.",
+        "section": "layout"
+      },
+      {
+        "name": "The Line-First Rule",
+        "body": "כרטיס במנוחה הוא קו, לא צל. צל נשמר למה שצף מעל משהו אחר.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No-Pill Rule",
+        "body": "אין תגית או תווית בצורת גלולה. תגית היא מלבן של 22px עם פינה של 4px, כמו סימון בפנקס חשבונות.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** להשתמש בתפקידים מ־`src/app/globals.css` (`bg-surface`, `text-ink-2`, `border-line`) ולא בערכי צבע גולמיים.",
+      "**Do** לשמור סגול לפעולה הראשית, לקישור, לבחירה, לפוקוס ולמייקי.",
+      "**Do** להציג סטטוס כתגית מלבנית (4px) בזוג טקסט על גוון בהיר מאותו צבע.",
+      "**Do** לבנות כרטיס במנוחה מקו של 1px `line` ופינה של 8px, ולהוסיף צל רק למה שצף.",
+      "**Do** להשתמש בפקדים בגובה קבוע: 30, 36 או 42px לכפתור, 38px לשדה, 36px לפריט ניווט.",
+      "**Do** להשתמש באייקוני Lucide בקו 1.75 (18px בניווט, 16px בכפתור).",
+      "**Do** לכתוב במאפיינים לוגיים (`start`/`end`) כדי שהמסגרת תעבוד ב־RTL.",
+      "**Do** להציג מספר ריק כ־\"—\" ב־`ink-3`, ולא להמציא מספר."
+    ],
+    "donts": [
+      "**Don't** לחזור לנייר החם, לסריף העברי, למרקר הצהוב או לכפתור בשחור דיו של השפה הקודמת.",
+      "**Don't** לעגל תגית או כפתור עם טקסט לגלולה; עיגול מלא רק לאווטאר, נקודה, מתג ופס התקדמות.",
+      "**Don't** להגדיל פינה מעבר ל־10px.",
+      "**Don't** להוסיף ריווח אותיות (חיובי או שלילי) לטקסט עברי.",
+      "**Don't** לצבוע כותרות, רקעים של אזורים או אייקונים דקורטיביים בסגול.",
+      "**Don't** להוסיף צל לכרטיס במנוחה או לערום כמה צללים צפים זה על זה.",
+      "**Don't** להוסיף פונט שני; היררכיה נבנית ממשקל ודרגת דיו של Heebo."
+    ]
+  }
+}
