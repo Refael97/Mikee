@@ -16,10 +16,10 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
     const c = s.currency;
     return (
       <div className="mt-6">
-        <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-2">
-          <div className="bg-accent" style={{ width: pct(s.spent) }} />
-          <div className="bg-accent/40" style={{ width: pct(s.committed + s.buffer) }} />
-          <div className="bg-accent/15" style={{ width: pct(s.reserved) }} />
+        <div className="flex h-3 overflow-hidden rounded-full bg-surface-2">
+          <div className="rounded-full bg-ink" style={{ width: pct(s.spent) }} />
+          <div className="bg-ink/35" style={{ width: pct(s.committed + s.buffer) }} />
+          <div className="bg-ink/12" style={{ width: pct(s.reserved) }} />
         </div>
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-2">
           <span>הושקעו {money(s.spent, c)}</span>
@@ -45,13 +45,13 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
   const cap = settings.metaSpendCapStatus;
   return (
     <form action={saveLimits} className="space-y-5">
-      <label className="flex flex-wrap items-center justify-between gap-3">
-        <span>
+      <label className="flex items-center justify-between gap-4">
+        <span className="min-w-0 flex-1">
           <span className="block">תקרה קשיחה גם בחשבון המודעות</span>
           <span className="text-sm text-ink-3">מטא עצמה תעצור חיובים מעבר לתקציב, גם אם משהו משתנה מחוץ למייקי.</span>
           {cap && <span className={`block text-xs ${cap.ok ? "text-good" : "text-warn"}`}>{cap.ok ? "פעיל" : "לא הוגדר"} · {cap.detail}</span>}
         </span>
-        <input type="checkbox" name="metaSpendCap" defaultChecked={settings.metaSpendCap} className="h-5 w-5 accent-[var(--accent)]" />
+        <input type="checkbox" name="metaSpendCap" defaultChecked={settings.metaSpendCap} className="switch" />
       </label>
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="space-y-1.5">
@@ -80,11 +80,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { error } = await searchParams;
   const meta = await getConnection<MetaConfig>(workspace.id, "meta");
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-5 px-4 py-10">
-      <header className="mb-3">
-        <h1 className="text-4xl font-semibold tracking-tight">הגדרות</h1>
+    <main className="mx-auto w-full max-w-2xl space-y-9 px-4 pb-16 pt-6 sm:pt-10">
+      <header>
+        <h1 className="text-[2.4rem] font-semibold tracking-[-0.02em]">הגדרות</h1>
       </header>
-      {error && <p className="card p-4 text-warn">{error}</p>}
+      {error && <p className="float rounded-2xl p-4 text-warn">{error}</p>}
 
       <Section title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
         <BudgetForm workspaceId={workspace.id} />
@@ -115,8 +115,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Section title="החשבון">
         <div className="flex items-center justify-between">
-          <span className="text-ink-2">
-            {user.name} · <span dir="ltr">{user.email}</span>
+          <span className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-3 font-semibold">{user.name.slice(0, 1)}</span>
+            <span className="leading-tight">
+              <span className="block font-medium">{user.name}</span>
+              <span className="block text-sm text-ink-3" dir="ltr">
+                {user.email}
+              </span>
+            </span>
           </span>
           <form action={logout}>
             <button className="btn btn-quiet">יציאה</button>

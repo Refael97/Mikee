@@ -14,8 +14,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-dvh flex-col">
       <Nav business={workspace.name} />
       {meta?.status === "broken" && (
-        <Link href="/settings" className="block bg-warn/10 px-4 py-2.5 text-center text-sm text-warn">
-          החיבור לפייסבוק ולאינסטגרם נותק, אז מייקי לא יכול לעבוד. לחצי כאן כדי לחבר מחדש.
+        <Link href="/settings" className="float-sm rise mx-auto mt-3 flex max-w-xl items-center gap-3 rounded-2xl px-4 py-3 text-sm">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-warn" />
+          <span className="text-ink-2">
+            <span className="font-medium text-ink">החיבור לפייסבוק ולאינסטגרם נותק.</span> מייקי לא יכול לעבוד עד שמחברים מחדש.
+          </span>
+          <span className="ms-auto shrink-0 font-medium text-accent">לחבר</span>
         </Link>
       )}
       <div className="flex flex-1 flex-col">{children}</div>

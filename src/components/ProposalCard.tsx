@@ -1,21 +1,126 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronLeft, Megaphone, PenLine, RotateCcw, SlidersHorizontal, Wallet, Wand2 } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
+import type { ProposalCard as Card } from "@/lib/specs";
 
-const STATUS: Record<string, { label: string; tone: string }> = {
-  done: { label: "בוצע ✓", tone: "text-good" },
-  declined: { label: "לא הפעם", tone: "text-ink-3" },
-  cancelled: { label: "בוטל", tone: "text-ink-3" },
-  superseded: { label: "הוחלף בגרסה חדשה", tone: "text-ink-3" },
-  failed: { label: "לא הצליח", tone: "text-warn" },
+export type Brand = { name: string; handle?: string };
+
+const KIND: Record<Card["kind"], { label: string; icon: typeof Megaphone }> = {
+  campaign: { label: "קמפיין חדש", icon: Megaphone },
+  change: { label: "שינוי בקמפיין", icon: SlidersHorizontal },
+  post: { label: "פוסט", icon: PenLine },
+  budget: { label: "תקציב", icon: Wallet },
+  media: { label: "ויז׳ואל חדש", icon: Wand2 },
 };
 
-export function ProposalCard({ proposal, onChange }: { proposal: CardView; onChange: (title: string) => void }) {
+const STATUS: Record<string, { label: string; dot: string }> = {
+  executing: { label: "מייקי על זה", dot: "bg-accent animate-pulse" },
+  done: { label: "בוצע", dot: "bg-good" },
+  failed: { label: "לא הצליח", dot: "bg-warn" },
+  declined: { label: "לא הפעם", dot: "bg-ink-3" },
+  cancelled: { label: "בוטל", dot: "bg-ink-3" },
+  superseded: { label: "הוחלף בגרסה חדשה", dot: "bg-ink-3" },
+};
+
+type Media = NonNullable<Card["media"]>[number];
+
+/** How the ad or post will look in the feed: the client approves what her customers will see. */
+function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsored: boolean }) {
+  return (
+    <div className="overflow-hidden rounded-[18px] bg-surface hairline">
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#feda75] via-[#d62976] to-[#4f5bd5] p-[1.5px]">
+          <span className="flex h-full w-full items-center justify-center rounded-full bg-surface text-xs font-semibold">{brand.name.slice(0, 1)}</span>
+        </span>
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-[0.85rem] font-semibold">{brand.handle ?? brand.name}</span>
+          {sponsored && <span className="block text-[0.72rem] text-ink-3">ממומן</span>}
+        </span>
+        <span className="ms-auto text-ink-3">•••</span>
+      </div>
+      <div className="relative aspect-[4/5] w-full bg-surface-2">
+        {m.url &&
+          (m.type === "video" ? (
+            <video src={m.url} className="absolute inset-0 h-full w-full object-cover" autoPlay muted loop playsInline />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={m.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          ))}
+      </div>
+      {sponsored && (m.cta || m.headline) && (
+        <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2.5">
+          <span className="truncate text-[0.85rem] font-semibold">{m.headline}</span>
+          {m.cta && (
+            <span className="flex shrink-0 items-center gap-0.5 text-[0.82rem] font-semibold text-accent">
+              {m.cta}
+              <ChevronLeft className="h-4 w-4" />
+            </span>
+          )}
+        </div>
+      )}
+      {m.text && (
+        <p className="line-clamp-4 whitespace-pre-line px-3 py-2.5 text-[0.85rem] leading-relaxed">
+          <span className="font-semibold">{brand.handle ?? brand.name}</span> {m.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Previews({ card, brand }: { card: Card; brand: Brand }) {
+  const media = card.media ?? [];
+  const [index, setIndex] = useState(0);
+  const strip = useRef<HTMLDivElement>(null);
+  if (!media.length) return null;
+
+  if (card.kind === "media") {
+    return (
+      <div className="flex gap-2 px-5 pb-1">
+        {media.map((m, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-xl object-cover hairline" />
+        ))}
+      </div>
+    );
+  }
+  const textOnly = media.length === 1 && !media[0].url;
+  if (textOnly) return <p className="mx-5 whitespace-pre-line rounded-[18px] bg-surface-2 p-4 text-[0.95rem] leading-relaxed">{media[0].text}</p>;
+
+  return (
+    <div>
+      <div
+        ref={strip}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setIndex(Math.round(Math.abs(el.scrollLeft) / (el.firstElementChild as HTMLElement).offsetWidth));
+        }}
+        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5"
+      >
+        {media.map((m, i) => (
+          <div key={i} className="w-[min(78%,300px)] shrink-0 snap-center">
+            <FeedPreview m={m} brand={brand} sponsored={card.kind === "campaign"} />
+          </div>
+        ))}
+      </div>
+      {media.length > 1 && (
+        <div className="mt-3 flex justify-center gap-1.5">
+          {media.map((_, i) => (
+            <span key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? "w-4 bg-ink" : "w-1.5 bg-ink-3/40"}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView; brand: Brand; onChange: (title: string) => void }) {
   const [view, setView] = useState(proposal);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const { card } = view;
+  const kind = KIND[card.kind] ?? KIND.campaign;
 
   // While the platform executes in the background, follow the card until it finishes.
   useEffect(() => {
@@ -57,78 +162,67 @@ export function ProposalCard({ proposal, onChange }: { proposal: CardView; onCha
     }
   }
 
-  const media = card.media?.filter((m) => m.url) ?? [];
-  const textOnly = card.media?.find((m) => !m.url)?.text;
-  const faded = view.status === "superseded" || view.status === "declined" || view.status === "cancelled";
+  const status = STATUS[view.status];
+  const settled = ["declined", "cancelled", "superseded"].includes(view.status);
 
   return (
-    <div className={`card fade-in w-full max-w-md overflow-hidden transition-opacity ${faded ? "opacity-60" : ""}`}>
-      <div className="p-5 pb-4">
-        <h3 className="text-lg font-semibold leading-snug tracking-tight">{card.title}</h3>
+    <article className={`float rise w-full max-w-[460px] overflow-hidden rounded-[28px] transition-opacity duration-500 ${settled ? "opacity-55" : ""}`}>
+      {view.status === "executing" && (
+        <div className="h-0.5 w-full overflow-hidden bg-surface-2">
+          <div className="h-full w-1/3 animate-[shimmer_1.4s_linear_infinite] bg-gradient-to-l from-transparent via-accent to-transparent" />
+        </div>
+      )}
+
+      <header className="flex items-center justify-between gap-3 px-5 pt-5">
+        <span className="flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-2">
+          <kind.icon className="h-3.5 w-3.5" strokeWidth={2} />
+          {kind.label}
+        </span>
+        {status && (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-ink-2">
+            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+            {status.label}
+          </span>
+        )}
+      </header>
+
+      <div className="px-5 pb-4 pt-3">
+        <h3 className="text-[1.3rem] font-semibold leading-snug tracking-[-0.01em]">{card.title}</h3>
         {card.why && <p className="mt-1.5 text-[0.95rem] leading-relaxed text-ink-2">{card.why}</p>}
       </div>
 
-      {media.length > 0 && (
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-4">
-          {media.map((m, i) => (
-            <figure key={i} className="w-64 shrink-0 snap-start overflow-hidden rounded-2xl bg-surface-2">
-              {m.type === "video" ? (
-                <video src={m.url} className="aspect-[4/5] w-full object-cover" autoPlay muted loop playsInline />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.url} alt="" className="aspect-[4/5] w-full object-cover" />
-              )}
-              {(m.text || m.headline) && (
-                <figcaption className="space-y-1 p-3 text-sm">
-                  {m.text && <p className="whitespace-pre-line leading-relaxed">{m.text}</p>}
-                  {(m.headline || m.cta) && (
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <span className="truncate font-medium">{m.headline}</span>
-                      {m.cta && <span className="shrink-0 rounded-full bg-surface px-2.5 py-1 text-xs">{m.cta}</span>}
-                    </div>
-                  )}
-                </figcaption>
-              )}
-            </figure>
-          ))}
-        </div>
-      )}
-      {textOnly && <p className="mx-5 mb-4 whitespace-pre-line rounded-2xl bg-surface-2 p-4 text-sm leading-relaxed">{textOnly}</p>}
+      <Previews card={card} brand={brand} />
 
-      <dl className="divide-y divide-line border-t border-line px-5">
+      <dl className="grid grid-cols-2 gap-2 p-5 pb-0">
         {card.rows.map((r) => (
-          <div key={r.label} className="flex items-baseline justify-between gap-4 py-3 text-[0.95rem]">
-            <dt className="shrink-0 text-ink-2">{r.label}</dt>
-            <dd className="text-start font-medium">{r.value}</dd>
+          <div key={r.label} className={`rounded-2xl bg-surface-2 px-3.5 py-3 ${r.value.length > 26 ? "col-span-2" : ""}`}>
+            <dt className="text-xs text-ink-3">{r.label}</dt>
+            <dd className="mt-0.5 text-[0.95rem] font-medium leading-snug">{r.value}</dd>
           </div>
         ))}
       </dl>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-line p-4 [&_.btn]:whitespace-nowrap">
+      <footer className="p-5">
         {view.status === "pending" && (
-          <>
-            <button className="btn btn-primary" disabled={busy} onClick={() => decide("approve")}>
+          <div className="flex gap-2">
+            <button className="btn btn-primary flex-1" disabled={busy} onClick={() => decide("approve")}>
+              <Check className="h-4 w-4" strokeWidth={2.4} />
               {card.approveLabel}
             </button>
             <button className="btn btn-quiet" disabled={busy} onClick={() => decide("decline")}>
               {card.changeLabel}
             </button>
-          </>
+          </div>
         )}
-        {view.status === "executing" && (
-          <span className="flex items-center gap-2 px-1 text-ink-2">
-            <span className="orb orb-live h-4 w-4" /> מייקי על זה… אפשר לסגור את המסך, זה ימשיך
-          </span>
-        )}
+        {view.status === "executing" && <p className="text-sm text-ink-2">אפשר לסגור את המסך, זה ימשיך לרוץ ומייקי יעדכן כשזה מוכן.</p>}
+        {view.status === "done" && <p className="flex items-center gap-2 text-sm font-medium text-good"><Check className="h-4 w-4" /> בוצע בהצלחה</p>}
         {view.status === "failed" && (
-          <div className="w-full space-y-3">
-            <p className="px-1 text-sm">
-              <span className="font-medium text-warn">לא הצליח. </span>
-              <span className="text-ink-2">{view.error}</span>
-            </p>
+          <div className="space-y-3">
+            <p className="rounded-2xl bg-warn/8 px-3.5 py-3 text-sm leading-relaxed text-ink-2">{view.error}</p>
             <div className="flex gap-2">
               {view.retryable !== false && (
-                <button className="btn btn-primary" disabled={busy} onClick={() => decide("approve")}>
+                <button className="btn btn-primary flex-1" disabled={busy} onClick={() => decide("approve")}>
+                  <RotateCcw className="h-4 w-4" />
                   לנסות שוב
                 </button>
               )}
@@ -138,11 +232,8 @@ export function ProposalCard({ proposal, onChange }: { proposal: CardView; onCha
             </div>
           </div>
         )}
-        {STATUS[view.status] && view.status !== "failed" && (
-          <span className={`px-1 font-medium ${STATUS[view.status].tone}`}>{STATUS[view.status].label}</span>
-        )}
-        {notice && <p className="w-full px-1 text-sm text-warn">{notice}</p>}
-      </div>
-    </div>
+        {notice && <p className="mt-3 text-sm text-warn">{notice}</p>}
+      </footer>
+    </article>
   );
 }

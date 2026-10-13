@@ -5,21 +5,24 @@ import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndS
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
+/** A titled floating group, like a section in iOS Settings. */
 export function Section({ step, title, hint, done, children }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode }) {
   return (
-    <section className="card p-6 sm:p-8 fade-in">
-      <div className="mb-5 flex items-start gap-3">
+    <section className="rise">
+      <div className="mb-3 flex items-center gap-2.5 px-1.5">
         {step != null && (
-          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${done ? "bg-good text-white" : "bg-surface-2 text-ink-2"}`}>
+          <span
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+              done ? "bg-good text-white" : "bg-surface-3 text-ink-2"
+            }`}
+          >
             {done ? "✓" : step}
           </span>
         )}
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-          {hint && <p className="mt-1 text-ink-2">{hint}</p>}
-        </div>
+        <h2 className="text-[1.05rem] font-semibold tracking-tight">{title}</h2>
       </div>
-      {children}
+      {hint && <p className="-mt-1.5 mb-3 px-1.5 text-sm text-ink-3">{hint}</p>}
+      <div className="float rounded-[24px] p-5 sm:p-6">{children}</div>
     </section>
   );
 }
@@ -100,9 +103,9 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-surface-2 p-5">
-        <p className="mb-3 font-medium">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
-        <ul className="space-y-2 text-[0.95rem]">
+      <div>
+        <p className="mb-3 text-sm text-ink-3">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
+        <ul className="group-list text-[0.95rem] [&>li]:px-4 [&>li]:py-3">
           {page && (
             <li>
               דף הפייסבוק <strong>{page.name}</strong>

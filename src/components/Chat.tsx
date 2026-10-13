@@ -1,39 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowUp, ChartNoAxesColumn, Megaphone, Sparkles, Wand2 } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
-import { ProposalCard } from "./ProposalCard";
+import { ProposalCard, type Brand } from "./ProposalCard";
 import { RichText } from "./RichText";
 
 const LIVE_LABELS: Record<string, string> = {
   remember: "רושם לעצמי",
+  forget: "מעדכן את מה שאני יודע",
   scan_website: "קורא את האתר",
   read_store: "בודק את החנות",
   read_results: "בודק את התוצאות",
-  read_insights: "מעמיק בנתונים",
   read_social: "עובר על הפוסטים",
   budget_status: "בודק את התקציב",
-  search_targeting: "מחפש את הקהל הנכון",
-  list_audiences: "בודק קהלים שמורים",
-  meta_read: "בודק משהו מאחורי הקלעים",
-  meta_write: "מסדר משהו מאחורי הקלעים",
-  propose_campaign: "מכין לך הצעה",
-  propose_change: "מכין לך הצעה",
-  propose_post: "מכין פוסט",
-  propose_media: "מכין תמונה או סרטון",
+  request_budget_increase: "מכין בקשה",
   ask_copywriter: "כותב טקסטים",
   ask_media_buyer: "עובד על הקמפיין",
   ask_creative: "מכין ויז׳ואל",
   ask_social: "מכין פוסט",
   ask_analyst: "מנתח את התוצאות",
-  forget: "מעדכן את מה שאני יודע",
-  request_budget_increase: "מכין בקשה",
+  web_search: "מחפש ברשת",
 };
 
-const SUGGESTIONS = ["מה כדאי לקדם השבוע?", "צריך יותר פניות", "יש לי קולקציה חדשה", "איך הולך החודש?"];
+const SUGGESTIONS = [
+  { icon: ChartNoAxesColumn, title: "איך הולך החודש?", sub: "תמונת מצב בשתי דקות" },
+  { icon: Megaphone, title: "צריך יותר פניות", sub: "מייקי יבנה תוכנית" },
+  { icon: Sparkles, title: "יש לי קולקציה חדשה", sub: "בוא נשיק אותה נכון" },
+  { icon: Wand2, title: "מה כדאי לקדם השבוע?", sub: "לפי המלאי והתוצאות" },
+];
 
-type LiveProposal = CardView;
-type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: LiveProposal };
+type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: CardView };
 type Live = { segments: Segment[]; activity: string | null };
 
 function appendText(live: Live | null, delta: string): Live {
@@ -44,7 +41,11 @@ function appendText(live: Live | null, delta: string): Live {
   return { segments, activity: null };
 }
 
-export function Chat({ initialItems, stage, firstName }: { initialItems: TimelineItem[]; stage: string; firstName: string }) {
+function MikeeMark({ live = false }: { live?: boolean }) {
+  return <span className={`orb mt-0.5 h-7 w-7 shrink-0 ${live ? "orb-live" : ""}`} aria-hidden />;
+}
+
+export function Chat({ initialItems, stage, firstName, brand }: { initialItems: TimelineItem[]; stage: string; firstName: string; brand: Brand }) {
   const [items, setItems] = useState(initialItems);
   const [live, setLive] = useState<Live | null>(null);
   const [input, setInput] = useState("");
@@ -130,6 +131,14 @@ export function Chat({ initialItems, stage, firstName }: { initialItems: Timelin
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [items, live]);
 
+  // Grow the composer with its text.
+  useEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
+
   function submit(text = input) {
     const t = text.trim();
     if (!t || live) return;
@@ -138,89 +147,101 @@ export function Chat({ initialItems, stage, firstName }: { initialItems: Timelin
   }
 
   const empty = items.length === 0 && !live;
+  const change = (title: string) => submit(`בוא נשנה משהו ב"${title}"`);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4">
-      <div className="flex-1 space-y-5 py-8">
-        {empty && (
-          <div className="flex flex-col items-center pt-16 text-center fade-in">
-            <div className="orb h-20 w-20" />
-            <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">היי {firstName}, מה עושים היום?</h1>
-            <p className="mt-3 text-lg text-ink-2">ספרי לי מה צריך, ואני כבר אדאג לשאר.</p>
-          </div>
-        )}
-
-        {items.map((item) => {
-          if (item.type === "user")
-            return (
-              <div key={item.id} className="flex justify-end fade-in">
-                <div className="max-w-[85%] whitespace-pre-line rounded-[22px] rounded-ee-md bg-accent px-4 py-2.5 text-white">{item.text}</div>
-              </div>
-            );
-          if (item.type === "mikee")
-            return (
-              <div key={item.id} className="flex gap-3 fade-in">
-                <span className="orb mt-1 h-7 w-7 shrink-0" />
-                <div className="max-w-[85%] pt-1 text-[1.02rem]">
-                  <RichText text={item.text} />
-                </div>
-              </div>
-            );
-          if (item.type === "activity")
-            return (
-              <div key={item.id} className="ps-10 text-sm text-ink-3">
-                {item.label}
-              </div>
-            );
-          return (
-            <div key={item.id} className="ps-10">
-              <ProposalCard proposal={item.proposal} onChange={(title) => submit(`בוא נשנה משהו ב"${title}"`)} />
-            </div>
-          );
-        })}
-
-        {live && (
-          <div className="flex gap-3">
-            <span className="orb orb-live mt-1 h-7 w-7 shrink-0" />
-            <div className="max-w-[85%] pt-1 text-[1.02rem]">
-              <div className="space-y-4">
-                {live.segments.map((seg, i) =>
-                  seg.kind === "text" ? (
-                    <RichText key={i} text={seg.text} />
-                  ) : (
-                    <ProposalCard key={seg.proposal.id} proposal={seg.proposal} onChange={(title) => submit(`בוא נשנה משהו ב"${title}"`)} />
-                  ),
-                )}
-              </div>
-              {(live.activity || !live.segments.length) && (
-                <div className="flex items-center gap-2 text-ink-2">
-                  {live.activity && <span>{live.activity}</span>}
-                  <span className="dots">
-                    <span />
-                    <span />
-                    <span />
+    <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-4">
+      <div className="flex-1 pb-10 pt-8 sm:pt-12">
+        {empty ? (
+          <div className="flex flex-col items-center pt-[8vh] text-center">
+            <span className="orb orb-glow orb-breathe h-16 w-16" aria-hidden />
+            <h1 className="rise mt-9 text-[2.1rem] font-semibold leading-tight tracking-[-0.02em] sm:text-[2.6rem]">היי {firstName}, מה עושים היום?</h1>
+            <p className="rise mt-3 text-[1.05rem] text-ink-2 [animation-delay:60ms]">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
+            <div className="mt-10 grid w-full max-w-xl grid-cols-2 gap-3">
+              {SUGGESTIONS.map(({ icon: Icon, title, sub }, i) => (
+                <button
+                  key={title}
+                  onClick={() => submit(title)}
+                  style={{ animationDelay: `${120 + i * 50}ms` }}
+                  className="float-sm rise group flex flex-col items-start gap-3 rounded-[22px] p-4 text-start transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--float)]"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-ink-2 transition-colors group-hover:bg-ink group-hover:text-on-ink">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
                   </span>
-                </div>
-              )}
+                  <span>
+                    <span className="block font-medium">{title}</span>
+                    <span className="mt-0.5 block text-sm text-ink-3">{sub}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
+        ) : (
+          <div className="space-y-6">
+            {items.map((item, i) => {
+              const prev = items[i - 1];
+              if (item.type === "user")
+                return (
+                  <div key={item.id} className="rise flex justify-end">
+                    <div className="max-w-[80%] whitespace-pre-line rounded-[22px] bg-surface-3/70 px-5 py-3 text-[1.02rem] leading-7">{item.text}</div>
+                  </div>
+                );
+              if (item.type === "mikee")
+                return (
+                  <div key={item.id} className="rise flex gap-3.5">
+                    {prev?.type === "mikee" || prev?.type === "activity" || prev?.type === "card" ? <span className="w-7 shrink-0" /> : <MikeeMark />}
+                    <div className="min-w-0 flex-1 pt-0.5 text-[1.04rem] leading-[1.8]">
+                      <RichText text={item.text} />
+                    </div>
+                  </div>
+                );
+              if (item.type === "activity")
+                return (
+                  <div key={item.id} className="flex items-center gap-3.5 text-sm text-ink-3">
+                    {prev?.type === "user" ? <MikeeMark /> : <span className="w-7 shrink-0" />}
+                    <span className="flex items-center gap-2">
+                      <span className="h-1 w-1 rounded-full bg-ink-3" />
+                      {item.label}
+                    </span>
+                  </div>
+                );
+              return (
+                <div key={item.id} className="flex gap-3.5">
+                  <span className="hidden w-7 shrink-0 sm:block" />
+                  <ProposalCard proposal={item.proposal} brand={brand} onChange={change} />
+                </div>
+              );
+            })}
+
+            {live && (
+              <div className="flex gap-3.5">
+                <MikeeMark live />
+                <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[1.04rem] leading-[1.8] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
+                  {live.segments.map((seg, i) =>
+                    seg.kind === "text" ? (
+                      <RichText key={i} text={seg.text} />
+                    ) : (
+                      <ProposalCard key={seg.proposal.id} proposal={seg.proposal} brand={brand} onChange={change} />
+                    ),
+                  )}
+                  {(live.activity || !live.segments.length) && <div className="shimmer text-[0.95rem] font-medium">{live.activity ?? "חושב"}…</div>}
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="flex gap-3.5">
+                <span className="w-7 shrink-0" />
+                <p className="rounded-2xl bg-warn/8 px-4 py-2.5 text-sm text-warn">{error}</p>
+              </div>
+            )}
+          </div>
         )}
-        {error && <p className="ps-10 text-sm text-warn">{error}</p>}
         <div ref={bottom} />
       </div>
 
-      <div className="sticky bottom-0 bg-gradient-to-t from-bg from-70% to-transparent pb-5 pt-6">
-        {empty && (
-          <div className="mb-3 flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((s) => (
-              <button key={s} className="btn btn-quiet text-sm" onClick={() => submit(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="sticky bottom-0 z-20 -mx-4 bg-gradient-to-t from-bg from-60% to-transparent px-4 pb-4 pt-10 sm:pb-6">
         <form
-          className="card glass flex items-end gap-2 p-2"
+          className="float mx-auto flex items-end gap-2 rounded-[28px] p-2 ps-5 transition-shadow focus-within:shadow-[var(--float),0_0_0_4px_color-mix(in_srgb,var(--accent)_10%,transparent)]"
           onSubmit={(e) => {
             e.preventDefault();
             submit();
@@ -238,14 +259,17 @@ export function Chat({ initialItems, stage, firstName }: { initialItems: Timelin
             }}
             rows={1}
             placeholder={stage === "scanning" && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"}
-            className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 text-[1.02rem] outline-none placeholder:text-ink-3"
+            className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-3 text-[1.04rem] leading-6 outline-none placeholder:text-ink-3"
           />
-          <button className="btn btn-primary h-11 w-11 shrink-0 p-0" disabled={!input.trim() || !!live} aria-label="שליחה">
-            <svg viewBox="0 0 24 24" className="h-5 w-5 rotate-180" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
+          <button
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-on-ink transition-all duration-200 hover:opacity-85 active:scale-95 disabled:bg-surface-3 disabled:text-ink-3"
+            disabled={!input.trim() || !!live}
+            aria-label="שליחה"
+          >
+            <ArrowUp className="h-5 w-5" strokeWidth={2.2} />
           </button>
         </form>
+        <p className="mt-2.5 text-center text-xs text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
       </div>
     </div>
   );
