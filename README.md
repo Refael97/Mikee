@@ -42,6 +42,34 @@ Each specialist gets the business brief (`brief.ts`), its own professional instr
   - Images and PDFs reach the model as real content. Text files arrive as text. A video or other file arrives as a link Mikee can use in ads and posts.
 - **Every scheduled check-in** opens a new "Mikee's recommendations" conversation, which is deleted if there's nothing to say.
 
+### Mikee reaches out on his own (`src/lib/proactive.ts`)
+Every hour the cron asks each business whether there's a reason to talk now. Reasons, by priority:
+
+| Reason | When | Where it's written |
+|---|---|---|
+| The Meta connection was lost | Once a day while it's broken | New conversation |
+| A card failed and wasn't retried | 2 hours after the failure, once per attempt | The card's conversation |
+| A card has been waiting for an answer | After 24 hours, once per card | The card's conversation |
+| Monthly summary and plan | Days 1–3 of the month | New conversation |
+| Weekly summary | Sunday from 09:00 (replaces that morning's check) | New conversation |
+| Morning check | Every day from 08:00. If there's nothing to say, nothing is shown and it doesn't count | New conversation |
+| A client who has gone quiet | 4 days without a message, once per silence | New conversation |
+
+Limits:
+- Quiet hours are 21:00 to 08:00 local time.
+- At most 2 a day, and one per cron run.
+- Never interrupts a conversation where Mikee is already working.
+- The `nudges` table (unique per reason and key) makes sure the same reason never fires twice, even with two cron runs in parallel.
+
+A conversation Mikee started is marked as new: a dot in the list, and a note that slides in on every screen ("מייקי כתב לך") with the opening words. If the conversation is already open, the message appears live as it's written.
+
+### Liveliness (`src/components/Live.tsx`)
+- **Image or video being created:** a dot grid with a diagonal band of light, and a status that changes ("מסדר את האור", "מלטש פרטים"). When it's ready, the images appear with a blur-to-sharp transition.
+- **While Mikee works:** a list of steps. Each one shows a shimmering status that changes as the work goes on, and turns into a check when it finishes.
+- **Text appears word by word** with a soft fade-in.
+- **Quick replies:** Mikee ends a question with `[[כן, תכין | אחר כך]]` and the client gets ready-made buttons.
+- **Success:** a check that pops, and a short glow on the card.
+
 ### Approvals (`src/lib/proposals.ts`, `src/lib/executor.ts`)
 - **Every tool has an effect** (`read` / `memory` / `setup` / `proposal`). No tool spends money or publishes by itself. The only tool that writes to Meta directly is `meta_write`, and it blocks every path or field that spends, changes what's running, publishes, or touches the account (tested).
 - **Mikee has no direct access to Higgsfield or any other external MCP.** Generating media goes through `propose_media`: a price quote first (`get_cost`), then a card, or, within a monthly amount the client approved in advance, it runs immediately.
@@ -77,11 +105,12 @@ Simple sentences, each with a source (client / website / store / results / Mikee
 npm test
 ```
 
-45 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
+60 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
 - `tests/approvals.test.ts`: tool classification and blocking, the version-bound approval, five simultaneous approvals → one campaign, a failure mid-run and retry without duplicates, adopting an orphaned campaign after a crash, a post retry only on the channel that failed, blocking repeated suggestions.
 - `tests/budget.test.ts`: the projection (scheduled, paused, external changes), the ceiling, reservations for pending cards, the check at execution time, increases, and the hard ceiling at Meta.
 - `tests/team.test.ts`: tool permissions per role (Mikee doesn't build or publish himself; each specialist only gets its own tools; no further delegation), a full delegation flow (brief, tools, card reaches the client, the team stays invisible), parallel tasks, and a specialist failure.
 - `tests/conversations.test.ts`: the quick category guess, filing by Mikee, the lock after a manual move, history isolation between conversations, a card result reported in the right conversation, ordering and removal, and attachments as content blocks.
+- `tests/proactive.test.ts`: quiet hours, the daily limit, no repeats (including two cron runs at once), priorities (a lost connection, a failed card, a waiting card in its own conversation), the weekly summary replacing the morning check, a silent check-in leaving no trace, the new-conversation marking, and parsing quick replies.
 - `tests/runtime.test.ts`: jobs (one turn at a time, atomic claiming, resuming after a dead worker), a full Mikee turn with a mocked model (no MCP in the request), the AI cap, and gating media generation (no paying twice).
 
 **Not yet tested against the real services:** the actual Meta API, the Claude API, and Higgsfield's real MCP server. That's the first step of the pilot.
@@ -105,7 +134,7 @@ Mikee's turns (a first scan, building a campaign) can take minutes, so the app r
 2. Add Postgres to the project and link `DATABASE_URL` to the service.
 3. Variables: everything in `.env.example`. `APP_URL` is the service's public address.
 4. Create the user: `railway run npm run create-user -- "..." "..." email "password"`.
-5. Maintenance and proactive recommendations: in the same project, add a Cron service (for example `0 7,15 * * *`). It checks the connection, syncs the hard ceiling at Meta (including at the start of a month), and queues a check-in:
+5. Maintenance and proactive outreach: in the same project, add a Cron service that runs **every hour** (`0 * * * *`). It checks the connection, syncs the hard ceiling at Meta (including at the start of a month), and lets Mikee decide whether to reach out now:
    `curl -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/cron/checkin`
 6. In the Meta app, under Facebook Login, add the redirect address: `https://<APP_URL>/api/meta/callback`.
 

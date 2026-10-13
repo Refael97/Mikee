@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { cardView } from "@/lib/conversation";
 import { ApprovalRejected, approveProposal, declineProposal } from "@/lib/proposals";
 
 export const runtime = "nodejs";
@@ -36,5 +37,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     where: and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, session.workspace.id)),
   });
   if (!p) return new Response("Not found", { status: 404 });
-  return Response.json({ id: p.id, status: p.status, version: p.versionHash, card: p.card, error: (p.result as any)?.error, retryable: (p.result as any)?.retryable });
+  return Response.json(cardView(p));
 }

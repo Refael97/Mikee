@@ -140,11 +140,14 @@ export function fakeTeam(scripts: Record<string, ((req: any) => { content: any[]
           const next = scripts[agent]?.shift();
           if (!next) throw new Error(`fake Claude ran out of scripted replies for ${agent}`);
           const msg = { id: `msg_${requests.length}`, model: req.model, usage: { input_tokens: 1000, output_tokens: 200 }, ...next(req) };
+          const handlers: ((t: string) => void)[] = [];
           return {
-            on() {
+            on(event: string, cb: (t: string) => void) {
+              if (event === "text") handlers.push(cb);
               return this;
             },
             async finalMessage() {
+              for (const b of msg.content) if (b.type === "text") handlers.forEach((h) => h(b.text));
               return msg;
             },
           };

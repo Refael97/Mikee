@@ -130,6 +130,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
           { label: "עלות", value: extra.credits != null ? `${extra.credits} קרדיטים` : "יחושב לפני האישור" },
         ],
         media: s.referenceUrls.map((url) => ({ type: "image" as const, url })),
+        generate: { type: s.type, count: s.count, ratio: s.aspectRatio.replace(":", "/") },
         approveLabel: "יאללה, צור",
         changeLabel: "בוא נשנה משהו",
       };

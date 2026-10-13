@@ -109,8 +109,22 @@ export const conversations = pgTable("conversations", {
   category: text("category").$type<Category>().notNull().default("general"),
   auto: boolean("auto").notNull().default(true),
   archived: boolean("archived").notNull().default(false),
+  /** Mikee wrote here on his own and the client has not opened it yet. */
+  unread: boolean("unread").notNull().default(false),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Every time Mikee reached out on his own, so the same reason never triggers twice. */
+export const nudges = pgTable("nudges", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  kind: text("kind").notNull(),
+  key: text("key").notNull(),
+  /** Local date in the business's timezone, for the daily limit. */
+  day: text("day").notNull(),
+  conversationId: uuid("conversation_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 export type Attachment = { id: string; name: string; type: string; size: number; url: string };

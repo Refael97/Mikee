@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { type AgentEvent, type Row, runMikee } from "./agent/run";
 import { CHECKIN_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
-import { deleteIfEmpty } from "./conversations";
+import { deleteIfEmpty, markUnread } from "./conversations";
 import { executeProposal } from "./executor";
 import { claimNext, finishJob, heartbeat, type Job, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 
@@ -20,7 +20,8 @@ export async function runJob(job: Job) {
     if (job.kind === "execute") {
       await executeProposal(String(job.input.proposalId), { cleanup: !!job.input.cleanup });
     } else {
-      const kickoff = job.kind === "checkin" ? CHECKIN_KICKOFF : job.input.kickoff === "scan" ? SCAN_KICKOFF : null;
+      const kickoff =
+        job.kind === "checkin" ? (typeof job.input.kickoff === "string" ? job.input.kickoff : CHECKIN_KICKOFF) : job.input.kickoff === "scan" ? SCAN_KICKOFF : null;
       const prepend: Row[] = kickoff ? [{ role: "user", kind: "kickoff", content: [{ type: "text", text: kickoff }] }] : [];
       // Text arrives token by token; store it in small batches so polling clients see it flow.
       let buffer = "";
@@ -33,8 +34,9 @@ export async function runJob(job: Job) {
         await pushEvent(job.id, { t: "text", v });
       };
       const conversationId = String(job.input.conversationId);
-      const discard = job.kind === "checkin" ? (t: string) => t.trim() === "NOTHING" : undefined;
-      await runMikee({
+      const silent = (t: string) => !t.trim() || t.trim() === "NOTHING";
+      const discard = job.kind === "checkin" && job.input.mayStaySilent !== false ? silent : undefined;
+      const written = await runMikee({
         workspaceId: job.workspaceId,
         conversationId,
         prepend,
@@ -51,8 +53,16 @@ export async function runJob(job: Job) {
         },
         discardIf: discard,
       });
-      // A check-in with nothing to say leaves no empty conversation behind.
-      if (job.kind === "checkin") await deleteIfEmpty(conversationId);
+      if (job.kind === "checkin") {
+        if (silent(written) && discard) {
+          // Nothing worth saying: no empty conversation is left behind, and it does not count toward the daily limit.
+          await deleteIfEmpty(conversationId);
+          if (job.input.nudgeId) await markNudgeSilent(Number(job.input.nudgeId));
+        } else {
+          // Mikee wrote on his own: the conversation waits for the client, marked as new.
+          await markUnread(conversationId);
+        }
+      }
     }
     await finishJob(job.id, "done");
   } catch (e) {
@@ -85,6 +95,11 @@ export function startWorker(concurrency = 3) {
       }
     })();
   }
+}
+
+async function markNudgeSilent(id: number) {
+  const d = await db();
+  await d.update(schema.nudges).set({ day: "-" }).where(eq(schema.nudges.id, id));
 }
 
 /** Marks a workspace stage; used when the client finishes onboarding. */

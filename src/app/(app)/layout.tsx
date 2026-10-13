@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
+import { MikeeToast } from "@/components/MikeeToast";
 import Link from "next/link";
 import { getConnection } from "@/lib/connections";
 
@@ -13,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-dvh flex-col">
       <Nav business={workspace.name} />
+      <MikeeToast />
       {meta?.status === "broken" && (
         <Link href="/settings" className="rise mx-5 mt-1 flex items-center gap-3 rounded-[16px] bg-warn-tint px-4 py-3 text-[15px] sm:mx-auto sm:w-full sm:max-w-xl">
           <span className="text-warn">

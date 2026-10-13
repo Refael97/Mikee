@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import type { Category } from "./db/schema";
 
@@ -100,6 +100,44 @@ export async function updateConversation(workspaceId: string, id: string, patch:
       ...(patch.archived != null ? { archived: patch.archived } : {}),
     })
     .where(and(eq(schema.conversations.id, id), eq(schema.conversations.workspaceId, workspaceId)));
+}
+
+export async function markUnread(id: string, unread = true) {
+  const d = await db();
+  await d.update(schema.conversations).set({ unread }).where(eq(schema.conversations.id, id));
+}
+
+/** The client opened a conversation Mikee started. */
+export async function markRead(workspaceId: string, id: string) {
+  const d = await db();
+  await d
+    .update(schema.conversations)
+    .set({ unread: false })
+    .where(and(eq(schema.conversations.id, id), eq(schema.conversations.workspaceId, workspaceId), eq(schema.conversations.unread, true)));
+}
+
+/** Mikee's latest words in each conversation he started and the client has not opened yet. */
+export async function unreadPreviews(workspaceId: string, ids: string[]): Promise<Record<string, string>> {
+  if (!ids.length) return {};
+  const d = await db();
+  const rows = await d
+    .select({ conversationId: schema.messages.conversationId, content: schema.messages.content })
+    .from(schema.messages)
+    .where(and(eq(schema.messages.workspaceId, workspaceId), inArray(schema.messages.conversationId, ids), eq(schema.messages.role, "assistant"), eq(schema.messages.kind, "chat")))
+    .orderBy(asc(schema.messages.id));
+  const out: Record<string, string> = {};
+  for (const r of rows) {
+    const text = (r.content as any[])
+      .filter((b) => b?.type === "text")
+      .map((b) => b.text)
+      .join(" ")
+      .replace(/\[\[[^\]]*\]\]/g, "")
+      .replace(/\*\*/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (text && r.conversationId) out[r.conversationId] = text.length > 140 ? `${text.slice(0, 140)}…` : text;
+  }
+  return out;
 }
 
 export async function deleteIfEmpty(id: string) {

@@ -72,6 +72,17 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS conversations_ws_idx ON conversations (workspace_id, updated_at DESC);
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS unread boolean NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS nudges (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  kind text NOT NULL,
+  key text NOT NULL,
+  day text NOT NULL,
+  conversation_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, kind, key)
+);
 CREATE TABLE IF NOT EXISTS messages (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, Building2, ChevronDown, Megaphone, MessageCircle, MoreHorizontal, PenLine, Plus, Search, X } from "lucide-react";
 
 type Category = "campaigns" | "content" | "results" | "business" | "general";
-type Conv = { id: string; title: string; category: Category; auto: boolean; updatedAt: string };
+type Conv = { id: string; title: string; category: Category; auto: boolean; updatedAt: string; unread?: boolean };
 
 export const CATEGORY_UI: Record<Category, { title: string; icon: typeof Megaphone }> = {
   campaigns: { title: "קמפיינים", icon: Megaphone },
@@ -47,7 +47,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     if (res.ok) setItems((await res.json()).conversations);
   }, []);
 
-  useEffect(() => setAnnounced(null), [params.id]);
+  useEffect(() => {
+    setAnnounced(null);
+    // Opening a conversation reads it (the server marks it on the same request).
+    if (params.id) setItems((xs) => xs?.map((x) => (x.id === params.id ? { ...x, unread: false } : x)) ?? null);
+  }, [params.id]);
 
   useEffect(() => {
     void load();
@@ -134,7 +138,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                               active ? "bg-brand-tint text-brand" : "hover:bg-surface"
                             }`}
                           >
-                            <span className={`min-w-0 flex-1 truncate text-[15px] ${active ? "font-semibold" : ""}`}>{c.title}</span>
+                            {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="חדש" />}
+                            <span className={`min-w-0 flex-1 truncate text-[15px] ${active || c.unread ? "font-semibold" : ""}`}>{c.title}</span>
                             <span className={`shrink-0 text-[12.5px] transition-opacity group-hover:opacity-0 ${active ? "text-brand/70" : "text-ink-3"}`}>{when(c.updatedAt)}</span>
                           </Link>
                           <button

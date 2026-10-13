@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChartNoAxesColumn, FileText, Megaphone, Sparkles, Wand2 } from "lucide-react";
+import { ChartNoAxesColumn, Check, FileText, Megaphone, Sparkles, Wand2 } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
 import { Composer, type Upload } from "./Composer";
 import { ProposalCard, type Brand } from "./ProposalCard";
+import { LiveText, QuickReplies, StatusLine, type Step, Steps, splitReplies } from "./Live";
 import { RichText } from "./RichText";
 import { refreshConversations } from "./Sidebar";
 
@@ -22,8 +23,16 @@ const LIVE_LABELS: Record<string, string> = {
   ask_creative: "מכין ויז׳ואל",
   ask_social: "מכין פוסט",
   ask_analyst: "מנתח את התוצאות",
+  read_insights: "מעמיק בנתונים",
+  search_targeting: "מחפש קהלים",
+  list_audiences: "בודק קהלים שמורים",
+  meta_read: "בודק משהו מאחורי הקלעים",
+  meta_write: "מסדר משהו מאחורי הקלעים",
   web_search: "מחפש ברשת",
+  web_fetch: "קורא עמוד ברשת",
 };
+// Bookkeeping tools stay silent.
+const SILENT = new Set(["file_conversation", "set_stage"]);
 
 const SUGGESTIONS = [
   { icon: ChartNoAxesColumn, title: "איך הולך החודש?", sub: "תמונת מצב בשתי דקות" },
@@ -33,14 +42,33 @@ const SUGGESTIONS = [
 ];
 
 type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: CardView };
-type Live = { segments: Segment[]; activity: string | null };
+type Live = { segments: Segment[]; steps: Step[]; activity: string | null };
+const EMPTY: Live = { segments: [], steps: [], activity: null };
 
 function appendText(live: Live | null, delta: string): Live {
-  const segments = [...(live?.segments ?? [])];
+  const l = live ?? EMPTY;
+  const segments = [...l.segments];
   const last = segments[segments.length - 1];
   if (last?.kind === "text") segments[segments.length - 1] = { kind: "text", text: last.text + delta };
   else segments.push({ kind: "text", text: delta });
-  return { segments, activity: null };
+  return { ...l, segments, activity: null };
+}
+
+/** A tool started or finished: the step list grows, and finished steps turn into checks. */
+function toolEvent(live: Live | null, name: string, state: "start" | "done" | "error"): Live {
+  const l = live ?? EMPTY;
+  if (SILENT.has(name)) return l;
+  const label = LIVE_LABELS[name] ?? "עובד על זה";
+  if (state === "start") {
+    // The same kind of work twice in a row reads as one step.
+    const running = l.steps.find((s) => s.label === label && s.state === "running");
+    return { ...l, steps: running ? l.steps : [...l.steps, { name, label, state: "running" }], activity: label };
+  }
+  const steps = [...l.steps];
+  const i = steps.findLastIndex((s) => s.name === name && s.state === "running");
+  if (i >= 0) steps[i] = { ...steps[i], state };
+  const stillRunning = steps.findLast((s) => s.state === "running");
+  return { ...l, steps, activity: stillRunning?.label ?? null };
 }
 
 function MikeeMark({ live = false }: { live?: boolean }) {
@@ -77,7 +105,7 @@ export function Chat({
   /** Follows a background job by polling its events; survives refreshes, drops and server restarts. */
   const follow = useCallback(
     async (jobId: string) => {
-      setLive((l) => l ?? { segments: [], activity: null });
+      setLive((l) => l ?? EMPTY);
       let cursor = 0;
       for (;;) {
         const res = await fetch(`/api/jobs/${jobId}?after=${cursor}`, { cache: "no-store" }).catch(() => null);
@@ -86,14 +114,14 @@ export function Chat({
           for (const e of data.events) {
             cursor = e.id;
             if (e.t === "text") setLive((l) => appendText(l, e.v));
-            if (e.t === "tool" && e.state === "start") setLive((l) => ({ segments: l?.segments ?? [], activity: LIVE_LABELS[e.name] ?? "עובד על זה" }));
+            if (e.t === "tool") setLive((l) => toolEvent(l, e.name, e.state));
             if (e.t === "proposal") {
               const p = await fetch(`/api/proposals/${e.id}`).then((r) => (r.ok ? r.json() : null));
               if (p)
                 setLive((l) =>
                   l?.segments.some((x) => x.kind === "card" && x.proposal.id === p.id)
                     ? l
-                    : { segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null },
+                    : { ...(l ?? EMPTY), segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null },
                 );
             }
             if (e.t === "error") setError(e.message);
@@ -122,7 +150,7 @@ export function Chat({
             attachments: uploads.map((u) => ({ id: u.id!, name: u.name, type: u.type, size: u.size, url: u.preview ?? "" })),
           },
         ]);
-      setLive({ segments: [], activity: body.kickoff ? "מתחיל ללמוד את העסק" : null });
+      setLive({ ...EMPTY, activity: body.kickoff ? "מתחיל ללמוד את העסק" : null });
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -162,6 +190,23 @@ export function Chat({
     })();
   }, [autoScan, send, follow]);
 
+  // Mikee can start talking here on his own (a reminder about a waiting card, a fix for a failed one).
+  // While the conversation is open and quiet, look for that every few seconds and show it live.
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  useEffect(() => {
+    if (!conversationId) return;
+    const t = setInterval(async () => {
+      if (liveRef.current || document.hidden || !convId.current) return;
+      const active = await fetch(`/api/jobs/active?conversationId=${convId.current}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (!active?.jobId || liveRef.current) return;
+      await follow(active.jobId);
+      // She watched it arrive, so it is already read.
+      await fetch(`/api/conversations/${convId.current}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ read: true }) });
+    }, 12_000);
+    return () => clearInterval(t);
+  }, [conversationId, follow]);
+
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [items, live]);
@@ -172,6 +217,9 @@ export function Chat({
   }
 
   const empty = items.length === 0 && !live;
+  // Quick replies belong to Mikee's latest words only, and disappear once the client answers.
+  const lastItem = items[items.length - 1];
+  const replies = !live && lastItem?.type === "mikee" ? splitReplies(lastItem.text).replies : [];
   const change = (title: string) => submit(`בוא נשנה משהו ב"${title}"`);
 
   return (
@@ -237,8 +285,9 @@ export function Chat({
                 return (
                   <div key={item.id} className="rise flex gap-3.5">
                     {prev?.type === "mikee" || prev?.type === "activity" || prev?.type === "card" ? <span className="w-7 shrink-0" /> : <MikeeMark />}
-                    <div className="min-w-0 flex-1 pt-0.5 text-[18px] leading-[1.6]">
-                      <RichText text={item.text} />
+                    <div className="min-w-0 flex-1 space-y-3 pt-0.5 text-[18px] leading-[1.6]">
+                      <RichText text={splitReplies(item.text).text} />
+                      {item === lastItem && <QuickReplies replies={replies} onPick={(r) => submit(r)} />}
                     </div>
                   </div>
                 );
@@ -247,7 +296,9 @@ export function Chat({
                   <div key={item.id} className="flex items-center gap-3.5 text-[15px] text-ink-3">
                     {prev?.type === "user" ? <MikeeMark /> : <span className="w-7 shrink-0" />}
                     <span className="flex items-center gap-2">
-                      <span className="h-1 w-1 rounded-full bg-ink-3" />
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-surface-2 text-ink-3">
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                      </span>
                       {item.label}
                     </span>
                   </div>
@@ -264,14 +315,15 @@ export function Chat({
               <div className="flex gap-3.5">
                 <MikeeMark live />
                 <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[18px] leading-[1.6] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
+                  <Steps steps={live.steps} />
                   {live.segments.map((seg, i) =>
                     seg.kind === "text" ? (
-                      <RichText key={i} text={seg.text} />
+                      <LiveText key={i} text={seg.text} />
                     ) : (
                       <ProposalCard key={seg.proposal.id} proposal={seg.proposal} brand={brand} onChange={change} />
                     ),
                   )}
-                  {(live.activity || !live.segments.length) && <div className="shimmer text-[16px] font-medium">{live.activity ?? "חושב"}…</div>}
+                  {!live.steps.some((x) => x.state === "running") && live.segments[live.segments.length - 1]?.kind !== "text" && <StatusLine activity={live.activity} />}
                 </div>
               </div>
             )}

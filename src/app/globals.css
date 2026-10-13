@@ -407,3 +407,132 @@ textarea.field {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Live reactions ---------- */
+
+/* Image being generated: a living dot grid with a diagonal band of light sweeping across it. */
+.dot-grid {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--ink) 22%, transparent) 1.1px, transparent 1.6px);
+  background-size: 14px 14px;
+  background-position: center;
+}
+.dot-grid-lit {
+  background-image: radial-gradient(circle, var(--brand) 1.7px, transparent 2.2px);
+  background-size: 14px 14px;
+  background-position: center;
+  -webkit-mask-image: linear-gradient(120deg, transparent 35%, #000 50%, transparent 65%);
+  mask-image: linear-gradient(120deg, transparent 35%, #000 50%, transparent 65%);
+  -webkit-mask-size: 300% 300%;
+  mask-size: 300% 300%;
+  animation: sweep 2.4s var(--ease) infinite;
+}
+.dot-grid-glow {
+  background: linear-gradient(120deg, transparent 30%, color-mix(in srgb, var(--brand) 14%, transparent) 50%, transparent 70%);
+  background-size: 300% 300%;
+  animation: sweep-bg 2.4s var(--ease) infinite;
+}
+@keyframes sweep {
+  from {
+    -webkit-mask-position: 100% 100%;
+    mask-position: 100% 100%;
+  }
+  to {
+    -webkit-mask-position: 0% 0%;
+    mask-position: 0% 0%;
+  }
+}
+@keyframes sweep-bg {
+  from {
+    background-position: 100% 100%;
+  }
+  to {
+    background-position: 0% 0%;
+  }
+}
+
+/* A finished image arrives from blur to sharp. */
+.reveal {
+  animation: reveal 900ms var(--ease) both;
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    filter: blur(18px) saturate(0.6);
+    transform: scale(1.04);
+  }
+}
+
+/* Words arrive softly while Mikee writes. */
+.word-in {
+  animation: word-in 420ms var(--ease) both;
+}
+@keyframes word-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* Status text that changes in place. */
+.swap-in {
+  animation: swap-in 360ms var(--ease) both;
+}
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Success: a check that pops. */
+.pop {
+  animation: pop 520ms var(--ease) both;
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* A new item draws the eye once. */
+.flash {
+  animation: flash 1600ms var(--ease) both;
+}
+@keyframes flash {
+  0%,
+  40% {
+    background-color: var(--brand-tint);
+  }
+}
+
+.spin {
+  animation: orb-turn 0.9s linear infinite;
+}
+
+/* Mikee reaching out: a note that slides in and settles. */
+.toast-in {
+  animation: toast-in 420ms var(--ease) both;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.97);
+  }
+}
+.toast-out {
+  animation: toast-out 200ms ease-in both;
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}

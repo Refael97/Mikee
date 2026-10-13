@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronLeft, Megaphone, PenLine, RotateCcw, SlidersHorizontal, Wallet, Wand2 } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
+import { MediaGenerating } from "./Live";
 
 export type Brand = { name: string; handle?: string };
 
@@ -69,22 +70,53 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
   );
 }
 
+/** A media card: the references before approval, a forming canvas while it runs, the result when ready. */
+function MediaResult({ view }: { view: CardView }) {
+  const gen = view.card.generate;
+  const refs = view.card.media ?? [];
+  const cols = (n: number) => (n > 1 ? "grid-cols-2" : "grid-cols-1");
+  if (view.status === "executing" && gen) {
+    return (
+      <div className={`grid gap-2 px-5 ${cols(gen.count)}`}>
+        {Array.from({ length: gen.count }, (_, i) => (
+          <MediaGenerating key={i} ratio={gen.ratio} label={gen.type === "video" ? "יוצר סרטון" : "יוצר תמונה"} />
+        ))}
+      </div>
+    );
+  }
+  if (view.status === "done" && view.output?.length) {
+    return (
+      <div className={`grid gap-2 px-5 ${cols(view.output.length)}`}>
+        {view.output.map((m, i) => (
+          <a key={m.url} href={m.url} target="_blank" rel="noreferrer" className="reveal block overflow-hidden rounded-[14px] bg-surface-2" style={{ animationDelay: `${i * 140}ms`, aspectRatio: gen?.ratio ?? "4/5" }}>
+            {m.type === "video" ? (
+              <video src={m.url} className="h-full w-full object-cover" autoPlay muted loop playsInline />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={m.url} alt="" className="h-full w-full object-cover" />
+            )}
+          </a>
+        ))}
+      </div>
+    );
+  }
+  if (!refs.length) return null;
+  return (
+    <div className="flex gap-2 px-5 pb-1">
+      {refs.map((m, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-[14px] object-cover hairline" />
+      ))}
+    </div>
+  );
+}
+
 function Previews({ card, brand }: { card: Card; brand: Brand }) {
   const media = card.media ?? [];
   const [index, setIndex] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
   if (!media.length) return null;
 
-  if (card.kind === "media") {
-    return (
-      <div className="flex gap-2 px-5 pb-1">
-        {media.map((m, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-[14px] object-cover hairline" />
-        ))}
-      </div>
-    );
-  }
   const textOnly = media.length === 1 && !media[0].url;
   if (textOnly) return <p className="tile mx-5 whitespace-pre-line p-4 text-[16px] leading-relaxed">{media[0].text}</p>;
 
@@ -170,7 +202,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
   const settled = ["declined", "cancelled", "superseded"].includes(view.status);
 
   return (
-    <article className={`card-float rise w-full max-w-[460px] overflow-hidden transition-opacity duration-500 ${settled ? "opacity-55" : ""}`}>
+    <article key={view.status === "done" ? "done" : "live"} className={`card-float rise w-full ${view.status === "done" ? "flash" : ""} max-w-[460px] overflow-hidden transition-opacity duration-500 ${settled ? "opacity-55" : ""}`}>
       <div className="h-[3px] w-full overflow-hidden">{view.status === "executing" && <div className="progress-light h-full w-1/3" />}</div>
 
       <header className="flex items-center justify-between gap-3 px-5 pt-[18px]">
@@ -186,7 +218,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
         {card.why && <p className="mt-2 text-[16px] leading-[1.55] text-ink-2">{card.why}</p>}
       </div>
 
-      <Previews card={card} brand={brand} />
+      {card.kind === "media" ? <MediaResult view={view} /> : <Previews card={card} brand={brand} />}
 
       <dl className="grid grid-cols-2 gap-2 p-5 pb-0">
         {card.rows.map((r) => (
@@ -209,10 +241,17 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
             </button>
           </div>
         )}
-        {view.status === "executing" && <p className="text-[15px] text-ink-2">אפשר לסגור את המסך. זה ימשיך לרוץ, ומייקי יעדכן כשזה מוכן.</p>}
+        {view.status === "executing" && (
+          <p className="text-[15px] text-ink-2">
+            <span className="shimmer font-medium">{card.kind === "media" ? "יוצר" : "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
+          </p>
+        )}
         {view.status === "done" && (
           <p className="flex items-center gap-2 text-[15px] font-medium text-good">
-            <Check className="h-4 w-4" strokeWidth={2.4} /> בוצע בהצלחה
+            <span className="pop flex h-5 w-5 items-center justify-center rounded-full bg-good-tint">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.6} />
+            </span>
+            {card.kind === "media" ? "מוכן. מייקי ישתמש בזה בהצעה הבאה" : "בוצע בהצלחה"}
           </p>
         )}
         {view.status === "failed" && (

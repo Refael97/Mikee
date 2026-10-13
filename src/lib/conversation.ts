@@ -81,7 +81,22 @@ export type TimelineItem =
   | { type: "activity"; id: string; label: string }
   | { type: "card"; id: string; proposal: CardView };
 
-export type CardView = { id: string; status: string; version: string; card: ProposalCard; error?: string; retryable?: boolean };
+export type CardView = {
+  id: string;
+  status: string;
+  version: string;
+  card: ProposalCard;
+  error?: string;
+  retryable?: boolean;
+  /** What execution produced that the client should see, e.g. the created images. */
+  output?: { url: string; type: "image" | "video" }[];
+};
+
+/** The client-facing view of one proposal row. */
+export function cardView(p: { id: string; status: string; versionHash: string; card: unknown; result: unknown }): CardView {
+  const r = (p.result ?? {}) as { error?: string; retryable?: boolean; media?: CardView["output"] };
+  return { id: p.id, status: p.status, version: p.versionHash, card: p.card as ProposalCard, error: r.error, retryable: r.retryable, output: r.media };
+}
 
 /** Labels for what Mikee is doing behind the scenes, as the client sees it. */
 export const TOOL_LABELS: Record<string, string> = {
@@ -161,14 +176,7 @@ export async function timeline(workspaceId: string, conversationId: string): Pro
             items.push({
               type: "card",
               id: `${id}-${p.id}`,
-              proposal: {
-                id: p.id,
-                status: p.status,
-                version: p.versionHash,
-                card: p.card as ProposalCard,
-                error: (p.result as any)?.error,
-                retryable: (p.result as any)?.retryable,
-              },
+              proposal: cardView(p),
             });
           }
           return;

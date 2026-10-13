@@ -117,6 +117,8 @@ export type ProposalCard = {
   why: string;
   rows: { label: string; value: string }[];
   media?: { type: "image" | "video"; url: string; text?: string; headline?: string; cta?: string }[];
+  /** For media cards: what is being created, so the screen can show it forming. */
+  generate?: { type: "image" | "video"; count: number; ratio: string };
   approveLabel: string;
   changeLabel: string;
 };
