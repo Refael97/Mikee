@@ -18,6 +18,7 @@ export default defineConfig({
       MIKEE_WORKER: "off",
       MIKEE_DESCRIBE_MEDIA: "off",
       MIKEE_IMAGE_PREP: "off",
+      MIKEE_REPORT_OUTCOMES: "off",
       MIKEE_IG_POLL_MS: "1",
       MIKEE_ENCRYPTION_KEY: "0".repeat(64),
       SESSION_SECRET: "test-session-secret-test-session-secret",

@@ -109,6 +109,9 @@ Respond to what she asks. Bring recommendations when there is a reason, and keep
 export const CHECKIN_KICKOFF = `[Scheduled check-in, not typed by the client]
 Ask the analyst to review how things are going since the last check-in: results by campaign and ad (last 7 days vs the period before), budget pace for the month, stock of promoted products, and recent posts. If, and only if, there is a real business reason, have the right specialist prepare the card, then write to the client: 1-3 short recommendations in the format "what I noticed, what I suggest, why it is good". If nothing deserves her attention, reply with exactly: NOTHING`;
 
+/** After a card finished (published, built, failed): Mikee tells her the outcome himself, so "I'll update you" is kept. */
+export const OUTCOME_KICKOFF = `[Platform event, not typed by the client] A card just finished; the event above has its result. Tell the client the outcome in one short line, in her language: what happened (published, built, generated, changed) or that it failed, with the plain reason from the event and that she can retry from the card. Say published only if the event confirms it. No other content, no questions, no quick replies.`;
+
 export const SCAN_KICKOFF = `[Platform event, not typed by the client] The client finished connecting her accounts. Start the first scan now.`;
 
 /** Fragments that only appear in the instructions: if one shows up in an answer, the answer is withheld. */

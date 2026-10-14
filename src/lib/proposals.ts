@@ -247,6 +247,11 @@ export async function finishProposal(p: Proposal, ok: boolean, result: Record<st
         : `[Platform event, not typed by the client] "${title}" failed: ${String(result.detail ?? result.error)}. ${result.retryable === false ? "It cannot be retried automatically." : "The client can retry from the card; progress is kept, nothing is duplicated."} Explain simply if she asks.`,
     },
   ]);
+  // Mikee tells her the outcome himself, in one line, so "I'll update you when it is confirmed" is kept. If a turn
+  // is already running in this conversation, it is skipped: the card itself shows the result.
+  if (process.env.MIKEE_REPORT_OUTCOMES !== "off") {
+    await enqueue(p.workspaceId, "turn", { conversationId, kickoff: "outcome" }).catch(() => undefined);
+  }
 }
 
 /** Cards the client has not answered yet, and recent declines, so Mikee does not repeat himself. */

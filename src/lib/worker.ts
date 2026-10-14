@@ -2,7 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { type AgentEvent, type Row, runMikee } from "./agent/run";
-import { CHECKIN_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
+import { CHECKIN_KICKOFF, OUTCOME_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
 import { deleteIfEmpty, markUnread } from "./conversations";
 import { executeProposal } from "./executor";
 import { describeMedia } from "./library";
@@ -46,7 +46,15 @@ async function runJobIn(job: Job, task: TaskScope) {
       await describeMedia(job.workspaceId, ws?.timezone ?? "Asia/Jerusalem", String(job.input.mediaId));
     } else {
       const kickoff =
-        job.kind === "checkin" ? (typeof job.input.kickoff === "string" ? job.input.kickoff : CHECKIN_KICKOFF) : job.input.kickoff === "scan" ? SCAN_KICKOFF : null;
+        job.kind === "checkin"
+          ? typeof job.input.kickoff === "string"
+            ? job.input.kickoff
+            : CHECKIN_KICKOFF
+          : job.input.kickoff === "scan"
+            ? SCAN_KICKOFF
+            : job.input.kickoff === "outcome"
+              ? OUTCOME_KICKOFF
+              : null;
       const prepend: Row[] = kickoff ? [{ role: "user", kind: "kickoff", content: [{ type: "text", text: kickoff }] }] : [];
       // Text arrives token by token; store it in small batches so polling clients see it flow.
       let buffer = "";
