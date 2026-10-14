@@ -89,6 +89,7 @@ export class FakeMeta {
       return { id: "user_1", name: "Noa" };
     }
 
+    if (root === "act_1" && !edge && method === "GET" && params.fields === "business{name}") return { id: "act_1", business: { id: "biz_1", name: "אדרט גרופ בע״מ" } };
     if (root === "act_1" && !edge) {
       if (method === "POST") {
         if (params.spend_cap != null) this.account.spend_cap = String(Math.round(Number(params.spend_cap) * 100)); // written in main units, read in minor

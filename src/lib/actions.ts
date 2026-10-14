@@ -13,6 +13,7 @@ import { getConnection, removeConnection, saveConnection, type WebsiteConfig } f
 import { metaContext } from "./meta/context";
 import { detectBusiness } from "./meta/detect";
 import { Graph, inspectToken } from "./meta/graph";
+import { fillAssetNames } from "./meta/assets";
 import { checkMetaHealth } from "./meta/health";
 import { getSettings, updateSettings } from "./settings";
 import { cleanClientText, hit, LIMITS } from "./guard";
@@ -58,9 +59,13 @@ export async function saveMetaAssets(form: FormData) {
     igUserId: page?.ig?.id,
     igUsername: page?.ig?.username,
     pixelId: str(form, "pixel") || undefined,
+    pixelName: found.pixels.find((p) => p.id === str(form, "pixel"))?.name,
     catalogId: str(form, "catalog") || undefined,
+    catalogName: found.catalogs.find((k) => k.id === str(form, "catalog"))?.name,
+    businessName: undefined,
   });
   await checkMetaHealth(workspace.id);
+  await fillAssetNames(workspace.id).catch(() => undefined);
   revalidatePath("/", "layout");
 }
 

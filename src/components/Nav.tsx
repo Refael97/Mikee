@@ -7,6 +7,8 @@ import { BarChart3, Images, Inbox, LifeBuoy, LogOut, Megaphone, Menu, MessagesSq
 import { logout } from "@/app/login/actions";
 import { HelpPanel } from "./HelpPanel";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
+import { ConnectedAccount } from "@/components/ConnectedAccount";
+import type { ConnectedAssets } from "@/lib/meta/assets";
 
 export const LINKS = [
   { href: "/mikee", label: "שיחות", icon: MessagesSquare },
@@ -44,7 +46,7 @@ function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: stri
  * The app frame. Desktop: a sidebar on the start side (labels from 1280px, an icon rail between 1024 and 1280).
  * Mobile: a top bar with the current section and a menu sheet.
  */
-export function Nav({ who, support, waiting = {} }: { who: Who; support: { email?: string; whatsapp?: string }; waiting?: Record<string, boolean> }) {
+export function Nav({ who, support, waiting = {}, assets }: { who: Who; support: { email?: string; whatsapp?: string }; waiting?: Record<string, boolean>; assets: ConnectedAssets }) {
   const path = usePathname();
   const [sheet, setSheet] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -129,10 +131,9 @@ export function Nav({ who, support, waiting = {} }: { who: Who; support: { email
         <Link href="/mikee" aria-label="מייקי" className="flex items-center gap-2">
           <MikeeAvatar size={28} />
         </Link>
-        <span className="min-w-0 leading-tight">
-          <span className="block text-[17px] font-medium">מייקי</span>
-          <span className="meta block truncate text-[12.5px]">{who.business}</span>
-        </span>
+        <div className="min-w-0">
+          <ConnectedAccount initial={assets} compact />
+        </div>
         <div className="ms-auto flex items-center gap-1">
           <button onClick={() => setHelp(true)} className="btn btn-ghost btn-sm px-2" aria-label="עזרה">
             <LifeBuoy className="h-5 w-5" strokeWidth={1.5} />

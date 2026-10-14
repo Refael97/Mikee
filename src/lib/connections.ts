@@ -15,7 +15,11 @@ export type MetaConfig = {
   igUserId?: string;
   igUsername?: string;
   pixelId?: string;
+  pixelName?: string;
   catalogId?: string;
+  catalogName?: string;
+  /** The business portfolio at Meta that owns the ad account (shown as the connected account). */
+  businessName?: string;
   tokenExpiresAt?: string | null;
   dataAccessExpiresAt?: string | null;
   /** Permissions the token actually carries (from Meta's token inspection). */
