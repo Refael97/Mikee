@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { refreshConversations } from "./Sidebar";
+import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 type Unread = { id: string; title: string; preview?: string };
 
@@ -86,7 +87,7 @@ export function MikeeToast() {
           }}
           className="flex min-w-0 flex-1 items-start gap-3 text-start"
         >
-          <span className="orb mt-0.5 w-7 shrink-0" aria-hidden />
+          <MikeeAvatar size={28} greet className="mt-0.5" />
           <span className="min-w-0">
             <span className="flex items-center gap-2 text-[14px] font-semibold">
               מייקי כתב לך

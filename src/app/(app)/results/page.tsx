@@ -10,6 +10,7 @@ import { Block, Page, PageHeader } from "@/components/Page";
 import { LineChart } from "@/components/LineChart";
 import { dashboardSpec, KPIS } from "@/lib/dashboard";
 import { plainTitle } from "@/lib/text";
+import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
 
@@ -55,7 +56,7 @@ export default async function ResultsPage() {
 
       {spec?.headline && (
         <div className="card mb-6 flex items-start gap-3 p-4">
-          <span className="orb mt-0.5 w-7" aria-hidden />
+          <MikeeAvatar size={28} className="mt-0.5" />
           <div className="min-w-0">
             <p className="font-semibold">{spec.headline}</p>
             {spec.note && <p className="mt-0.5 text-[15px] text-ink-2">{spec.note}</p>}

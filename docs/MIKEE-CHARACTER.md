@@ -71,6 +71,12 @@
   - הופעה של `MikeeToast` היא `hello`.
 - **בדיקות:** `npm test` ו־`npm run build` חייבים לעבור. לבדוק בצילום מסך במצב בהיר, במצב כהה ובמובייל.
 
+## מצב השילוב (בוצע)
+- הקובץ ב־`public/rive/mikee.riv`, וה־wasm ב־`public/rive/rive.wasm` (מ־`@rive-app/canvas`; לעדכן יחד עם הספרייה).
+- `src/components/MikeeAvatar.tsx` מחליף את כל ה־`.orb`. התמונה הסטטית `public/rive/mikee.png` מוצגת בזמן טעינה, בתנועה מופחתת, ובהודעות ישנות בצ'אט.
+- `src/components/MikeeRive.tsx` מחבר את ה־ViewModel `Mikee` (מופע `light` או `dark`): `thinking`, `talking`, `listening` לפי הצ'אט, ו־`celebrate`, `concern`, `hello` דרך `cueMikee()`.
+- האנימציה מופעלת רק עם `NEXT_PUBLIC_MIKEE_RIVE=on`. **הקובץ הנוכחי יוצא מחשבון Rive חינמי**, ומכונת המצבים מציגה בהתחלה כ־3 שניות של סימן המים של Rive (מסך שחור עם "RIVE"). צריך לייצא שוב מחשבון בתשלום ולהחליף את הקובץ, ורק אז להדליק את המשתנה.
+
 ## מה עוד פתוח להחלטה של רפאל
 - האם להוסיף פה קטן, או להישאר רק עם עיניים כמו היום.
 - כמה "אופי" בתנועה: עדין מאוד, או קצת שובב.

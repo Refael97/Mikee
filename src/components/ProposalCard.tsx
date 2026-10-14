@@ -6,6 +6,7 @@ import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
 import { plainTitle } from "@/lib/text";
+import { cueMikee } from "./MikeeAvatar";
 
 export type Brand = { name: string; handle?: string };
 
@@ -204,6 +205,8 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
           setView((v) => ({ ...v, ...next }));
           // A built campaign opens its activation card: let the conversation pick it up.
           if (next.status === "done") window.dispatchEvent(new CustomEvent("mikee:timeline"));
+          if (next.status === "done") cueMikee("celebrate");
+          if (next.status === "failed") cueMikee("concern");
         }
       }
     }, 2000);

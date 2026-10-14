@@ -22,7 +22,20 @@ const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,v
  * The writing bar: text that grows, "+" to attach files or take a photo, voice dictation in Hebrew,
  * drag-and-drop and paste. Files upload as soon as they are picked, so sending is instant.
  */
-export function Composer({ busy, placeholder, onSend, initialText }: { busy: boolean; placeholder: string; initialText?: string; onSend: (text: string, attachmentIds: string[], uploads: Upload[]) => void }) {
+export function Composer({
+  busy,
+  placeholder,
+  onSend,
+  initialText,
+  onTyping,
+}: {
+  busy: boolean;
+  placeholder: string;
+  initialText?: string;
+  onSend: (text: string, attachmentIds: string[], uploads: Upload[]) => void;
+  /** Whether there is something in the box (Mikee looks up and listens). */
+  onTyping?: (typing: boolean) => void;
+}) {
   const [text, setText] = useState(initialText ?? "");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [menu, setMenu] = useState(false);
@@ -38,6 +51,9 @@ export function Composer({ busy, placeholder, onSend, initialText }: { busy: boo
   useEffect(() => {
     setCanDictate(!!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
   }, []);
+
+  const typing = text.trim().length > 0;
+  useEffect(() => onTyping?.(typing), [typing, onTyping]);
 
   useEffect(() => {
     const el = field.current;

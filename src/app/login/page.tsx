@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { login } from "./actions";
+import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 export default function LoginPage() {
   const [error, action, pending] = useActionState(login, null);
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-shell px-4 py-12">
       <div className="mb-8 flex items-center gap-2.5">
-        <span className="orb w-8" />
+        <MikeeAvatar size={32} />
         <span className="text-[20px] font-semibold">מייקי</span>
       </div>
       <div className="card-float w-full max-w-[400px] p-7">

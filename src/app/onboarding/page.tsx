@@ -5,6 +5,7 @@ import { getConnection, type MetaConfig, type WebsiteConfig } from "@/lib/connec
 import { db, schema } from "@/lib/db";
 import { startMikee } from "@/lib/actions";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
+import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   return (
     <main className="mx-auto max-w-[1000px] px-4 py-10 sm:px-8 sm:py-14">
       <header className="mb-8">
-        <span className="orb w-10" />
+        <MikeeAvatar size={40} />
         <h1 className="display mt-5">נעים מאוד, {user.name.split(" ")[0]}.</h1>
         <p className="lead mt-2 max-w-xl">
           אני מייקי. חברי אותי לעסק, ואני אלמד אותו לעומק לפני שנדבר: את האתר, המוצרים, הקמפיינים והפוסטים.

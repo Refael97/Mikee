@@ -1,3 +1,5 @@
+import { MikeeAvatar } from "@/components/MikeeAvatar";
+
 /** The top of a page: the title, an optional line under it, and the page's actions on the end side. */
 export function PageHeader({ title, lead, action }: { title: React.ReactNode; lead?: React.ReactNode; action?: React.ReactNode }) {
   return (
@@ -32,7 +34,7 @@ export function Block({ title, action, children, className = "" }: { title: Reac
 export function Empty({ title, text, action }: { title: string; text?: string; action?: React.ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
-      <span className="orb w-9" aria-hidden />
+      <MikeeAvatar size={36} />
       <p className="h2 mt-4">{title}</p>
       {text && <p className="mt-1.5 max-w-md text-[15px] text-ink-2">{text}</p>}
       {action && <div className="mt-5">{action}</div>}

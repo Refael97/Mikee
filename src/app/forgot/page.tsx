@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { ForgotForm } from "./ForgotForm";
+import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function ForgotPage() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-shell px-4 py-12">
       <div className="mb-8 flex items-center gap-2.5">
-        <span className="orb w-8" />
+        <MikeeAvatar size={32} />
         <span className="text-[20px] font-semibold">מייקי</span>
       </div>
       <div className="card-float w-full max-w-[440px] p-7">

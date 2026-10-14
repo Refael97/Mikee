@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, FileText } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
 import { Composer, type Upload } from "./Composer";
+import { MikeeAvatar, type MikeeState } from "./MikeeAvatar";
 import { ProposalCard, type Brand } from "./ProposalCard";
 import { LiveText, QuickReplies, StatusLine, type Step, Steps, splitReplies } from "./Live";
 import { RichText } from "./RichText";
@@ -73,8 +74,15 @@ function toolEvent(live: Live | null, name: string, state: "start" | "done" | "e
   return { ...l, steps, activity: stillRunning?.label ?? null };
 }
 
-function MikeeMark({ live = false }: { live?: boolean }) {
-  return <span className={`orb mt-1 w-6 shrink-0 ${live ? "orb-live" : ""}`} aria-hidden />;
+/** Mikee beside his words. Only the avatar the client is looking at moves; older ones stay still. */
+function MikeeMark({ state = "idle", active = false }: { state?: MikeeState; active?: boolean }) {
+  return <MikeeAvatar size={24} state={state} animate={active} cues={active} className="mt-1" />;
+}
+
+/** What Mikee is doing right now: words on the screen are talking, anything else he is busy with is thinking. */
+function liveState(live: Live): MikeeState {
+  if (live.steps.some((s) => s.state === "running")) return "thinking";
+  return live.segments[live.segments.length - 1]?.kind === "text" ? "talking" : "thinking";
 }
 
 export function Chat({
@@ -97,6 +105,7 @@ export function Chat({
   const [items, setItems] = useState(initialItems);
   const [live, setLive] = useState<Live | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const started = useRef(false);
   // A new conversation gets its id from the server with the first message.
@@ -232,6 +241,9 @@ export function Chat({
   // Quick replies belong to Mikee's latest words only, and disappear once the client answers.
   const lastItem = items[items.length - 1];
   const replies = !live && lastItem?.type === "mikee" ? splitReplies(lastItem.text).replies : [];
+  // The newest avatar in the conversation is the one that reacts (listens, celebrates a card that went live).
+  const markIds = items.filter((it, i) => (it.type === "mikee" && !["mikee", "activity", "card"].includes(items[i - 1]?.type ?? "")) || (it.type === "activity" && items[i - 1]?.type === "user")).map((it) => it.id);
+  const activeMark = live ? null : markIds[markIds.length - 1];
   const change = (title: string) => submit(`בוא נשנה משהו ב"${title}"`);
 
   return (
@@ -239,7 +251,7 @@ export function Chat({
       <div className="flex-1 pb-10 pt-8 sm:pt-12">
         {empty ? (
           <div className="mx-auto max-w-[640px] pt-[6vh]">
-            <span className="orb w-10" aria-hidden />
+            <MikeeAvatar size={40} state={typing ? "listening" : "idle"} cues />
             <h1 className="display mt-5">היי {firstName}, מה עושים היום?</h1>
             <p className="lead mt-2">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
 
@@ -304,7 +316,7 @@ export function Chat({
               if (item.type === "mikee")
                 return (
                   <div key={item.id} className="rise flex gap-3.5">
-                    {prev?.type === "mikee" || prev?.type === "activity" || prev?.type === "card" ? <span className="w-7 shrink-0" /> : <MikeeMark />}
+                    {prev?.type === "mikee" || prev?.type === "activity" || prev?.type === "card" ? <span className="w-7 shrink-0" /> : <MikeeMark active={item.id === activeMark} state={item.id === activeMark && typing ? "listening" : "idle"} />}
                     <div className="min-w-0 flex-1 space-y-3 pt-0.5 text-[16.5px] leading-[1.65]">
                       <RichText text={splitReplies(item.text).text} />
                       {item === lastItem && <QuickReplies replies={replies} onPick={(r) => submit(r)} />}
@@ -314,7 +326,7 @@ export function Chat({
               if (item.type === "activity")
                 return (
                   <div key={item.id} className="flex items-center gap-3.5 text-[15px] text-ink-3">
-                    {prev?.type === "user" ? <MikeeMark /> : <span className="w-7 shrink-0" />}
+                    {prev?.type === "user" ? <MikeeMark active={item.id === activeMark} state={item.id === activeMark && typing ? "listening" : "idle"} /> : <span className="w-7 shrink-0" />}
                     <span className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-good" strokeWidth={2.6} />
                       {item.label}
@@ -331,7 +343,7 @@ export function Chat({
 
             {live && (
               <div className="flex gap-3.5">
-                <MikeeMark live />
+                <MikeeMark active state={liveState(live)} />
                 <div className="min-w-0 flex-1 space-y-5 pt-0.5 text-[16.5px] leading-[1.65] [&>article]:-ms-10 [&>article]:w-[calc(100%+2.5rem)] sm:[&>article]:ms-0 sm:[&>article]:w-full">
                   <Steps steps={live.steps} />
                   {live.segments.map((seg, i) =>
@@ -357,7 +369,7 @@ export function Chat({
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-70% to-transparent px-5 pb-3 pt-8 sm:pb-5">
-        <Composer busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
+        <Composer onTyping={setTyping} busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
         <p className="mt-2 text-center text-[12.5px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
       </div>
     </div>

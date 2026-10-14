@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { BarChart3, ChevronsUpDown, Images, LifeBuoy, LogOut, Megaphone, Menu, MessagesSquare, Settings, Store, User, X } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { HelpPanel } from "./HelpPanel";
+import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 export const LINKS = [
   { href: "/mikee", label: "שיחות", icon: MessagesSquare },
@@ -63,7 +64,7 @@ export function Nav({ who, support }: { who: Who; support: { email?: string; wha
       {/* Desktop sidebar */}
       <aside className="sticky top-0 z-40 hidden h-dvh w-16 shrink-0 flex-col border-e border-line bg-shell px-2.5 py-3 lg:flex xl:w-[232px] xl:px-3">
         <Link href="/mikee" className="mb-4 flex h-10 items-center gap-2.5 rounded-[6px] px-1.5 hover:bg-surface-2" aria-label="מייקי">
-          <span className="orb w-7" aria-hidden />
+          <MikeeAvatar size={28} />
           <span className="hidden min-w-0 leading-tight xl:block">
             <span className="block text-[15px] font-semibold">מייקי</span>
             <span className="block truncate text-[12.5px] text-ink-3">{who.business}</span>
@@ -123,7 +124,7 @@ export function Nav({ who, support }: { who: Who; support: { email?: string; wha
       {/* Mobile top bar */}
       <header className="glass sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line px-4 lg:hidden">
         <Link href="/mikee" aria-label="מייקי" className="flex items-center gap-2">
-          <span className="orb w-7" aria-hidden />
+          <MikeeAvatar size={28} />
         </Link>
         <span className="min-w-0 leading-tight">
           <span className="block text-[15px] font-semibold">מייקי</span>
@@ -148,7 +149,7 @@ export function Nav({ who, support }: { who: Who; support: { email?: string; wha
         >
           <div className="mb-3 flex items-center justify-between px-1.5">
             <span className="flex items-center gap-2.5">
-              <span className="orb w-7" />
+              <MikeeAvatar size={28} />
               <span className="leading-tight">
                 <span className="block text-[15px] font-semibold">מייקי</span>
                 <span className="block text-[12.5px] text-ink-3">{who.business}</span>
