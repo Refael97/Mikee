@@ -53,6 +53,7 @@ export function friendlyError(err: unknown): string {
   if (/renderer is busy/i.test(m)) return "שרת הסרטונים עמוס כרגע. אפשר לנסות שוב בעוד כמה דקות.";
   if (/Video render/i.test(m)) return "הרינדור של הסרטון לא הצליח. אפשר לנסות שוב; אם זה חוזר, מייקי יפשט את הסרטון.";
   if (/Higgsfield|generation/i.test(m)) return "יצירת התמונה או הסרטון לא הושלמה. אפשר לנסות שוב; קרדיטים לא ינוכו פעמיים.";
+  if (/Storage (upload|read) failed|File storage is not configured/.test(m)) return "אחסון הקבצים לא אישר את הבקשה, ולכן הקובץ לא נשמר. זו בעיה בהגדרות האחסון בשרת ולא בסרטון; הפרטים המדויקים למטה.";
   if (/download|HTTP/i.test(m)) return "לא הצלחתי להוריד את אחד הקבצים. כדאי לבחור קובץ מהספרייה ולנסות שוב.";
   return "משהו לא הצליח. אפשר לנסות שוב; מה שכבר נבנה נשמר ולא ייווצר פעמיים.";
 }

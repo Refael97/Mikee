@@ -37,7 +37,7 @@ export async function putObject(workspaceId: string, bytes: Buffer, contentType:
   // Keys are namespaced by business and never derived from the file name.
   const key = `${workspaceId}/${randomUUID()}`;
   const res = await s3(cfg, "PUT", key, bytes, contentType);
-  if (!res.ok) throw new Error(`Storage upload failed (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Storage upload failed (HTTP ${res.status}${await storageReason(res)})`);
   return { storage: "s3", key, bytes: null };
 }
 
@@ -46,7 +46,7 @@ export async function getObject(row: { storage: string; key: string | null; byte
   const cfg = s3Config();
   if (!cfg || !row.key) throw new Error("File storage is not configured");
   const res = await s3(cfg, "GET", row.key);
-  if (!res.ok) throw new Error(`Storage read failed (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Storage read failed (HTTP ${res.status}${await storageReason(res)})`);
   return Buffer.from(await res.arrayBuffer());
 }
 
@@ -58,6 +58,14 @@ export async function deleteObject(row: { storage: string; key: string | null })
 
 const sha256 = (data: string | Buffer) => createHash("sha256").update(data).digest("hex");
 const hmac = (key: Buffer | string, data: string) => createHmac("sha256", key).update(data).digest();
+
+/** The storage's own reason for a refusal (its S3 error code and message), never the credentials. */
+async function storageReason(res: Response): Promise<string> {
+  const body = await res.text().catch(() => "");
+  const code = /<Code>([^<]{1,80})<\/Code>/.exec(body)?.[1];
+  const message = /<Message>([^<]{1,200})<\/Message>/.exec(body)?.[1];
+  return code ? `, ${code}${message ? `: ${message}` : ""}` : "";
+}
 
 /** The object's address, in the style the storage provider expects. */
 export function objectUrl(cfg: { endpoint: string; bucket: string; style: string }, key: string): URL {

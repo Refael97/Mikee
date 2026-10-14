@@ -34,4 +34,13 @@ describe("file storage addresses", () => {
     await putObject("ws1", Buffer.from("x"), "video/mp4");
     expect(calls.at(-1)!.url).toMatch(/^https:\/\/storage\.railway\.app\/mikee-abc\/ws1\//);
   });
+
+  it("a refusal from the storage says why, in the storage's own words", async () => {
+    vi.stubEnv("S3_ENDPOINT", "https://storage.railway.app");
+    vi.stubEnv("S3_BUCKET", "mikee-abc");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "key");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "secret");
+    vi.stubGlobal("fetch", async () => new Response("<Error><Code>SignatureDoesNotMatch</Code><Message>The request signature we calculated does not match</Message></Error>", { status: 403 }));
+    await expect(putObject("ws1", Buffer.from("x"), "video/mp4")).rejects.toThrow("Storage upload failed (HTTP 403, SignatureDoesNotMatch: The request signature we calculated does not match)");
+  });
 });
