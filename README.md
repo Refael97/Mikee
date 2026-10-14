@@ -222,11 +222,11 @@ Set `HIGGSFIELD_MCP_URL` (and `HIGGSFIELD_MCP_TOKEN`). The **server** connects t
 
 ## Branded videos (HyperFrames)
 
-Mikee makes short branded videos (reels, stories, feed, wide) from the business's own photos, rendered with the open-source [HyperFrames](https://github.com/heygen-com/hyperframes) framework.
+Mikee makes short branded videos (reels, stories, feed, wide) from the business's own photos, video clips and music, rendered with the open-source [HyperFrames](https://github.com/heygen-com/hyperframes) framework.
 
-- **How it works:** the creative specialist calls `propose_video` with scenes (title, product with price, text lines, gallery, customer quote, call to action), a format and a style (clean, bold, elegant). The model never writes HTML or code. The platform builds the composition from fixed templates (`src/lib/video/compose.ts`, every value escaped) with GSAP, the Heebo font and the library photos, all local, with nothing from the network.
-- **Approval:** the card plays the video live (`/api/video/preview/:id`, only the business that owns the card, only the app can frame it). After approval the project is sent to the render worker, the MP4 comes back and is saved to the library in the "סרטונים" folder. Publishing it is a separate approval (post or campaign).
-- **Limits:** up to 60 seconds and 8 scenes, photos from this business's library only, 30 videos per day per business. Rendering is free (CPU only); 15-30 seconds takes about half a minute to a minute.
+- **How it works:** the creative specialist calls `propose_video` with scenes (title, product with price, a video clip trimmed from a library video with text over it and optionally its own sound, text lines, gallery, customer quote, call to action), a format, a style (clean, bold, elegant) and optional background music from the library. Any picture in a scene can be a photo or a video. The music fades in and out and dips to a quarter under clips that keep their sound. The model never writes HTML or code. The platform builds the composition from fixed templates (`src/lib/video/compose.ts`, every value escaped) with GSAP, the Heebo font and the library files, all local, with nothing from the network. The library accepts music (MP3, M4A, AAC, WAV, OGG) next to photos and videos.
+- **Approval:** the card plays the video live, clips and music in sync, with a button that turns on sound (`/api/video/preview/:id`, only the business that owns the card, only the app can frame it, with byte ranges for seeking). After approval the project is streamed to the render worker (files are read one at a time, so large clips never sit in memory together), the MP4 comes back and is saved to the library in the "סרטונים" folder. Publishing it is a separate approval (post or campaign).
+- **Limits:** up to 60 seconds and 10 scenes, only this business's library files, 30 videos per day per business, up to 900MB of source files per video. Rendering is free (CPU only); 15-30 seconds takes about one to two minutes with clips.
 
 ### The render worker (separate Railway service)
 
@@ -236,7 +236,7 @@ The code is in `render-worker/` (Dockerfile with Node 22, Chromium and FFmpeg). 
 3. **Variables** of Mikee: `RENDER_URL=http://${{render-worker.RAILWAY_PRIVATE_DOMAIN}}:8080` (or whatever the service is named) and the same `RENDER_SECRET`.
 4. Recommended: at least 2GB of memory for the worker.
 
-The worker accepts only requests carrying the secret, and only the files a composition is made of (`index.html`, `kit/*`, `media/*`). It fetches nothing itself and keeps nothing after answering.
+The worker accepts only requests carrying the secret, and only the files a composition is made of (`index.html`, `kit/*`, `media/*`), checking each path before writing a byte of it. Before rendering it re-encodes every clip to H.264 with a keyframe every second (phone videos otherwise freeze when seeking), at most 1920 pixels on the long side. It fetches nothing itself and keeps nothing after answering.
 
 ## Code structure
 

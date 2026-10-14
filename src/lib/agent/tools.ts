@@ -314,7 +314,7 @@ export const TOOLS = [
     description:
       "The business's own content library: photos and videos the client uploaded or imported from Google Drive, and media created earlier. " +
       "Search it by what is shown (Hebrew words like 'שמלה אדומה', 'צוות', 'חנות') before creating anything new; use the returned URLs in ads and posts.",
-    input: z.object({ q: z.string().max(80).optional(), kind: z.enum(["image", "video"]).optional(), limit: z.number().int().min(1).max(60).default(24) }),
+    input: z.object({ q: z.string().max(80).optional(), kind: z.enum(["image", "video", "audio"]).optional().describe("audio = music and sound files"), limit: z.number().int().min(1).max(60).default(24) }),
     untrusted: "library",
     run: async (ctx, i) => {
       const items = await listLibrary(ctx.workspaceId, { q: i.q, kind: i.kind, limit: i.limit });
@@ -509,9 +509,10 @@ export const TOOLS = [
     name: "propose_video",
     effect: "proposal",
     description:
-      "Make a short branded video (reel, story, feed or wide) from designed templates, using the business's own photos from the library (search_library ids). " +
-      "You write the scenes: title, product (photo, name, price), text lines, gallery, customer quote, call to action. Hebrew text, short lines, no emoji. " +
-      "Typical: 4-6 scenes, 15-30 seconds; reels open with a strong title scene and end with a cta. The client watches the preview in the card and approves; " +
+      "Make a short branded video (reel, story, feed or wide) from designed templates, using the business's own photos, video clips and music from the library (search_library ids). " +
+      "You write the scenes: title (photo or video background), product (photo or video, name, price), clip (a video from the library, trimmed with from/seconds, optional text over it, " +
+      "sound: true to keep its own speech or ambience), text lines, gallery (photos or videos), customer quote, call to action. Add music (search_library kind audio) for the whole video; it dips under clips with sound. " +
+      "Hebrew text, short lines, no emoji. Typical: 4-6 scenes, 15-30 seconds; reels open with a strong first scene and end with a cta. The client watches the preview (with sound) in the card and approves; " +
       "then it is rendered (free, about a minute) and saved to the library. Publishing it is a separate propose_post / propose_campaign with the video URL from the platform event.",
     input: VideoSpecBase.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {

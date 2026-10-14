@@ -92,7 +92,7 @@ export async function storeBytes(
       source: opts.source,
       sourceRef: opts.sourceRef,
       filename: safeName(opts.filename || `${opts.source}-${Date.now()}`, found.ext),
-      inLibrary: opts.inLibrary ?? (found.kind === "image" || found.kind === "video"),
+      inLibrary: opts.inLibrary ?? (found.kind === "image" || found.kind === "video" || found.kind === "audio"),
       folder: opts.folder,
     })
     .returning();

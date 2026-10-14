@@ -22,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!session || session.workspace.id !== m.workspaceId) return new Response("Not found", { status: 404 });
   }
   const bytes = await readBytes(m);
-  const visual = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|webm))$/.test(m.contentType);
+  const visual = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|webm)|audio\/(mpeg|mp4|aac|wav|ogg))$/.test(m.contentType);
   const name = encodeURIComponent(m.filename ?? "file");
   return new Response(new Uint8Array(bytes), {
     headers: {

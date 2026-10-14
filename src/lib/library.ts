@@ -13,7 +13,7 @@ import { assertAiBudget, claudeCostUsd, recordUsage } from "./usage";
 
 export async function listLibrary(
   workspaceId: string,
-  opts: { kind?: "image" | "video"; q?: string; folder?: string; before?: string; limit?: number } = {},
+  opts: { kind?: "image" | "video" | "audio"; q?: string; folder?: string; before?: string; limit?: number } = {},
 ): Promise<MediaView[]> {
   const d = await db();
   const q = opts.q?.trim().slice(0, 80);

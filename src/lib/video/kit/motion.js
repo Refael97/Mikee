@@ -52,7 +52,8 @@
   window.__timelines = window.__timelines || {};
   window.__timelines.root = tl;
 
-  // In the app's preview there is no renderer: fit the frame to the window and play it on a loop.
+  // In the app's preview there is no renderer: fit the frame to the window, play on a loop, and keep the
+  // clips and music in step with the timeline. Sound starts muted; a tap turns it on (browsers require it).
   if (document.documentElement.hasAttribute("data-preview")) {
     var fit = function () {
       var w = Number(root.getAttribute("data-width"));
@@ -62,6 +63,42 @@
     };
     fit();
     window.addEventListener("resize", fit);
+
+    var media = Array.prototype.slice.call(root.querySelectorAll("video[data-start], audio[data-start]"));
+    var audible = media.filter(function (m) { return m.tagName === "AUDIO" || m.getAttribute("data-has-audio") === "true"; });
+    var sound = false;
+    media.forEach(function (m) { m.muted = true; m.preload = "auto"; });
+    var sync = function () {
+      var t = tl.time();
+      media.forEach(function (m) {
+        var start = Number(m.getAttribute("data-start"));
+        var dur = Number(m.getAttribute("data-duration"));
+        if (t >= start && t < start + dur) {
+          var want = t - start + Number(m.getAttribute("data-media-start") || 0);
+          if (Math.abs(m.currentTime - want) > 0.3) { try { m.currentTime = want; } catch (e) {} }
+          m.volume = Math.min(1, Number(m.getAttribute("data-volume") || 1));
+          m.muted = !(sound && audible.indexOf(m) >= 0);
+          if (m.paused) { var p = m.play(); if (p && p.catch) p.catch(function () {}); }
+        } else if (!m.paused) {
+          m.pause();
+        }
+      });
+    };
+    tl.eventCallback("onUpdate", sync);
+    tl.eventCallback("onRepeat", sync);
+
+    if (audible.length) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.style.cssText = "position:fixed;bottom:10px;left:10px;z-index:10;border:0;border-radius:6px;padding:6px 10px;font:600 13px Heebo,system-ui,sans-serif;background:rgba(0,0,0,.6);color:#fff;cursor:pointer";
+      var label = function () { btn.textContent = sound ? "השתקה" : "הפעלת קול"; };
+      label();
+      var toggle = function () { sound = !sound; label(); sync(); };
+      btn.addEventListener("click", function (e) { e.stopPropagation(); toggle(); });
+      document.body.appendChild(btn);
+      document.addEventListener("click", toggle);
+    }
+
     tl.repeat(-1).repeatDelay(0.6);
     var go = function () { tl.play(0); };
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(go); else go();

@@ -3,7 +3,11 @@ import { runTool, TOOLS } from "@/lib/agent/tools";
 import { approveProposal } from "@/lib/proposals";
 import { listLibrary } from "@/lib/library";
 import { storeBytes } from "@/lib/media";
-import { compose } from "@/lib/video/compose";
+import { mkdtemp, readFile } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import { sniff } from "@/lib/filetype";
+import { compose, musicSegments } from "@/lib/video/compose";
 import { VideoSpec } from "@/lib/video/spec";
 import { createBusiness, drainJobs, NOW, proposal, TZ } from "./support/setup";
 
@@ -12,9 +16,35 @@ afterAll(() => vi.useRealTimers());
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]);
 const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x20]), Buffer.from("ftypisom"), Buffer.alloc(64)]);
+const MP3 = Buffer.concat([Buffer.from("ID3"), Buffer.from([4, 0, 0, 0, 0, 0, 0]), Buffer.alloc(32, 7)]);
 const SECRET = "s".repeat(32);
 
-type Sent = { url: string; auth: string | null; body: { files: { path: string; data: string }[]; duration: number } };
+/** The framed project stream the worker receives: [path length][path][size][bytes]... */
+function frames(...files: [string, Buffer][]) {
+  return Buffer.concat(
+    files.flatMap(([path, bytes]) => {
+      const p = Buffer.from(path);
+      const head = Buffer.alloc(4 + p.length + 8);
+      head.writeUInt32BE(p.length, 0);
+      p.copy(head, 4);
+      head.writeBigUInt64BE(BigInt(bytes.length), 4 + p.length);
+      return [head, bytes];
+    }),
+  );
+}
+function unframe(buf: Buffer) {
+  const files: { path: string; data: Buffer }[] = [];
+  for (let i = 0; i < buf.length; ) {
+    const len = buf.readUInt32BE(i);
+    const path = buf.subarray(i + 4, i + 4 + len).toString();
+    const size = Number(buf.readBigUInt64BE(i + 4 + len));
+    files.push({ path, data: buf.subarray(i + 12 + len, i + 12 + len + size) });
+    i += 12 + len + size;
+  }
+  return files;
+}
+
+type Sent = { url: string; auth: string | null; duration: string | null; files: { path: string; data: Buffer }[] };
 let sent: Sent[] = [];
 let answer: () => Response = () => new Response(MP4, { headers: { "content-type": "video/mp4" } });
 const realFetch = globalThis.fetch;
@@ -27,7 +57,8 @@ beforeEach(() => {
   globalThis.fetch = (async (input: any, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.url;
     if (!url.startsWith("http://render.internal")) return realFetch(input, init);
-    sent.push({ url, auth: new Headers(init?.headers).get("authorization"), body: JSON.parse(String(init?.body)) });
+    const h = new Headers(init?.headers);
+    sent.push({ url, auth: h.get("authorization"), duration: h.get("x-duration"), files: unframe(Buffer.from(await new Response(init?.body).arrayBuffer())) });
     return answer();
   }) as typeof fetch;
 });
@@ -40,6 +71,12 @@ afterEach(() => {
 const ctx = (ws: string) => ({ workspaceId: ws, tz: TZ });
 async function photo(ws: string) {
   return (await storeBytes(ws, JPEG, { filename: "dress.jpg", source: "upload", inLibrary: true })).id;
+}
+async function clip(ws: string) {
+  return (await storeBytes(ws, MP4, { filename: "runway.mp4", source: "upload", inLibrary: true })).id;
+}
+async function song(ws: string) {
+  return (await storeBytes(ws, MP3, { filename: "track.mp3", source: "upload" })).id;
 }
 const reel = (id: string, extra: Record<string, unknown> = {}) => ({
   title: "קולקציית שבת",
@@ -62,6 +99,30 @@ describe("the composition", () => {
     expect(html).not.toMatch(/https?:\/\//);
     expect(html).not.toMatch(/<html[^>]*dir=/);
     expect([width, height, duration]).toEqual([1080, 1920, 3.5]);
+  });
+
+  it("plays clips for their scene, muted unless they keep their sound, under music that dips for speech", () => {
+    const [a, b, m] = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222", "33333333-3333-4333-8333-333333333333"];
+    const spec = VideoSpec.parse(
+      reel(a, {
+        scenes: [
+          { type: "title", headline: "חדש", mediaId: a, seconds: 3 },
+          { type: "clip", mediaId: b, from: 4, seconds: 5, sound: true, headline: "מאחורי הקלעים" },
+          { type: "cta", headline: "עכשיו באתר", action: "לקנייה", seconds: 2 },
+        ],
+        music: { mediaId: m, volume: 0.8 },
+      }),
+    );
+    const { html } = compose(spec, { [a]: { path: "media/0.mp4", kind: "video" }, [b]: { path: "media/1.mp4", kind: "video" }, [m]: { path: "media/2.mp3", kind: "audio" } });
+    expect(html).toContain('<video class="fill" src="media/0.mp4" data-start="0" data-duration="3" data-media-start="0" muted');
+    expect(html).toContain('<video class="fill" src="media/1.mp4" data-start="3" data-duration="5" data-media-start="4" data-has-audio="true"');
+    const audio = [...html.matchAll(/<audio src="media\/2.mp3" data-start="([\d.]+)" data-duration="([\d.]+)" data-media-start="([\d.]+)" data-volume="([\d.]+)"/g)].map((x) => x.slice(1).map(Number));
+    expect(audio).toEqual([
+      [0, 3, 0, 0.8],
+      [3, 5, 3, 0.2],
+      [8, 2, 8, 0.8],
+    ]);
+    expect(musicSegments(10, 0.5, 2, [])).toEqual([{ start: 0, seconds: 10, mediaStart: 2, volume: 0.5 }]);
   });
 
   it("refuses videos over a minute and colors that are not colors", () => {
@@ -92,22 +153,45 @@ describe("making a video", () => {
     const r = JSON.parse((await runTool(ctx(ws), "propose_video", reel(theirs))).content);
     expect(r.error).toMatch(/not in this business's library/);
     const video = (await storeBytes(ws, MP4, { filename: "clip.mp4", source: "upload", inLibrary: true })).id;
-    expect(JSON.parse((await runTool(ctx(ws), "propose_video", reel(video))).content).error).toMatch(/not a photo/);
+    const logo = { type: "cta", headline: "x", action: "y", logoMediaId: video };
+    expect(JSON.parse((await runTool(ctx(ws), "propose_video", reel(video, { scenes: [logo] }))).content).error).toMatch(/a photo is needed/);
+    const pic = await photo(ws);
+    const asClip = { type: "clip", mediaId: pic, seconds: 3 };
+    expect(JSON.parse((await runTool(ctx(ws), "propose_video", reel(pic, { scenes: [asClip] }))).content).error).toMatch(/a video is needed/);
+    const asMusic = reel(pic, { music: { mediaId: pic } });
+    expect(JSON.parse((await runTool(ctx(ws), "propose_video", asMusic)).content).error).toMatch(/a music file is needed/);
   });
 
-  it("after approval, renders on the worker with the secret and keeps the MP4 in the library", async () => {
+  it("keeps music in the library", async () => {
+    expect(sniff(MP3)?.kind).toBe("audio");
+    expect(sniff(Buffer.concat([Buffer.from([0, 0, 0, 0x20]), Buffer.from("ftypM4A "), Buffer.alloc(8)]))?.type).toBe("audio/mp4");
+    expect(sniff(Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WAVE")]))?.type).toBe("audio/wav");
+    const ws = await createBusiness();
+    await song(ws);
+    expect((await listLibrary(ws, { kind: "audio" })).map((m) => m.name)).toEqual(["track.mp3"]);
+  });
+
+  it("after approval, streams photos, clips and music to the worker with the secret and keeps the MP4 in the library", async () => {
     const ws = await createBusiness();
     const id = await photo(ws);
-    const { proposalId } = JSON.parse((await runTool(ctx(ws), "propose_video", reel(id))).content);
+    const v = await clip(ws);
+    const m = await song(ws);
+    const spec = reel(id, { scenes: [...reel(id).scenes, { type: "clip", mediaId: v, from: 1, seconds: 4, sound: true }], music: { mediaId: m } });
+    const { proposalId } = JSON.parse((await runTool(ctx(ws), "propose_video", spec)).content);
     await approveProposal(ws, proposalId, (await proposal(proposalId)).versionHash);
     await drainJobs();
 
     expect(sent).toHaveLength(1);
     expect(sent[0].url).toBe("http://render.internal:8080/render");
     expect(sent[0].auth).toBe(`Bearer ${SECRET}`);
-    const paths = sent[0].body.files.map((f) => f.path);
-    expect(paths).toEqual(expect.arrayContaining(["index.html", "kit/gsap.min.js", "kit/motion.js", "kit/heebo-hebrew-800.woff2", "media/0.jpg"]));
-    expect(Buffer.from(sent[0].body.files.find((f) => f.path === "media/0.jpg")!.data, "base64")).toEqual(JPEG);
+    expect(sent[0].duration).toBe("14.5");
+    const paths = sent[0].files.map((f) => f.path);
+    expect(paths).toEqual(expect.arrayContaining(["index.html", "kit/gsap.min.js", "kit/motion.js", "kit/heebo-hebrew-800.woff2", "media/0.jpg", "media/1.mp4", "media/2.mp3"]));
+    const file = (p: string) => sent[0].files.find((f) => f.path === p)!.data;
+    expect(file("media/0.jpg")).toEqual(JPEG);
+    expect(file("media/1.mp4")).toEqual(MP4);
+    expect(file("media/2.mp3")).toEqual(MP3);
+    expect(file("index.html").toString()).toContain('src="media/1.mp4"');
 
     const done = await proposal(proposalId);
     expect(done.status).toBe("done");
@@ -140,17 +224,34 @@ describe("making a video", () => {
 });
 
 describe("the render worker", () => {
-  it("accepts only the secret and only the files a composition is made of", async () => {
+  it("accepts only the secret and a sane length", async () => {
     process.env.RENDER_SECRET = SECRET;
     const w = await import("../render-worker/server.mjs");
     expect(w.authorized(`Bearer ${SECRET}`)).toBe(true);
     expect(w.authorized("Bearer wrong")).toBe(false);
     expect(w.authorized(undefined)).toBe(false);
-    const ok = { duration: 10, files: [{ path: "index.html", data: "" }, { path: "kit/motion.js", data: "" }, { path: "media/0.jpg", data: "" }] };
-    expect(w.checkProject(ok)).toBeNull();
-    for (const path of ["../etc/passwd", "kit/../../x.js", "/abs.html", "media/0.svg", "kit/x.html"]) {
-      expect(w.checkProject({ ...ok, files: [...ok.files, { path, data: "" }] })).toMatch(/bad file/);
+    expect(w.checkDuration("14.5")).toBeNull();
+    expect(w.checkDuration("600")).toMatch(/duration/);
+    expect(w.checkDuration(undefined)).toMatch(/duration/);
+  });
+
+  it("writes the streamed files to disk, and refuses anything but a composition's files before writing it", async () => {
+    const w = await import("../render-worker/server.mjs");
+    const dir = await mkdtemp(join(tmpdir(), "rw-"));
+    const body = frames(["index.html", Buffer.from("<html></html>")], ["media/0.mp4", MP4], ["media/1.mp3", MP3]);
+    // Arrives in awkward pieces, as it would over the network.
+    const pieces = async function* () {
+      for (let i = 0; i < body.length; i += 7) yield body.subarray(i, i + 7);
+    };
+    expect(await w.receiveProject(pieces(), dir)).toEqual(["index.html", "media/0.mp4", "media/1.mp3"]);
+    expect(await readFile(join(dir, "media/0.mp4"))).toEqual(MP4);
+    expect(await readFile(join(dir, "media/1.mp3"))).toEqual(MP3);
+
+    for (const path of ["../etc/passwd", "kit/../../x.js", "/abs.html", "media/0.svg", "kit/x.html", "media/0.exe"]) {
+      const bad = frames(["index.html", Buffer.from("x")], [path, Buffer.from("evil")]);
+      await expect(w.receiveProject([bad], await mkdtemp(join(tmpdir(), "rw-")))).rejects.toThrow(/bad file/);
     }
-    expect(w.checkProject({ ...ok, duration: 600 })).toMatch(/duration/);
+    const cut = frames(["index.html", Buffer.from("<html></html>")]).subarray(0, 20);
+    await expect(w.receiveProject([cut], await mkdtemp(join(tmpdir(), "rw-")))).rejects.toThrow(/truncated/);
   });
 });

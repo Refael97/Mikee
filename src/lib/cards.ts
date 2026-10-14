@@ -166,6 +166,8 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
           { label: "פורמט", value: f.label },
           { label: "אורך", value: `${secs} שניות, ${s.scenes.length} סצנות` },
           { label: "סגנון", value: VIDEO_STYLES[s.style].label },
+          ...(s.scenes.some((x) => x.type === "clip") ? [{ label: "קטעי וידאו", value: `${s.scenes.filter((x) => x.type === "clip").length} מהספרייה${s.scenes.some((x) => x.type === "clip" && x.sound) ? ", עם הקול המקורי" : ""}` }] : []),
+          { label: "מוזיקה", value: s.music ? "מוזיקת רקע מהספרייה" : "בלי מוזיקה" },
           { label: "מה יקרה באישור", value: "מייקי ירנדר את הסרטון וישמור אותו בספרייה. שום דבר לא יעלה לאוויר בלי אישור נפרד." },
         ],
         preview: { ratio: f.ratio, seconds: secs },

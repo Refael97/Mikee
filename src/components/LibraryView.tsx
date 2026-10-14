@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Film, FolderInput, Search, Trash2, Upload } from "lucide-react";
+import { Film, FolderInput, Music, Search, Trash2, Upload } from "lucide-react";
 import type { MediaView } from "@/lib/media";
 import { PageHeader } from "./Page";
 
@@ -10,7 +10,7 @@ type Usage = { used: number; limit: number; plan: string };
 type Pending = { localId: string; name: string; error?: string };
 
 const size = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)}GB` : b >= 1024 ** 2 ? `${Math.round(b / 1024 ** 2)}MB` : `${Math.max(1, Math.round(b / 1024))}KB`);
-const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm";
+const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,.mp3,.m4a,.wav";
 
 declare global {
   interface Window {
@@ -45,7 +45,7 @@ export function LibraryView({
   const [items, setItems] = useState(initial);
   const [usage, setUsage] = useState(initialUsage);
   const [q, setQ] = useState("");
-  const [kind, setKind] = useState<"" | "image" | "video">("");
+  const [kind, setKind] = useState<"" | "image" | "video" | "audio">("");
   const [folder, setFolder] = useState("");
   const [pending, setPending] = useState<Pending[]>([]);
   const [notice, setNotice] = useState<string | null>(drive.justConnected ? "גוגל דרייב מחובר. אפשר לבחור קבצים לייבוא." : null);
@@ -98,8 +98,10 @@ export function LibraryView({
       await loadPicker();
       const g = window.google.picker;
       const view = new g.DocsView(g.ViewId.DOCS_IMAGES_AND_VIDEOS).setIncludeFolders(true).setSelectFolderEnabled(false);
+      const music = new g.DocsView(g.ViewId.DOCS).setMimeTypes("audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg").setIncludeFolders(true).setLabel("מוזיקה");
       const picker = new g.PickerBuilder()
         .addView(view)
+        .addView(music)
         .enableFeature(g.Feature.MULTISELECT_ENABLED)
         .setOAuthToken(auth.token)
         .setDeveloperKey(auth.apiKey)
@@ -149,7 +151,7 @@ export function LibraryView({
     >
       <PageHeader
         title="ספרייה"
-        lead="התמונות והסרטונים של העסק. מייקי מחפש כאן לפני שהוא יוצר משהו חדש, ומוצא כל תמונה לפי מה שרואים בה."
+        lead="התמונות, הסרטונים והמוזיקה של העסק. מייקי מחפש כאן לפני שהוא יוצר משהו חדש, ובונה מכאן את הסרטונים."
         action={
           <div className="flex flex-wrap gap-2">
             <button onClick={() => fileInput.current?.click()} className="btn btn-primary btn-sm">
@@ -176,7 +178,7 @@ export function LibraryView({
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות" className="field ps-9" />
         </label>
         <div className="inline-flex rounded-[6px] border border-line-strong bg-surface-2 p-0.5">
-          {([["", "הכל"], ["image", "תמונות"], ["video", "סרטונים"]] as const).map(([k, l]) => (
+          {([["", "הכל"], ["image", "תמונות"], ["video", "סרטונים"], ["audio", "מוזיקה"]] as const).map(([k, l]) => (
             <button
               key={k}
               onClick={() => setKind(k)}
@@ -217,7 +219,7 @@ export function LibraryView({
         <div className="mt-6 flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-line-strong px-6 py-14 text-center">
           <span className="h2">{q || kind || folder ? "לא מצאתי משהו כזה" : "הספרייה עוד ריקה"}</span>
           <p className="max-w-lg text-ink-2">
-            {q || kind || folder ? "נסי מילה אחרת, או לנקות את הסינון." : "גוררים לכאן תמונות וסרטונים של המוצרים, החנות, הצוות והלקוחות. ככל שיש יותר תוכן אמיתי, המודעות טובות יותר."}
+            {q || kind || folder ? "נסי מילה אחרת, או לנקות את הסינון." : "גוררים לכאן תמונות וסרטונים של המוצרים, החנות, הצוות והלקוחות, וגם מוזיקה לסרטונים. ככל שיש יותר תוכן אמיתי, המודעות טובות יותר."}
           </p>
         </div>
       ) : (
@@ -232,6 +234,12 @@ export function LibraryView({
           ))}
           {items.map((m) => (
             <li key={m.id} className="group rise card overflow-hidden">
+              {m.kind === "audio" ? (
+                <div className="flex aspect-square flex-col items-center justify-center gap-4 border-b border-line bg-surface-2 px-3">
+                  <Music className="h-9 w-9 text-ink-3" strokeWidth={1.5} />
+                  <audio src={m.url} controls preload="none" className="w-full" />
+                </div>
+              ) : (
               <a href={m.url} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden border-b border-line bg-surface-2">
                 {m.kind === "video" ? (
                   <>
@@ -245,6 +253,7 @@ export function LibraryView({
                   <img src={m.url} alt={m.description ?? m.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
                 )}
               </a>
+              )}
               <div className="flex items-start justify-between gap-2 px-3 pt-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-medium">{m.name}</p>
