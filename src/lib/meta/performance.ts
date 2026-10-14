@@ -119,11 +119,40 @@ export type FriendlyAd = {
   verdict: "star" | "ok" | "weak" | "new";
 };
 
+/**
+ * Whether a campaign really delivers. At Meta a campaign's own status stays ACTIVE even when every ad set
+ * under it is paused or past its end date, or every ad is paused or rejected, so "ACTIVE" alone is not
+ * "running": live needs an active campaign, an active ad set that has not ended, and an active ad.
+ */
+export type Delivery = "live" | "paused" | "ended" | "review" | "issue";
+
+export const DELIVERY_LABEL: Record<Delivery, string> = { live: "פעיל", paused: "מושהה", ended: "הסתיים", review: "בבדיקה", issue: "יש בעיה" };
+
+export function delivery(c: { effective_status?: string; stop_time?: string }, adsets: { effective_status?: string; end_time?: string }[], ads: { effective_status?: string }[], now = Date.now()): Delivery {
+  const cs = c.effective_status ?? "";
+  if (["DELETED", "ARCHIVED"].includes(cs)) return "ended";
+  if (c.stop_time && Date.parse(c.stop_time) <= now) return "ended";
+  if (cs === "PAUSED") return "paused";
+  if (["WITH_ISSUES", "DISAPPROVED", "PENDING_BILLING_INFO"].includes(cs)) return "issue";
+  if (cs === "IN_PROCESS" || cs === "PENDING_REVIEW") return "review";
+  if (cs !== "ACTIVE") return "paused";
+  const notEnded = (a: { end_time?: string }) => !a.end_time || Date.parse(a.end_time) > now;
+  const runningSets = adsets.filter((a) => a.effective_status === "ACTIVE" && notEnded(a));
+  if (!runningSets.length) return adsets.length && adsets.every((a) => !notEnded(a)) ? "ended" : "paused";
+  const st = ads.map((a) => a.effective_status ?? "");
+  if (st.includes("ACTIVE")) return "live";
+  if (st.some((x) => x === "PENDING_REVIEW" || x === "IN_PROCESS")) return "review";
+  if (st.some((x) => x === "DISAPPROVED" || x === "WITH_ISSUES")) return "issue";
+  return "paused";
+}
+
 export type FriendlyCampaign = {
   id: string;
   name: string;
   goal: Goal;
+  /** Really delivering now (see delivery()), not just switched on. */
   live: boolean;
+  delivery: Delivery;
   status: string;
   audience: string;
   budget: { amount: number; per: "day" | "total" } | null;
@@ -184,12 +213,14 @@ export async function readCampaigns(ctx: MetaContext, period: Period = "last_7d"
       };
     });
     rankAds(ads);
+    const state = delivery(c, adsets, c.ads?.data ?? []);
 
     return {
       id: c.id,
       name: c.name,
       goal,
-      live: c.effective_status === "ACTIVE",
+      live: state === "live",
+      delivery: state,
       status: c.effective_status,
       audience: audienceSummary(firstSet?.targeting),
       budget,

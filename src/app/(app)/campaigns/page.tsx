@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { money } from "@/lib/meta/context";
-import { GOAL_LABEL, type Period } from "@/lib/meta/performance";
+import { DELIVERY_LABEL, GOAL_LABEL, type Period } from "@/lib/meta/performance";
 import { allCampaigns, PLATFORMS, type PlatformCampaign } from "@/lib/platforms";
 import { Page, PageHeader, Segmented } from "@/components/Page";
 
@@ -26,7 +26,7 @@ const cleanName = (n: string) => n.replace(/^Mikee · /, "").replace(/ · (mk-\w
 function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
   const g = GOAL_LABEL[c.goal];
   const n = c.numbers;
-  const status = c.live ? { t: "פעיל", cls: "tag-good" } : c.status === "PAUSED" ? { t: "מושהה", cls: "tag-warn" } : { t: "הסתיים", cls: "tag-quiet" };
+  const status = { t: DELIVERY_LABEL[c.delivery], cls: ({ live: "tag-good", paused: "tag-warn", review: "tag-warn", issue: "tag-bad", ended: "tag-quiet" } as const)[c.delivery] };
   return (
     <li>
       <details className="group">
