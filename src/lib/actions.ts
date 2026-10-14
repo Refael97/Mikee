@@ -92,7 +92,7 @@ export async function saveWebsiteAndStore(form: FormData) {
       platform: platform === "shopify" || platform === "woocommerce" ? platform : "other",
     });
   }
-  let domain = str(form, "storeDomain", 300);
+  let domain = str(form, "storeDomain", 300) || (platform === "woocommerce" && url ? new URL(url).origin : "");
   const secret = String(form.get("storeSecret") ?? "").trim().slice(0, 300);
   if (domain) {
     try {

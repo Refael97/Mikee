@@ -2,6 +2,7 @@ import { CheckCircle2, ChevronDown } from "lucide-react";
 import { getConnection, type MetaConfig, type StoreConfig, type WebsiteConfig } from "@/lib/connections";
 import { type Detected, detectBusiness } from "@/lib/meta/detect";
 import { Graph, NEEDED_SCOPES } from "@/lib/meta/graph";
+import { StoreFields } from "./StoreFields";
 import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndStore } from "@/lib/actions";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -194,20 +195,14 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
       <label className="block space-y-1.5">
         <span className="label">כתובת האתר</span>
         <input name="website" className="field" placeholder="www.your-site.co.il" dir="ltr" defaultValue={site?.config.url} required />
+        <span className="block text-[13px] text-ink-3">הכתובת שהלקוחות שלך מכירים. מייקי קורא ממנה את העסק, המוצרים והמחירים.</span>
       </label>
-      <details className="group text-[15px]" open={!!store?.config.domain}>
-        <summary className="cursor-pointer select-none text-ink-2 flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />יש חנות אונליין? חברו גם את ההזמנות</summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <select name="storePlatform" className="field" defaultValue={store?.config.platform ?? site?.config.platform ?? ""}>
-            <option value="">פלטפורמת החנות</option>
-            <option value="shopify">Shopify</option>
-            <option value="woocommerce">WooCommerce</option>
-          </select>
-          <input name="storeDomain" className="field" placeholder="shop.myshopify.com / https://site.co.il" dir="ltr" defaultValue={store?.config.domain} />
-          <input name="storeKey" className="field" placeholder="WooCommerce: Consumer key" dir="ltr" defaultValue={store?.config.consumerKey} />
-          <input name="storeSecret" type="password" className="field" placeholder={store?.secret ? "•••••• (שמור)" : "Shopify admin token / Woo secret"} dir="ltr" />
-        </div>
-      </details>
+      <StoreFields
+        platform={(store?.config.platform ?? (site?.config.platform === "shopify" || site?.config.platform === "woocommerce" ? site.config.platform : "")) as "" | "shopify" | "woocommerce"}
+        domain={store?.config.domain}
+        consumerKey={store?.config.consumerKey}
+        hasSecret={!!store?.secret}
+      />
       <button className="btn btn-primary">שמירה</button>
     </form>
   );
