@@ -74,7 +74,13 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
     }
   }
 
-  if (!data) return <p className="text-ink-3">טוען…</p>;
+  if (!data)
+    return (
+      <div className="space-y-[28px]" aria-busy="true">
+        <span className="skeleton block h-36 w-full !rounded-[18px]" />
+        <span className="skeleton block h-28 w-full !rounded-[18px]" />
+      </div>
+    );
   const s = data.settings;
   const pending = data.messages.filter((m) => m.status === "pending" || m.status === "sending");
   const answered = data.messages.filter((m) => m.status === "answered");

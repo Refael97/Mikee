@@ -179,6 +179,30 @@ body {
   }
 }
 
+/* A value still on its way from Meta: the shape of the text, with a light sweeping across it. */
+.skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 0%, color-mix(in srgb, var(--surface-2) 35%, var(--surface)) 50%, var(--surface-2) 100%);
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.3s ease-in-out infinite;
+  color: transparent;
+  user-select: none;
+}
+@keyframes skeleton-sweep {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 /* Component classes live in a layer so Tailwind utilities (lg:hidden, px-2, ...) can override them. */
 @layer components {
   /* ---------- Type: one family, clear steps ---------- */

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { Sk } from "@/components/Skeleton";
 import { and, eq } from "drizzle-orm";
 import { ArrowLeft, ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { requireSession } from "@/lib/auth";
@@ -34,11 +36,40 @@ function Change({ k }: { k: KpiValue }) {
   );
 }
 
+type Data = Awaited<ReturnType<typeof dashboardData>> | null;
+
+async function Kpis({ data }: { data: Promise<Data> }) {
+  const d = await data;
+  if (!d) return <p className="note note-warn">לא הצלחתי לקרוא את המספרים כרגע. נסי לרענן בעוד רגע.</p>;
+  return (
+    <section className="card grid grid-cols-2 lg:grid-cols-4" aria-label="המספרים העיקריים">
+      {d.kpis.map((k, i) => (
+        <div key={k.id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
+          <div className="label">{k.label}</div>
+          <div className="num mt-1.5 text-[26px] font-semibold leading-tight">{show(k, d.currency)}</div>
+          <div className="mt-2 flex items-center gap-2">
+            <Change k={k} />
+            {k.change != null && <span className="text-[13px] text-ink-3">מהחודש שעבר</span>}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+async function Daily({ data }: { data: Promise<Data> }) {
+  const d = await data;
+  if (!d) return <p className="text-[14.5px] text-ink-3">אין נתונים להצגה כרגע.</p>;
+  return <LineChart points={d.daily.map((x) => ({ date: x.date, value: x.results }))} unit="תוצאות" />;
+}
+
 export default async function ResultsPage() {
   const { workspace } = await requireSession();
   const ctx = await metaContext(workspace.id).catch(() => null);
-  const [data, journey, pending] = await Promise.all([
-    remember(`dashboard:${workspace.id}`, 60_000, () => dashboardData(workspace.id, workspace.timezone, ctx)).catch(() => null),
+  // Only the numbers come from Meta: they stream into the page, which appears at once with their labels.
+  const data = ctx ? remember(`dashboard:${workspace.id}`, 60_000, () => dashboardData(workspace.id, workspace.timezone, ctx)).catch(() => null) : Promise.resolve(null);
+  const [spec, journey, pending] = await Promise.all([
+    dashboardSpec(workspace.id),
     journeyStatus(workspace.id).catch(() => null),
     db().then((d) =>
       d
@@ -47,7 +78,6 @@ export default async function ResultsPage() {
         .where(and(eq(schema.proposals.workspaceId, workspace.id), eq(schema.proposals.status, "pending"))),
     ),
   ]);
-  const spec = data?.spec;
   const updated = spec?.updatedAt ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long" }).format(new Date(spec.updatedAt)) : null;
   const next = journey?.nextUp[0];
 
@@ -85,28 +115,35 @@ export default async function ResultsPage() {
           </div>
         </section>
       ) : (
-        data && (
-          <>
-            <section className="card grid grid-cols-2 lg:grid-cols-4" aria-label="המספרים העיקריים">
-              {data.kpis.map((k, i) => (
-                <div key={k.id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
-                  <div className="label">{k.label}</div>
-                  <div className="num mt-1.5 text-[26px] font-semibold leading-tight">{show(k, data.currency)}</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Change k={k} />
-                    {k.change != null && <span className="text-[13px] text-ink-3">מהחודש שעבר</span>}
+        <>
+          <Suspense
+            fallback={
+              <section className="card grid grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label="המספרים העיקריים">
+                {spec.kpis.map((id, i) => (
+                  <div key={id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
+                    <div className="label">{KPIS[id].label}</div>
+                    <div className="mt-2.5">
+                      <Sk w="5.5rem" h="24px" />
+                    </div>
+                    <div className="mt-3">
+                      <Sk w="7rem" h="11px" />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </section>
+                ))}
+              </section>
+            }
+          >
+            <Kpis data={data} />
+          </Suspense>
 
-            <Block title="תוצאות בכל יום החודש" className="mt-8">
-              <div className="card p-5">
-                <LineChart points={data.daily.map((d) => ({ date: d.date, value: d.results }))} unit="תוצאות" />
-              </div>
-            </Block>
-          </>
-        )
+          <Block title="תוצאות בכל יום החודש" className="mt-8">
+            <div className="card p-5">
+              <Suspense fallback={<span aria-hidden className="skeleton block h-44 w-full" />}>
+                <Daily data={data} />
+              </Suspense>
+            </div>
+          </Block>
+        </>
       )}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[3fr_2fr]">

@@ -67,6 +67,9 @@ Two densities. The home and the chat may stay roomy. Work screens (settings, con
 - Popovers with many items: about 340px wide, height capped to the screen with inner scroll, one compact row per item, ids under an expander.
 - Never shrink a screen with `zoom` or transforms; change the scale itself.
 
+### Loading
+Everything that does not come from Meta (titles, tabs, table headers, labels, buttons) renders at once. Only the values from Meta wait, as `.skeleton` shapes with a sweeping shimmer in the exact place and size of the value (`<Sk>` in `src/components/Skeleton.tsx`), streamed with Suspense. No spinners, no blank pages.
+
 ## 5. Components
 **Icon rail:** 48px icons, radius 14. Active: background `rgba(0,0,0,.06)`. Notification: an 8px blue dot at the top corner. Profile circle at the bottom (40px, grey, initials).
 

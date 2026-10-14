@@ -4,14 +4,9 @@ import { requireSession } from "@/lib/auth";
 import { money } from "@/lib/meta/context";
 import { DELIVERY_LABEL, GOAL_LABEL, type Period } from "@/lib/meta/performance";
 import { allCampaigns, PLATFORMS, type PlatformCampaign } from "@/lib/platforms";
-import { Page, PageHeader, Segmented } from "@/components/Page";
+import { getConnection, type MetaConfig } from "@/lib/connections";
 import { remember } from "@/lib/ttl";
-
-const PERIODS: { key: Period; label: string }[] = [
-  { key: "last_7d", label: "7 ימים" },
-  { key: "this_month", label: "החודש" },
-  { key: "last_30d", label: "30 יום" },
-];
+import { CampaignsShell, PERIODS } from "./shell";
 
 const VERDICT = {
   star: { label: "מוביל", cls: "tag-good" },
@@ -100,88 +95,54 @@ function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
   );
 }
 
-function TableHead() {
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 border-b border-line bg-surface-2 px-4 py-2 text-[13px] font-medium text-ink-2 sm:grid-cols-[minmax(0,1fr)_110px_110px_130px]">
-      <span className="ps-6">קמפיין</span>
-      <span className="text-end">הושקעו</span>
-      <span className="hidden text-end sm:block">תוצאות</span>
-      <span className="hidden text-end sm:block">עלות לתוצאה</span>
-    </div>
-  );
-}
-
 function Num({ value, className = "" }: { value: string; className?: string }) {
   return <div className={`num text-end text-[15px] font-medium ${className}`}>{value}</div>;
 }
 
+const load = (workspaceId: string, period: Period, all: boolean) => remember(`campaigns:${workspaceId}:${period}:${all}`, 60_000, () => allCampaigns(workspaceId, period, all));
+const shown = (data: Awaited<ReturnType<typeof allCampaigns>>, all: boolean) =>
+  data.campaigns.filter((c) => all || c.live || c.numbers.spend > 0).sort((a, b) => Number(b.live) - Number(a.live) || b.numbers.spend - a.numbers.spend);
+
+/** How many really run: the only part of the header that comes from Meta. */
+async function LiveCount({ workspaceId, period, all }: { workspaceId: string; period: Period; all: boolean }) {
+  const data = await load(workspaceId, period, all);
+  return <>{data.campaigns.filter((c) => c.live).length}</>;
+}
+
+/** The table body: rows from Meta, or what to do when there are none. */
+async function Rows({ workspaceId, period, all }: { workspaceId: string; period: Period; all: boolean }) {
+  const data = await load(workspaceId, period, all);
+  if (data.error) return <p className="px-4 py-6 text-[14.5px] text-warn">לא הצלחתי לקרוא את הקמפיינים כרגע. נסי לרענן בעוד רגע.</p>;
+  const list = shown(data, all);
+  if (!list.length)
+    return (
+      <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+        <p className="text-[15px] text-ink-2">אין קמפיינים פעילים בתקופה הזאת.</p>
+        <Link href="/mikee?q=בוא נבנה קמפיין" className="btn btn-primary btn-sm">
+          לבנות קמפיין עם מייקי
+        </Link>
+      </div>
+    );
+  return (
+    <ul className="divide-y divide-line">
+      {list.map((c) => (
+        <Row key={`${c.platform}-${c.id}`} c={c} currency={data.currency} />
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Everything that does not come from Meta (title, periods, platforms, the table and its header) appears at
+ * once; only the numbers and rows wait, shimmering in place.
+ */
 export default async function CampaignsPage({ searchParams }: { searchParams: Promise<{ p?: Period; show?: string }> }) {
   const { workspace } = await requireSession();
   const { p, show } = await searchParams;
   const period = PERIODS.some((x) => x.key === p) ? p! : "last_7d";
   const all = show === "all";
-  const data = await remember(`campaigns:${workspace.id}:${period}:${all}`, 60_000, () => allCampaigns(workspace.id, period, all));
-  const list = data.campaigns
-    .filter((c) => all || c.live || c.numbers.spend > 0)
-    .sort((a, b) => Number(b.live) - Number(a.live) || b.numbers.spend - a.numbers.spend);
-  const live = data.campaigns.filter((c) => c.live).length;
-
-  return (
-    <Page>
-      <PageHeader
-        title="קמפיינים"
-        lead={data.connected.meta ? `${live} פעילים עכשיו, בכל הפלטפורמות` : "כל הקמפיינים, מכל הפלטפורמות, בשפה פשוטה"}
-        action={<Segmented active={period} items={PERIODS.map((x) => ({ key: x.key, label: x.label, href: `/campaigns?p=${x.key}${all ? "&show=all" : ""}` }))} />}
-      />
-
-      <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-line">
-        {PLATFORMS.map((pl) => (
-          <span key={pl.id} className={`-mb-px flex h-10 items-center gap-2 border-b-2 px-1 text-[14.5px] ${pl.id === "meta" ? "border-brand font-medium text-ink" : "border-transparent text-ink-3"}`}>
-            {pl.name}
-            {!pl.ready && <span className="tag tag-quiet">בקרוב</span>}
-            {pl.ready && !data.connected[pl.id] && <span className="tag tag-warn">לא מחובר</span>}
-          </span>
-        ))}
-        <span className="flex-1" />
-        {data.connected.meta && (
-          <Link href={`/campaigns?p=${period}${all ? "" : "&show=all"}`} className="link pb-2 text-[14px]">
-            {all ? "רק פעילים" : "כולל קמפיינים שהסתיימו"}
-          </Link>
-        )}
-      </div>
-
-      {!data.connected.meta ? (
-        <div className="card overflow-hidden">
-          <TableHead />
-          <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-            <p className="text-[15px] text-ink-2">אחרי חיבור חשבון המודעות, כל הקמפיינים יופיעו כאן עם מה שהם מביאים.</p>
-            <Link href="/settings#connectors" className="btn btn-primary btn-sm">
-              לחיבור חשבון המודעות
-            </Link>
-          </div>
-        </div>
-      ) : data.error ? (
-        <p className="note note-warn">לא הצלחתי לקרוא את הקמפיינים כרגע. נסי לרענן בעוד רגע.</p>
-      ) : list.length === 0 ? (
-        <div className="card overflow-hidden">
-          <TableHead />
-          <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-            <p className="text-[15px] text-ink-2">אין קמפיינים פעילים בתקופה הזאת.</p>
-            <Link href="/mikee?q=בוא נבנה קמפיין" className="btn btn-primary btn-sm">
-              לבנות קמפיין עם מייקי
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <div className="card overflow-hidden">
-          <TableHead />
-          <ul className="divide-y divide-line">
-            {list.map((c) => (
-              <Row key={`${c.platform}-${c.id}`} c={c} currency={data.currency} />
-            ))}
-          </ul>
-        </div>
-      )}
-    </Page>
-  );
+  const meta = await getConnection<MetaConfig>(workspace.id, "meta");
+  const connected = !!meta?.secret && meta.status !== "broken";
+  return <CampaignsShell period={period} all={all} connected={connected} rows={<Rows workspaceId={workspace.id} period={period} all={all} />} count={<LiveCount workspaceId={workspace.id} period={period} all={all} />} />;
 }
+

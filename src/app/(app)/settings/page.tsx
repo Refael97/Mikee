@@ -109,7 +109,7 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
           <MetaConnect workspaceId={workspaceId} />
           {meta?.secret && (
             <>
-              <Suspense fallback={<div className="h-24 animate-pulse rounded-[12px] bg-surface-2" aria-label="טוען את הנכסים" />}>
+              <Suspense fallback={<span aria-label="טוען את הנכסים" className="skeleton block h-24 w-full" />}>
                 <MetaAssets workspaceId={workspaceId} businessName={businessName} />
               </Suspense>
               <AdvertiserIdentitySettings />
@@ -179,7 +179,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Section id="budget" title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
         <BudgetForm workspaceId={workspace.id} />
-        <Suspense fallback={<div className="mt-6 h-12 animate-pulse rounded-[10px] bg-surface-2" />}>
+        <Suspense fallback={<span aria-hidden className="skeleton mt-6 block h-12 w-full" />}>
           <BudgetMeter workspaceId={workspace.id} tz={workspace.timezone} />
         </Suspense>
       </Section>
