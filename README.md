@@ -13,17 +13,24 @@ Client ──chat──▶ job queue ──▶ Mikee (Claude) ──tools──�
 ```
 
 ### The team (`src/lib/agent/`)
-On the front end there's only Mikee. In the back end, Mikee is a manager (`run.ts`, medium thinking effort) who understands the need, decides, and hands the work to specialists (`specialists.ts`, high thinking effort):
+On the front end there's only Mikee. In the back end, Mikee is the marketing manager (`run.ts`, medium thinking effort) who understands the need, decides, and hands the work to specialists (`specialists.ts`, high thinking effort):
 
 | Specialist | Responsible for | Can create cards |
 |---|---|---|
 | Copywriter | Text for ads, reels and posts | — |
 | Media buyer | Building campaigns and changing running ones | Campaign, change |
-| Creative | Choosing existing visuals or creating new ones | Media (costs credits) |
+| Creative | Choosing existing visuals or creating new ones with AI | Media (costs credits) |
+| Video editor | Editing reels, stories and video ads from the business's own clips, photos and music | Video |
 | Social | Organic posts, reels, carousels | Post |
 | Analyst | Results, diagnosis, budget, stock, market research | — |
 
-Each specialist gets the business brief (`brief.ts`), its own professional instructions, Mikee's task, and only the tools its job needs. It doesn't see the conversation with the client and can't delegate further. All specialists run on the same loop (`loop.ts`) and go through the same safety layer: cards, budget, versions. Every task is logged in `agent_runs`, and its cost is logged per agent. The client sees neutral wording ("Mikee is analyzing the results"), never the team.
+Each specialist gets the business brief (`brief.ts`), its own professional instructions, **its playbook for this business**, Mikee's task, and only the tools its job needs. It doesn't see the conversation with the client and can't delegate further. All specialists run on the same loop (`loop.ts`) and go through the same safety layer: cards, budget, versions. Every task is logged in `agent_runs`, and its cost is logged per agent. The client sees neutral wording ("Mikee is analyzing the results"), never the team.
+
+**Playbooks (`src/lib/playbooks.ts`).** Every specialist has a working file per business (its "README"), written and maintained only by Mikee and read by the specialist at the start of every task. Sections: the client from that specialist's angle, standing work instructions, what works, and lessons from the client. How it stays current:
+- **Before work:** when the business is set up, and in any case before Mikee first hands work to a specialist without a file, Mikee writes it from everything he knows.
+- **From feedback:** every card records who made it (`proposals.agent`), and Mikee sees "made by" in the brief. When the client says what she didn't like, Mikee first adds a lesson to that specialist's file (`update_playbook`, `add_lesson`) and only then asks for a new version, which is made according to the updated file.
+- **From results:** in the weekly summary Mikee adds what the numbers taught, and consolidates the file when lessons pile up (up to 8000 characters).
+- Every change is a new version with its reason (`agent_playbook_history`). Specialists can't write to the files; only Mikee can. The client only hears "I noted that, from now on less text".
 
 ### Conversations (`src/lib/conversations.ts`, `src/components/Sidebar.tsx`, `Composer.tsx`)
 - **Separate conversations:** each new conversation gets its own address, with the history on the right grouped by category: campaigns, content and posts, results and data, the business, general.

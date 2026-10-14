@@ -118,6 +118,7 @@ const ROLE_MARKERS: [string, string][] = [
   ["# Your role: copywriter", "copywriter"],
   ["# Your role: media buyer", "media_buyer"],
   ["# Your role: creative director", "creative"],
+  ["# Your role: video editor", "video_editor"],
   ["# Your role: social media manager", "social"],
   ["# Your role: performance analyst", "analyst"],
   ["You are Mikee", "mikee"],

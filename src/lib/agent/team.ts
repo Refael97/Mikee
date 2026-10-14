@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { db, schema } from "../db";
 import { businessBrief } from "./brief";
+import { getPlaybook } from "../playbooks";
 import { agentLoop, proposalIdsIn, type Row } from "./loop";
 import { SPECIALISTS, type Specialist, TEAM_PREAMBLE } from "./specialists";
 import { pick, tool, type ToolDef } from "./tools";
@@ -16,17 +17,18 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       content: [{ type: "text", text: `Task from Mikee:\n${task}${materials ? `\n\nMaterials:\n${materials}` : ""}` }],
     },
   ];
-  const brief = await businessBrief(ctx.workspaceId, ctx.tz);
+  const [brief, playbook] = await Promise.all([businessBrief(ctx.workspaceId, ctx.tz), getPlaybook(ctx.workspaceId, spec.id)]);
   const startedAt = new Date();
   let output = "";
   let error: string | undefined;
   try {
     const r = await agentLoop({
-      ctx: { workspaceId: ctx.workspaceId, tz: ctx.tz, conversationId: ctx.conversationId },
+      ctx: { workspaceId: ctx.workspaceId, tz: ctx.tz, conversationId: ctx.conversationId, agent: spec.id },
       agent: spec.id,
       system: [
         { type: "text", text: `${TEAM_PREAMBLE}\n\n${spec.instructions}`, cache_control: { type: "ephemeral" } },
         { type: "text", text: brief },
+        { type: "text", text: playbookBlock(playbook) },
       ],
       history: [],
       pending,
@@ -61,6 +63,15 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
     startedAt,
   });
   return { report: output, cards: proposalIds.map((proposalId) => ({ proposalId })), ...(error ? { error } : {}) };
+}
+
+/**
+ * The specialist's own file for this business, written by Mikee from what the client likes and dislikes.
+ * It guides the work; the hard limits above it still win.
+ */
+export function playbookBlock(p: { content: string; version: number; updatedAt: Date } | undefined) {
+  if (!p) return "# Your playbook for this business\nMikee has not written one yet. Work from the brief and the task, and in your report mention anything about the client's taste you had to guess.";
+  return `# Your playbook for this business (version ${p.version}, ${p.updatedAt.toISOString().slice(0, 10)}, written by Mikee from the client's feedback)\nFollow it before your own defaults; it never overrides the hard limits.\n\n${p.content}`;
 }
 
 /** One delegation tool per specialist, for Mikee. */

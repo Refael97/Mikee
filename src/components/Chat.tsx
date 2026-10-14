@@ -21,6 +21,8 @@ const LIVE_LABELS: Record<string, string> = {
   ask_copywriter: "כותב טקסטים",
   ask_media_buyer: "עובד על הקמפיין",
   ask_creative: "מכין ויז׳ואל",
+  ask_video_editor: "עורך וידאו",
+  update_playbook: "רושם את מה שאת אוהבת",
   ask_social: "מכין פוסט",
   ask_analyst: "מנתח את התוצאות",
   read_insights: "מעמיק בנתונים",
@@ -32,7 +34,7 @@ const LIVE_LABELS: Record<string, string> = {
   web_fetch: "קורא עמוד ברשת",
 };
 // Bookkeeping tools stay silent.
-const SILENT = new Set(["file_conversation", "set_stage"]);
+const SILENT = new Set(["file_conversation", "set_stage", "team_playbook"]);
 
 const SUGGESTIONS = [
   { title: "איך הולך החודש?", sub: "תמונת מצב קצרה, במספרים אמיתיים" },

@@ -206,6 +206,25 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   finished_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE media ADD COLUMN IF NOT EXISTS filename text;
+ALTER TABLE proposals ADD COLUMN IF NOT EXISTS agent text;
+CREATE TABLE IF NOT EXISTS agent_playbooks (
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  agent text NOT NULL,
+  content text NOT NULL,
+  version integer NOT NULL DEFAULT 1,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, agent)
+);
+CREATE TABLE IF NOT EXISTS agent_playbook_history (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  agent text NOT NULL,
+  version integer NOT NULL,
+  content text NOT NULL,
+  reason text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS agent_playbook_history_ws ON agent_playbook_history (workspace_id, agent, version);
 CREATE TABLE IF NOT EXISTS activity (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),

@@ -147,6 +147,7 @@ async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId
     workspaceId: p.workspaceId,
     conversationId: p.conversationId ?? undefined,
     kind: "activate",
+    agent: "platform",
     action: action as unknown as Record<string, unknown>,
     month: p.month,
     currency,

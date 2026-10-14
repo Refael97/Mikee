@@ -134,7 +134,7 @@ export async function dueNudges(workspaceId: string, tz: string, now = new Date(
       key: t.week,
       title: "סיכום השבוע",
       category: "results",
-      kickoff: `${EVENT} It is the start of the week. Ask the analyst for last week against the week before: spend, results, cost per result, the best ad, and the pace against this month's budget. Write a short weekly summary: what happened in two or three sentences with real numbers, and the one thing you suggest for this week, with a card if there is a clear action. ${REPLIES}`,
+      kickoff: `${EVENT} It is the start of the week. Ask the analyst for last week against the week before: spend, results, cost per result, the best ad, and the pace against this month's budget. Write a short weekly summary: what happened in two or three sentences with real numbers, and the one thing you suggest for this week, with a card if there is a clear action. If the numbers taught something about what works for this client (a video, a text, an audience), add it to the right specialist's playbook. ${REPLIES}`,
       mayStaySilent: false,
     });
   }

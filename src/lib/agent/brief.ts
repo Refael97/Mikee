@@ -31,12 +31,13 @@ export async function businessBrief(workspaceId: string, tz: string): Promise<st
   ]
     .filter(Boolean)
     .join("\n");
+  const by = (agent: string | null) => (agent && agent !== "mikee" ? `, made by ${agent}` : "");
   const open = cards.filter((c) => c.status === "pending");
   const recent = cards.filter((c) => c.status !== "pending").slice(0, 12);
   const cardLines = [
     open.length ? "Waiting for the client (do not suggest these again; refer to them):" : "No cards are waiting for the client.",
-    ...open.map((c) => `- [${c.kind}] "${c.card.title}" id ${c.id}, since ${c.createdAt.toISOString().slice(0, 16)}`),
-    ...(recent.length ? ["Recently decided:", ...recent.map((c) => `- [${c.kind}] "${c.card.title}": ${c.status} ${c.decidedAt?.toISOString().slice(0, 10) ?? ""}`)] : []),
+    ...open.map((c) => `- [${c.kind}] "${c.card.title}" id ${c.id}, since ${c.createdAt.toISOString().slice(0, 16)}${by(c.agent)}`),
+    ...(recent.length ? ["Recently decided:", ...recent.map((c) => `- [${c.kind}] "${c.card.title}": ${c.status} ${c.decidedAt?.toISOString().slice(0, 10) ?? ""}${by(c.agent)}`)] : []),
   ].join("\n");
   return `# Now\n${today} (${tz})\n\n# Connections (internal; never show ids to the client)\n${connections}\n\n# Cards\n${cardLines}\n\n# Where the business stands on its marketing path\n${journey}\n\n# What we know about the business\n${brainAsText(facts)}`;
 }

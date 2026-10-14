@@ -72,6 +72,8 @@ export async function createProposal(opts: {
   credits?: number;
   replaces?: string;
   clientAsked?: boolean;
+  /** Who made it: a specialist id, "mikee" or "platform". */
+  agent?: string;
 }): Promise<Proposal> {
   const d = await db();
   const key = dedupeKey(opts.kind, opts.action);
@@ -133,6 +135,7 @@ export async function createProposal(opts: {
           reserved: opts.reserved ?? 0,
           card: renderCard(opts.kind, opts.action, opts.currency, { credits: opts.credits }) as unknown as Record<string, unknown>,
           action: opts.action,
+          agent: opts.agent ?? null,
         })
         .returning();
       return row;

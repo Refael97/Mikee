@@ -6,6 +6,7 @@ import { appendMany, type Kind, loadHistory } from "../conversation";
 import { recentConversationsText } from "../conversations";
 import { AiBudgetExceeded } from "../usage";
 import { businessBrief } from "./brief";
+import { playbookStatus } from "../playbooks";
 import { agentLoop, type LoopEvent, type Row } from "./loop";
 import { LEAK_MARKERS, LEAK_REPLACEMENT, MIKEE_CONSTITUTION, stageInstructions } from "./prompt";
 import { TEAM_TOOLS } from "./team";
@@ -21,7 +22,7 @@ export type AgentEvent = LoopEvent | { t: "done" } | { t: "error"; message: stri
  * specialist. He runs at medium effort; the specialists think hard about their narrow tasks.
  */
 export const MIKEE_TOOLS: ToolDef[] = [
-  ...pick(["file_conversation", "remember", "forget", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
+  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
   ...TEAM_TOOLS,
 ];
 
@@ -55,7 +56,7 @@ export async function runMikee(opts: {
 
   try {
     const r = await agentLoop({
-      ctx: { workspaceId, tz: ws.timezone, conversationId },
+      ctx: { workspaceId, tz: ws.timezone, conversationId, agent: "mikee" },
       agent: "mikee",
       system: async () => {
         const stage = (await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, workspaceId) }))?.stage ?? ws.stage;
@@ -63,7 +64,7 @@ export async function runMikee(opts: {
           { type: "text", text: MIKEE_CONSTITUTION, cache_control: { type: "ephemeral" } },
           {
             type: "text",
-            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}`,
+            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}`,
           },
         ];
       },

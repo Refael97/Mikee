@@ -17,6 +17,7 @@ import { CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "../specs";
 import { totalSeconds, VideoSpecBase } from "../video/spec";
 import { videoMedia, videoRenderer, VideoProblem } from "../video/render";
 import { hit } from "../guard";
+import { addLesson, agentIds, getPlaybook, PLAYBOOK_TEMPLATE, PlaybookProblem, playbookHistory, writePlaybook } from "../playbooks";
 import { mediaAllowance } from "../usage";
 import { inventory, salesSummary } from "../store";
 import { publicProducts, scanWebsite } from "../website";
@@ -31,6 +32,8 @@ export type ToolContext = {
   tz: string;
   /** The conversation the work belongs to (cards report their outcome there). */
   conversationId?: string;
+  /** Who on the team is acting: "mikee" or a specialist id. Cards remember it, so feedback reaches the right playbook. */
+  agent?: string;
   /** Lets a tool surface progress (e.g. a card created by a specialist) to the client's screen. */
   emit?: (e: { t: "proposal"; id: string } | { t: "tool"; name: string; state: "start" | "done" | "error" }) => void | Promise<void>;
 };
@@ -217,7 +220,47 @@ export const TOOLS = [
     run: async (ctx, i) => {
       const d = await db();
       await d.update(schema.workspaces).set({ stage: i.stage }).where(eq(schema.workspaces.id, ctx.workspaceId));
-      return { stage: i.stage };
+      return i.stage === "active"
+        ? { stage: i.stage, next: "Now prepare your team: write a playbook for each specialist with update_playbook (action write), from everything you learned about the business, before you delegate work to them." }
+        : { stage: i.stage };
+    },
+  }),
+
+  tool({
+    name: "team_playbook",
+    effect: "read",
+    description:
+      "Read a specialist's playbook for this business (the working file you write for it: the client for its purposes, standing instructions, what works, lessons from her feedback), with its recent change history.",
+    input: z.object({ agent: z.enum(agentIds() as [string, ...string[]]) }),
+    run: async (ctx, i) => {
+      const [p, history] = await Promise.all([getPlaybook(ctx.workspaceId, i.agent), playbookHistory(ctx.workspaceId, i.agent, 8)]);
+      if (!p) return { agent: i.agent, exists: false, template: PLAYBOOK_TEMPLATE };
+      return { agent: i.agent, version: p.version, updated: p.updatedAt.toISOString().slice(0, 10), content: p.content, history };
+    },
+  }),
+
+  tool({
+    name: "update_playbook",
+    effect: "memory",
+    description:
+      "Write or improve a specialist's playbook for this business; it reads it at the start of every task. " +
+      "action write: the whole file (to prepare it, or to consolidate it), in the template's sections, in Hebrew, concrete and specific to this client. " +
+      "action add_lesson: one dated line under the lessons section, after the client says what she did not like or wants differently (the general rule for next time, in her words, not just this one card). " +
+      "Always give the reason. Keep it under 8000 characters: when lessons pile up, merge them into the standing instructions with action write.",
+    input: z.object({
+      agent: z.enum(agentIds() as [string, ...string[]]),
+      action: z.enum(["write", "add_lesson"]),
+      text: z.string().min(5).max(9000),
+      reason: z.string().min(5).max(300).describe("Why it changed, e.g. 'הלקוחה ביקשה פחות טקסט על המסך'"),
+    }),
+    run: async (ctx, i) => {
+      try {
+        const r = i.action === "write" ? await writePlaybook(ctx.workspaceId, i.agent, i.text, i.reason) : await addLesson(ctx.workspaceId, i.agent, i.text, i.reason, ctx.tz);
+        return { ...r, saved: true };
+      } catch (e) {
+        if (e instanceof PlaybookProblem) return { error: e.message };
+        throw e;
+      }
     },
   }),
 
@@ -410,6 +453,7 @@ export const TOOLS = [
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
         conversationId: ctx.conversationId,
+        agent: ctx.agent,
         kind: "campaign",
         action: spec,
         month: monthKey(ctx.tz),
@@ -445,6 +489,7 @@ export const TOOLS = [
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
         conversationId: ctx.conversationId,
+        agent: ctx.agent,
         kind: "change",
         action: spec,
         month: monthKey(ctx.tz),
@@ -463,7 +508,7 @@ export const TOOLS = [
     description: "Prepare an organic post (Facebook page and/or Instagram, image, video/reel or carousel) and show it to the client before publishing.",
     input: PostSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
-      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
       return { proposalId: p.id, shown: "The post preview is in front of the client." };
     },
   }),
@@ -489,6 +534,7 @@ export const TOOLS = [
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
         conversationId: ctx.conversationId,
+        agent: ctx.agent,
         kind: "media",
         action: spec,
         month: monthKey(ctx.tz),
@@ -525,7 +571,7 @@ export const TOOLS = [
         throw e;
       }
       if (!(await hit(`video:${ctx.workspaceId}`, 30, 86400)).ok) return { error: "Enough videos for today (30). Continue tomorrow." };
-      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, kind: "video", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "video", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
       return { proposalId: p.id, seconds: totalSeconds(spec), shown: "The client sees the video playing in the card and approves before it is rendered." };
     },
   }),
@@ -541,6 +587,7 @@ export const TOOLS = [
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
         conversationId: ctx.conversationId,
+        agent: ctx.agent,
         kind: "budget",
         action: { ...i, month },
         month,

@@ -211,6 +211,8 @@ export const proposals = pgTable("proposals", {
   result: jsonb("result").$type<Record<string, unknown>>(),
   attempts: integer("attempts").notNull().default(0),
   supersededBy: uuid("superseded_by"),
+  /** The team member who made the card (a specialist id, or "mikee"/"platform"), so feedback reaches the right playbook. */
+  agent: text("agent"),
   createdAt: ts("created_at").notNull().defaultNow(),
   decidedAt: ts("decided_at"),
   finishedAt: ts("finished_at"),
@@ -287,6 +289,33 @@ export const agentRuns = pgTable("agent_runs", {
   error: text("error"),
   startedAt: ts("started_at").notNull(),
   finishedAt: ts("finished_at").notNull().defaultNow(),
+});
+
+/**
+ * Each specialist's working file for one business: what it needs to know about the client, the standing
+ * instructions, and the lessons from the client's feedback. Written and kept current by Mikee only.
+ */
+export const agentPlaybooks = pgTable(
+  "agent_playbooks",
+  {
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+    agent: text("agent").notNull(),
+    content: text("content").notNull(),
+    version: integer("version").notNull().default(1),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.agent] })],
+);
+
+/** Every version of every playbook, with the reason it changed. */
+export const agentPlaybookHistory = pgTable("agent_playbook_history", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  agent: text("agent").notNull(),
+  version: integer("version").notNull(),
+  content: text("content").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 export const activity = pgTable("activity", {
