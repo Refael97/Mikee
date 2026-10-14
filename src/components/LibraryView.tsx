@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { sendFile } from "@/lib/upload-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Film, FolderInput, Music, Search, Trash2, Upload } from "lucide-react";
 import type { MediaView } from "@/lib/media";
 import { PageHeader } from "./Page";
 
 type Usage = { used: number; limit: number; plan: string };
-type Pending = { localId: string; name: string; error?: string };
+type Pending = { localId: string; name: string; error?: string; progress?: number };
 
 const size = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)}GB` : b >= 1024 ** 2 ? `${Math.round(b / 1024 ** 2)}MB` : `${Math.max(1, Math.round(b / 1024))}KB`);
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,.mp3,.m4a,.wav";
@@ -116,18 +117,13 @@ export function LibraryView({
     for (const file of Array.from(files).slice(0, 30)) {
       const localId = crypto.randomUUID();
       setPending((p) => [...p, { localId, name: file.name }]);
-      const form = new FormData();
-      form.append("file", file);
-      form.append("library", "1");
-      if (folder) form.append("folder", folder);
-      fetch("/api/uploads", { method: "POST", body: form })
-        .then(async (r) => {
-          const data = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(data.error ?? "ההעלאה נכשלה");
+      const set = (patch: Partial<Pending>) => setPending((p) => p.map((x) => (x.localId === localId ? { ...x, ...patch } : x)));
+      sendFile(file, { library: "1", ...(folder ? { folder } : {}) }, (f) => set({ progress: f }))
+        .then(async () => {
           setPending((p) => p.filter((x) => x.localId !== localId));
           await reload();
         })
-        .catch((e: Error) => setPending((p) => p.map((x) => (x.localId === localId ? { ...x, error: e.message } : x))));
+        .catch((e: Error) => set({ error: e.message }));
     }
   }
 
@@ -300,7 +296,7 @@ export function LibraryView({
               <div className={`relative aspect-square overflow-hidden rounded-[8px] ${p.error ? "border border-bad bg-bad-tint" : "dot-grid bg-surface-2"}`}>
                 {!p.error && <div className="dot-grid-lit absolute inset-0" />}
               </div>
-              <p className={`mt-2 truncate text-[14px] ${p.error ? "text-bad" : "shimmer font-medium"}`}>{p.error ?? `מעלה את ${p.name}`}</p>
+              <p className={`mt-2 truncate text-[14px] ${p.error ? "text-bad" : "shimmer font-medium"}`}>{p.error ?? (p.progress === undefined ? `מעלה את ${p.name}` : p.progress >= 1 ? `שומר את ${p.name}` : `מעלה ${Math.round(p.progress * 100)}%`)}</p>
             </li>
           ))}
           {items.map((m) => (

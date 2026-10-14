@@ -1,10 +1,18 @@
 import { getSession } from "@/lib/auth";
 import { assertSameOrigin, guarded, limit, LIMITS, Refused } from "@/lib/guard";
-import { MediaRejected, storeBytes } from "@/lib/media";
+import { MediaRejected, storeBytes, tooBig, uploadLimit } from "@/lib/media";
 
 export const runtime = "nodejs";
 
-const MAX_REQUEST = 310 * 1024 * 1024;
+/** Room for the form's own fields around the file. */
+const FORM_OVERHEAD = 1024 * 1024;
+
+/** The largest file the server takes now, so the page can say so before sending anything. */
+export async function GET() {
+  const session = await getSession();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  return Response.json({ maxBytes: uploadLimit() });
+}
 
 /**
  * Files the client attaches to a message or adds to the library. The real type is read from the bytes
@@ -14,7 +22,9 @@ export const POST = guarded(async (req: Request) => {
   assertSameOrigin(req);
   const session = await getSession();
   if (!session) return new Response("Unauthorized", { status: 401 });
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_REQUEST) throw new Refused("הקובץ גדול מדי", 413);
+  // Refused before the body is read, so an oversized file never fills the server's memory.
+  const length = Number(req.headers.get("content-length") ?? 0);
+  if (length > uploadLimit() + FORM_OVERHEAD) throw new Refused(tooBig(length - FORM_OVERHEAD), 413);
   await limit(`upload:${session.workspace.id}`, LIMITS.uploadsPerHour, 3600, "יותר מדי העלאות בשעה האחרונה. נסי שוב מאוחר יותר.");
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");

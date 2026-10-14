@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { sendFile } from "@/lib/upload-client";
 import type { Autonomy } from "@/lib/autonomy";
 import { AutonomyPicker } from "./AutonomyPicker";
 import { ArrowUp, Camera, FileText, Loader2, Mic, Paperclip, Plus, Square, X } from "lucide-react";
 
-export type Upload = { localId: string; name: string; type: string; size: number; status: "uploading" | "ready" | "error"; id?: string; preview?: string; error?: string };
+export type Upload = { localId: string; name: string; type: string; size: number; status: "uploading" | "ready" | "error"; progress?: number; id?: string; preview?: string; error?: string };
 
 type SpeechRec = {
   lang: string;
@@ -72,14 +73,10 @@ export function Composer({
       const localId = crypto.randomUUID();
       const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
       setUploads((u) => [...u, { localId, name: file.name, type: file.type, size: file.size, status: "uploading", preview }]);
-      const form = new FormData();
-      form.append("file", file);
-      fetch("/api/uploads", { method: "POST", body: form })
-        .then(async (r) => {
-          const data = await r.json().catch(() => ({}));
-          setUploads((u) => u.map((x) => (x.localId === localId ? (r.ok ? { ...x, status: "ready", id: data.id } : { ...x, status: "error", error: data.error }) : x)));
-        })
-        .catch(() => setUploads((u) => u.map((x) => (x.localId === localId ? { ...x, status: "error", error: "ההעלאה נכשלה" } : x))));
+      const set = (patch: Partial<Upload>) => setUploads((u) => u.map((x) => (x.localId === localId ? { ...x, ...patch } : x)));
+      sendFile(file, {}, (f) => set({ progress: f }))
+        .then((data) => set({ status: "ready", id: data.id }))
+        .catch((e: Error) => set({ status: "error", error: e.message }));
     }
   }
 
@@ -156,7 +153,7 @@ export function Composer({
               <span className="max-w-36 leading-tight">
                 <span className="block truncate text-[14px] font-medium">{u.name}</span>
                 <span className={`block text-[12px] ${u.status === "error" ? "text-bad" : "text-ink-3"}`}>
-                  {u.status === "uploading" ? "מעלה…" : u.status === "error" ? (u.error ?? "שגיאה") : `${Math.max(1, Math.round(u.size / 1024))} KB`}
+                  {u.status === "uploading" ? (u.progress === undefined ? "מעלה…" : u.progress >= 1 ? "שומר…" : `מעלה ${Math.round(u.progress * 100)}%`) : u.status === "error" ? (u.error ?? "שגיאה") : `${Math.max(1, Math.round(u.size / 1024))} KB`}
                 </span>
               </span>
               {u.status === "uploading" && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}

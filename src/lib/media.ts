@@ -6,7 +6,7 @@ import { type Kind, limitLabel, maxBytes, safeName, sniff } from "./filetype";
 import { safeFetch } from "./net";
 import { GB, planOf } from "./plans";
 import { getSettings } from "./settings";
-import { deleteObject, getObject, putObject } from "./storage";
+import { DB_MAX_BYTES, deleteObject, getObject, putObject, usingBucket } from "./storage";
 import { enqueue } from "./jobs";
 
 export class MediaRejected extends Error {}
@@ -74,6 +74,7 @@ export async function storeBytes(
   const found = sniff(bytes, opts.filename ?? "");
   if (!found) throw new MediaRejected("סוג הקובץ לא נתמך. אפשר להעלות תמונות, סרטונים, PDF וקבצי טקסט או CSV.");
   if (bytes.length > maxBytes(found.kind)) throw new MediaRejected(`הקובץ גדול מדי (עד ${limitLabel(found.kind)})`);
+  if (bytes.length > uploadLimit()) throw new MediaRejected(tooBig(bytes.length));
   const { used, limit } = await storageUsage(workspaceId);
   if (used + bytes.length > limit) throw new MediaRejected("נגמר המקום בספרייה. אפשר למחוק קבצים ישנים או לשדרג את המנוי.");
 
@@ -137,4 +138,18 @@ export async function deleteMedia(workspaceId: string, id: string) {
   await d.update(schema.media).set({ deletedAt: new Date(), bytes: null }).where(eq(schema.media.id, id));
   await deleteObject(row);
   return true;
+}
+
+const mb = (n: number) => `${Math.ceil(n / 1024 / 1024)}MB`;
+
+/**
+ * The largest file this server can take right now: the per-type limit with a storage bucket, and the
+ * database's cap without one (bytes kept in the database are capped at 50MB).
+ */
+export function uploadLimit(): number {
+  return usingBucket() ? maxBytes("video") : DB_MAX_BYTES;
+}
+
+export function tooBig(size: number): string {
+  return `הקובץ גדול מדי (${mb(size)}). אפשר להעלות עד ${mb(uploadLimit())}. סרטון ארוך אפשר לקצר בטלפון ולהעלות שוב.`;
 }
