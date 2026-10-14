@@ -16,7 +16,7 @@ export function middleware(req: NextRequest) {
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "connect-src 'self' https://www.googleapis.com https://content.googleapis.com",
-    "frame-src https://docs.google.com https://drive.google.com https://accounts.google.com",
+    "frame-src 'self' https://docs.google.com https://drive.google.com https://accounts.google.com",
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'none'",

@@ -126,7 +126,9 @@ export const ActivateSpec = z.object({
 });
 export type ActivateSpec = z.infer<typeof ActivateSpec>;
 
-export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media" | "activate";
+export { VideoSpec } from "./video/spec";
+
+export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media" | "activate" | "video";
 
 /** What the chat UI renders for a proposal. Built server-side from the specs above. */
 export type ProposalCard = {
@@ -137,6 +139,8 @@ export type ProposalCard = {
   media?: { type: "image" | "video"; url: string; text?: string; headline?: string; cta?: string }[];
   /** For media cards: what is being created, so the screen can show it forming. */
   generate?: { type: "image" | "video"; count: number; ratio: string };
+  /** For video cards: the composition plays in the card before approval. */
+  preview?: { ratio: string; seconds: number };
   approveLabel: string;
   changeLabel: string;
 };

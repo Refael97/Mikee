@@ -1,0 +1,9 @@
+{
+  "name": "mikee-render-worker",
+  "private": true,
+  "type": "module",
+  "description": "Renders Mikee's HyperFrames compositions to MP4. Internal service: only Mikee calls it.",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.mjs", "test": "node --test" },
+  "dependencies": { "hyperframes": "0.8.155" }
+}

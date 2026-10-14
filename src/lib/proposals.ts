@@ -43,6 +43,8 @@ export function dedupeKey(kind: ProposalKind, a: any): string {
       return `media:${sha(`${a.type}:${a.model}:${a.prompt}`).slice(0, 24)}`;
     case "activate":
       return `activate:${a.campaignId}`;
+    case "video":
+      return `video:${sha(canonical({ format: a.format, scenes: a.scenes })).slice(0, 24)}`;
   }
 }
 

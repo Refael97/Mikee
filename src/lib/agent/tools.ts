@@ -14,6 +14,9 @@ import { fileConversation } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict } from "../proposals";
 import { CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "../specs";
+import { totalSeconds, VideoSpecBase } from "../video/spec";
+import { videoMedia, videoRenderer, VideoProblem } from "../video/render";
+import { hit } from "../guard";
 import { mediaAllowance } from "../usage";
 import { inventory, salesSummary } from "../store";
 import { publicProducts, scanWebsite } from "../website";
@@ -499,6 +502,30 @@ export const TOOLS = [
         return { proposalId: p.id, credits, autoApproved: true, shown: "Within the client's pre-approved media allowance: generating now." };
       }
       return { proposalId: p.id, credits, shown: "The client sees the price and approves before anything is generated." };
+    },
+  }),
+
+  tool({
+    name: "propose_video",
+    effect: "proposal",
+    description:
+      "Make a short branded video (reel, story, feed or wide) from designed templates, using the business's own photos from the library (search_library ids). " +
+      "You write the scenes: title, product (photo, name, price), text lines, gallery, customer quote, call to action. Hebrew text, short lines, no emoji. " +
+      "Typical: 4-6 scenes, 15-30 seconds; reels open with a strong title scene and end with a cta. The client watches the preview in the card and approves; " +
+      "then it is rendered (free, about a minute) and saved to the library. Publishing it is a separate propose_post / propose_campaign with the video URL from the platform event.",
+    input: VideoSpecBase.extend(proposalOptions),
+    run: async (ctx, { replaces, clientAsked, ...spec }) => {
+      if (!videoRenderer()) return { error: "Video rendering is not connected on this server yet. Use photos, or propose_media if it is connected." };
+      if (totalSeconds(spec) > 60) return { error: "A video is at most 60 seconds. Shorten the scenes." };
+      try {
+        await videoMedia(ctx.workspaceId, spec);
+      } catch (e) {
+        if (e instanceof VideoProblem) return { error: e.message };
+        throw e;
+      }
+      if (!(await hit(`video:${ctx.workspaceId}`, 30, 86400)).ok) return { error: "Enough videos for today (30). Continue tomorrow." };
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, kind: "video", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      return { proposalId: p.id, seconds: totalSeconds(spec), shown: "The client sees the video playing in the card and approves before it is rendered." };
     },
   }),
 

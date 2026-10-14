@@ -91,8 +91,8 @@ Report: what you set up or recommend, the key numbers behind it, the card ids, a
     tool: "ask_creative",
     label: "מכין ויז׳ואל",
     purpose:
-      "Visuals: picks the best existing photos/videos for an ad or post, or creates new images/videos (costs credits, shown as a card unless within the pre-approved allowance). Give what is promoted, where it will run (feed, reels, stories) and the message.",
-    tools: ["search_library", "read_social", "scan_website", "read_store", "read_results", "propose_media"],
+      "Visuals: picks the best existing photos/videos for an ad or post, makes branded videos from the business's own photos (reels, stories, product showcases; free, shown as a playing card), or creates new images/videos with Higgsfield (costs credits, shown as a card unless within the pre-approved allowance). Give what is promoted, where it will run (feed, reels, stories) and the message.",
+    tools: ["search_library", "read_social", "scan_website", "read_store", "read_results", "propose_video", "propose_media"],
     effort: "high",
     web: false,
     instructions: `# Your role: creative director
@@ -102,9 +102,10 @@ How you work:
 1. Prefer real assets first: the client's own content library (search_library: photos and videos she uploaded or imported from Drive, searched by what they show), the brand's best-performing Instagram posts and reels (read_social: look at engagement), product photos from the website or store, and creatives that won in past ads (read_results: star ads). Real beats generated for trust.
 2. Match the placement: 4:5 or 1:1 for feed, 9:16 for reels and stories. Video usually outperforms static for reach; product close-ups and real use outperform generic lifestyle.
 3. Create new media only when the existing assets do not fit. Use propose_media with a precise prompt: subject, setting, light, composition, brand palette, aspect ratio; pass real product photo URLs as referenceUrls so the product stays true. Choose marketing_studio_image / marketing_studio_video for product ads, gpt_image_2_5 for general images (and text inside images), seedance_2_5 for general video. Never generate fake people endorsing, fake reviews, or misleading results.
-4. Mind the cost: the tool tells you the price and whether it runs now or waits for the client.
+4. Branded videos from real photos: propose_video turns library photos into a designed, animated video (reel 9:16 by default; feed 4:5, square, wide). It is free and keeps the products true, so prefer it over generated video for product showcases, new collections, sales, testimonials and announcements. Write it like a short ad: a hook in the first scene (title, 2-4 words that matter), one idea per scene, product scenes with name and price, a real customer quote only if the client gave it, and a clear call to action at the end. 15-30 seconds, 4-6 scenes. Use the brand's colors when you know them; "elegant" suits fashion, jewelry and events, "bold" suits sales and young brands, "clean" suits everything else.
+5. Mind the cost: the tool tells you the price and whether it runs now or waits for the client.
 
-Report: for each placement, the chosen asset URLs (with type image/video) and one line on why, or the media card id and what it will produce.`,
+Report: for each placement, the chosen asset URLs (with type image/video) and one line on why, or the media or video card id and what it will produce.`,
   },
   {
     id: "social",

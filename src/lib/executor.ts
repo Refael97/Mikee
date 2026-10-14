@@ -3,11 +3,12 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { assertWithinBudget, BudgetExceeded, dailyCommit, syncMetaSpendCap } from "./budget";
 import { mediaGenerator } from "./higgsfield";
-import { storeFromUrl } from "./media";
+import { storeBytes, storeFromUrl } from "./media";
+import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
 import { activateCampaign, applyChange, buildCampaign, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild } from "./meta/actions";
 import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
-import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard } from "./specs";
+import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
 import { CTA_HE } from "./cards";
 import { mediaAllowance, recordUsage } from "./usage";
@@ -108,10 +109,14 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         result = await executeMedia(p, cp, tz);
         break;
       }
+      case "video": {
+        result = await executeVideo(p, cp);
+        break;
+      }
     }
     await finishProposal(p, true, result);
   } catch (err) {
-    const retryable = !(err instanceof NotRetryable);
+    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem);
     await finishProposal(p, false, {
       error: friendlyError(err),
       detail: describeError(err),
@@ -198,5 +203,16 @@ async function executeMedia(p: Proposal, cp: Checkpoint, tz: string) {
     stored.push({ url: m.url, type: m.type });
     await cp.save({ stored });
   }
+  return { media: stored };
+}
+
+/** Renders an approved video on the HyperFrames worker and keeps the MP4 in the business's library. */
+async function executeVideo(p: Proposal, cp: Checkpoint) {
+  if (cp.data.stored) return { media: cp.data.stored };
+  const spec = VideoSpec.parse(p.action);
+  const mp4 = await renderVideo(await buildProject(p.workspaceId, spec));
+  const m = await storeBytes(p.workspaceId, mp4, { filename: "video.mp4", source: "hyperframes", sourceRef: p.id, inLibrary: true, folder: "סרטונים" });
+  const stored = [{ url: m.url, type: "video" as const, id: m.id }];
+  await cp.save({ stored });
   return { media: stored };
 }

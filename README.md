@@ -220,12 +220,23 @@ Netlify fits Mikee's public landing page (a separate site). The app itself stays
 
 Set `HIGGSFIELD_MCP_URL` (and `HIGGSFIELD_MCP_TOKEN`). The **server** connects to Higgsfield as an MCP client (`src/lib/higgsfield.ts`), not the model. Created media is copied into our storage and served from `/api/media/:id`, so the server and Meta can always access it. In Settings: a monthly credit cap, and how many of them can be used without asking (default: 0, everything needs approval).
 
-## Can Mikee edit videos with HyperFrames?
-Yes, in two possible ways:
-- **Through HeyGen's MCP server:** the server connects to it like it does to Higgsfield. Mikee sends the clip and editing instructions (`compose`), then renders (`render_video`), and the result goes into the library. It requires a HeyGen account and approval of the per-render cost, just like media cards.
-- **Rendering ourselves (recommended):** the open-source HyperFrames framework builds the video as HTML/GSAP and renders it to MP4 in a headless browser. On Railway this means a separate worker with Chromium and ffmpeg. A video-editor specialist writes the composition (cuts, subtitles, text, branding) from the clip in the library, and the client approves a short preview before rendering.
+## Branded videos (HyperFrames)
 
-This isn't built yet. It's a natural next step after the library.
+Mikee makes short branded videos (reels, stories, feed, wide) from the business's own photos, rendered with the open-source [HyperFrames](https://github.com/heygen-com/hyperframes) framework.
+
+- **How it works:** the creative specialist calls `propose_video` with scenes (title, product with price, text lines, gallery, customer quote, call to action), a format and a style (clean, bold, elegant). The model never writes HTML or code. The platform builds the composition from fixed templates (`src/lib/video/compose.ts`, every value escaped) with GSAP, the Heebo font and the library photos, all local, with nothing from the network.
+- **Approval:** the card plays the video live (`/api/video/preview/:id`, only the business that owns the card, only the app can frame it). After approval the project is sent to the render worker, the MP4 comes back and is saved to the library in the "סרטונים" folder. Publishing it is a separate approval (post or campaign).
+- **Limits:** up to 60 seconds and 8 scenes, photos from this business's library only, 30 videos per day per business. Rendering is free (CPU only); 15-30 seconds takes about half a minute to a minute.
+
+### The render worker (separate Railway service)
+
+The code is in `render-worker/` (Dockerfile with Node 22, Chromium and FFmpeg). On Railway:
+1. **+ New → GitHub Repo →** the same repo. In the new service's **Settings → Root Directory**, enter `render-worker`. It builds from the Dockerfile.
+2. **Variables** of the worker: `RENDER_SECRET` (a long random string, at least 24 characters). Don't give it a public domain; it's only reached over the private network.
+3. **Variables** of Mikee: `RENDER_URL=http://${{render-worker.RAILWAY_PRIVATE_DOMAIN}}:8080` (or whatever the service is named) and the same `RENDER_SECRET`.
+4. Recommended: at least 2GB of memory for the worker.
+
+The worker accepts only requests carrying the secret, and only the files a composition is made of (`index.html`, `kit/*`, `media/*`). It fetches nothing itself and keeps nothing after answering.
 
 ## Code structure
 

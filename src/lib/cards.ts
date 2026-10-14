@@ -1,3 +1,4 @@
+import { totalSeconds, VIDEO_FORMATS, VIDEO_STYLES, type VideoSpec } from "./video/spec";
 import type { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, ProposalCard, ProposalKind } from "./specs";
 
 const money = (amount: number, currency = "ILS") =>
@@ -150,6 +151,26 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         media: s.referenceUrls.map((url) => ({ type: "image" as const, url })),
         generate: { type: s.type, count: s.count, ratio: s.aspectRatio.replace(":", "/") },
         approveLabel: "יאללה, צור",
+        changeLabel: "בוא נשנה משהו",
+      };
+    }
+    case "video": {
+      const s = action as VideoSpec;
+      const f = VIDEO_FORMATS[s.format];
+      const secs = totalSeconds(s);
+      return {
+        kind,
+        title: s.title,
+        why: s.why,
+        rows: [
+          { label: "פורמט", value: f.label },
+          { label: "אורך", value: `${secs} שניות, ${s.scenes.length} סצנות` },
+          { label: "סגנון", value: VIDEO_STYLES[s.style].label },
+          { label: "מה יקרה באישור", value: "מייקי ירנדר את הסרטון וישמור אותו בספרייה. שום דבר לא יעלה לאוויר בלי אישור נפרד." },
+        ],
+        preview: { ratio: f.ratio, seconds: secs },
+        generate: { type: "video", count: 1, ratio: f.ratio },
+        approveLabel: "נראה טוב, לרנדר",
         changeLabel: "בוא נשנה משהו",
       };
     }

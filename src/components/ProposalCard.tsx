@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ImageIcon, Megaphone, PenLine, Power, RotateCcw, SlidersHorizontal, Wallet } from "lucide-react";
+import { Check, ChevronLeft, Clapperboard, ImageIcon, Megaphone, PenLine, Power, RotateCcw, SlidersHorizontal, Wallet } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
@@ -16,6 +16,7 @@ const KIND: Record<Card["kind"], { label: string; done: string; icon: typeof Meg
   post: { label: "פוסט", done: "פורסם", icon: PenLine },
   budget: { label: "תוספת תקציב", done: "אושר", icon: Wallet },
   media: { label: "תמונות וסרטונים", done: "מוכן", icon: ImageIcon },
+  video: { label: "סרטון", done: "מוכן", icon: Clapperboard },
 };
 
 const STATUS: Record<string, { label: string; tag: string }> = {
@@ -110,6 +111,41 @@ function MediaResult({ view }: { view: CardView }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-[6px] border border-line object-cover" />
       ))}
+    </div>
+  );
+}
+
+/** A video card: the composition plays in the card before approval; then the forming canvas, then the MP4. */
+function VideoPreview({ view }: { view: CardView }) {
+  const preview = view.card.preview;
+  if (!preview) return <MediaResult view={view} />;
+  const tall = preview.ratio === "9/16";
+  const out = view.status === "done" ? view.output?.[0] : undefined;
+  return (
+    <div className="px-4">
+      <div className="mx-auto overflow-hidden rounded-[6px] border border-line bg-[#111]" style={{ aspectRatio: preview.ratio, width: tall ? "min(62%, 270px)" : "100%" }}>
+        {out ? (
+          <video src={out.url} className="reveal h-full w-full" controls playsInline preload="metadata" />
+        ) : view.status === "executing" ? (
+          <MediaGenerating ratio={preview.ratio} label="מרנדר את הסרטון" />
+        ) : (
+          <iframe
+            src={`/api/video/preview/${view.id}/index.html`}
+            title="תצוגה מקדימה של הסרטון"
+            className="h-full w-full border-0"
+            sandbox="allow-scripts allow-same-origin"
+            loading="lazy"
+          />
+        )}
+      </div>
+      {view.status === "pending" && <p className="mt-2 text-center text-[13px] text-ink-3">תצוגה מקדימה. הסרטון הסופי יהיה באיכות מלאה.</p>}
+      {out && (
+        <p className="mt-2 text-center text-[13px]">
+          <a href={out.url} download className="link">
+            הורדת הסרטון
+          </a>
+        </p>
+      )}
     </div>
   );
 }
@@ -228,7 +264,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
         {card.why && <p className="mt-1 text-[15px] leading-[1.55] text-ink-2">{card.why}</p>}
       </div>
 
-      {card.kind === "media" ? <MediaResult view={view} /> : <Previews card={card} brand={brand} />}
+      {card.kind === "video" ? <VideoPreview view={view} /> : card.kind === "media" ? <MediaResult view={view} /> : <Previews card={card} brand={brand} />}
 
       <dl className="mx-4 mt-3 divide-y divide-line rounded-[6px] border border-line">
         {card.rows.map((r) => (
@@ -253,7 +289,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
         )}
         {view.status === "executing" && (
           <p className="text-[14.5px] text-ink-2">
-            <span className="shimmer font-medium">{({ media: "יוצר", campaign: "בונה את הקמפיין במצב מושהה", activate: "מפעיל" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
+            <span className="shimmer font-medium">{({ media: "יוצר", video: "מרנדר את הסרטון", campaign: "בונה את הקמפיין במצב מושהה", activate: "מפעיל" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
           </p>
         )}
         {view.status === "done" && (
@@ -261,6 +297,8 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
             <Check className="pop h-4 w-4" strokeWidth={2.6} />
             {card.kind === "media"
               ? "מוכן. התמונות נשמרו בספרייה"
+              : card.kind === "video"
+                ? "מוכן. הסרטון נשמר בספרייה"
               : card.kind === "campaign"
                 ? "נבנה במצב מושהה ונבדק. כרטיס ההפעלה מחכה לך למטה"
                 : `${kind.done}. מייקי עוקב אחרי זה מעכשיו`}

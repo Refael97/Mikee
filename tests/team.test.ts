@@ -45,7 +45,7 @@ describe("who can do what", () => {
     expect(proposalsOf("copywriter")).toEqual([]);
     expect(proposalsOf("analyst")).toEqual([]);
     expect(proposalsOf("media_buyer")).toEqual(["propose_campaign", "propose_change"]);
-    expect(proposalsOf("creative")).toEqual(["propose_media"]);
+    expect(proposalsOf("creative")).toEqual(["propose_media", "propose_video"]);
     expect(proposalsOf("social")).toEqual(["propose_post"]);
     for (const s of SPECIALISTS) {
       for (const n of s.tools) {

@@ -2,6 +2,8 @@ import { BudgetExceeded } from "./budget";
 import { MetaDisconnected } from "./meta/context";
 import { MetaError } from "./meta/graph";
 import { BlockedAddress } from "./net";
+import { MediaRejected } from "./media";
+import { VideoProblem } from "./video/render";
 
 /**
  * What the client reads when something fails: one plain Hebrew sentence with the way forward. The technical
@@ -25,7 +27,15 @@ export function friendlyError(err: unknown): string {
     if (err.code === 2635 || err.code === 1487390) return "הגדרה בחשבון המודעות חסרה (למשל אמצעי תשלום). כדאי לבדוק את החשבון במנהל המודעות של מטא.";
     return "מטא לא קיבלה את הבקשה. אפשר לנסות שוב, ואם זה חוזר, מייקי יבדוק מה השתנה.";
   }
+  if (err instanceof MediaRejected) return err.message;
+  if (err instanceof VideoProblem) {
+    return /not connected/.test(err.message)
+      ? "יצירת הסרטונים עוד לא מחוברת בשרת. אפשר לפנות לתמיכה."
+      : "אחת התמונות של הסרטון לא זמינה בספרייה. מייקי יכול להכין גרסה עם תמונות אחרות.";
+  }
   const m = err instanceof Error ? err.message : String(err);
+  if (/renderer is busy/i.test(m)) return "שרת הסרטונים עמוס כרגע. אפשר לנסות שוב בעוד כמה דקות.";
+  if (/Video render/i.test(m)) return "הרינדור של הסרטון לא הצליח. אפשר לנסות שוב; אם זה חוזר, מייקי יפשט את הסרטון.";
   if (/Higgsfield|generation/i.test(m)) return "יצירת התמונה או הסרטון לא הושלמה. אפשר לנסות שוב; קרדיטים לא ינוכו פעמיים.";
   if (/download|HTTP/i.test(m)) return "לא הצלחתי להוריד את אחד הקבצים. כדאי לבחור קובץ מהספרייה ולנסות שוב.";
   return "משהו לא הצליח. אפשר לנסות שוב; מה שכבר נבנה נשמר ולא ייווצר פעמיים.";
