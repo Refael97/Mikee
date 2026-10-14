@@ -48,11 +48,15 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
   email: text("email").notNull().unique(),
+  /** Optional sign-in name, unique ignoring case (letters, digits, dot, underscore). */
+  username: text("username"),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   /** Bumped on password change and "sign out everywhere": every older session stops working. */
   sessionVersion: integer("session_version").notNull().default(1),
   passwordChangedAt: ts("password_changed_at"),
+  /** One-time recovery code (hashed), shown to the user once; resets the password without email. */
+  recoveryHash: text("recovery_hash"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 

@@ -171,7 +171,8 @@ describe("one business never reaches another's data", () => {
     const files: string[] = [];
     const walk = (dir: string) => readdirSync(dir).forEach((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : f === "route.ts" && files.push(join(dir, f))));
     walk(root);
-    const PUBLIC = ["health", "cron/checkin"];
+    // Public on purpose: health; the cron (its own secret); the username check at sign-up (read-only, limited per network).
+    const PUBLIC = ["health", "cron/checkin", "username"];
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       const rel = f.slice(root.length + 1, -"/route.ts".length);

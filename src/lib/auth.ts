@@ -6,7 +6,8 @@ import { eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 
 const COOKIE = "mikee_session";
-const MAX_AGE = 60 * 60 * 24 * 14;
+// Stay signed in for 60 days by default (SESSION_DAYS); "sign out everywhere" and a password change end it sooner.
+const MAX_AGE = 60 * 60 * 24 * Math.min(365, Math.max(1, Number(process.env.SESSION_DAYS) || 60));
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;

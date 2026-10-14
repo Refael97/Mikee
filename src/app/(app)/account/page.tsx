@@ -10,7 +10,7 @@ import { planOf } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
 import { monthUsage } from "@/lib/usage";
 import { Section } from "@/components/ConnectionForms";
-import { PasswordForm, ProfileForm } from "@/components/AccountForms";
+import { PasswordForm, ProfileForm, RecoveryCodeForm } from "@/components/AccountForms";
 import { Page, PageHeader } from "@/components/Page";
 
 const size = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)}GB` : `${Math.round(b / 1024 ** 2)}MB`);
@@ -65,7 +65,7 @@ export default async function AccountPage() {
       />
 
       <Section title="הפרטים שלי">
-        <ProfileForm name={user.name} email={user.email} />
+        <ProfileForm name={user.name} email={user.email} username={user.username} />
       </Section>
 
       <Section title="המנוי והשימוש" hint="מה כלול במנוי ומה כבר נוצל החודש. תקציב הפרסום עצמו משולם ישירות למטא ולא נספר כאן.">
@@ -102,6 +102,10 @@ export default async function AccountPage() {
 
       <Section title="אבטחה" hint="סיסמה, כניסות אחרונות, ויציאה מכל המכשירים.">
         <PasswordForm />
+        <div className="mt-10">
+          <h3 className="mb-3 font-semibold">קוד שחזור</h3>
+          <RecoveryCodeForm has={!!user.recoveryHash} />
+        </div>
         <div className="mt-10 max-w-xl">
           <h3 className="font-semibold">פעילות אחרונה בחשבון</h3>
           <ul className="mt-3 border-t border-line">

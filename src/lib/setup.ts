@@ -2,6 +2,7 @@ import "server-only";
 import { count, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { hashPassword, passwordProblem } from "./crypto";
+import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 
 /** Settings the app cannot run without, by name only (values are never shown). */
 export function missingSettings(): string[] {
@@ -42,7 +43,8 @@ export async function bootstrapOwner() {
  * Owner's password reset, for whoever controls the server's variables: set MIKEE_RESET_EMAIL and
  * MIKEE_RESET_PASSWORD, redeploy, sign in, then delete both. If no user has that email, one is created in the
  * first business (or a new one), so a lost or reset database can also be recovered. Every session of that
- * user is signed out. Nothing is logged except that it happened.
+ * user is signed out. Nothing is logged except that it happened. MIKEE_RESET_USERNAME (optional) also sets the
+ * sign-in name.
  */
 export async function resetPasswordFromEnv() {
   const email = process.env.MIKEE_RESET_EMAIL?.trim().toLowerCase();
@@ -53,17 +55,27 @@ export async function resetPasswordFromEnv() {
     console.error(`[setup] MIKEE_RESET_PASSWORD is too weak (${problem}); nothing was changed.`);
     return;
   }
+  const wanted = process.env.MIKEE_RESET_USERNAME?.trim();
+  if (wanted && usernameProblem(wanted)) {
+    console.error(`[setup] MIKEE_RESET_USERNAME is not valid (${usernameProblem(wanted)}); nothing was changed.`);
+    return;
+  }
   const d = await db();
   const user = await d.query.users.findFirst({ where: eq(schema.users.email, email) });
+  if (wanted && (await usernameTaken(wanted, user?.id))) {
+    console.error("[setup] MIKEE_RESET_USERNAME is taken by another user; nothing was changed.");
+    return;
+  }
+  const username = wanted ? cleanUsername(wanted) : undefined;
   if (user) {
     await d
       .update(schema.users)
-      .set({ passwordHash: hashPassword(password), sessionVersion: sql`${schema.users.sessionVersion} + 1`, passwordChangedAt: new Date() })
+      .set({ passwordHash: hashPassword(password), sessionVersion: sql`${schema.users.sessionVersion} + 1`, passwordChangedAt: new Date(), ...(username ? { username } : {}) })
       .where(eq(schema.users.id, user.id));
     console.log(`[setup] Password reset for ${email}. Remove MIKEE_RESET_EMAIL and MIKEE_RESET_PASSWORD from the variables.`);
     return;
   }
   const ws = (await d.query.workspaces.findFirst()) ?? (await d.insert(schema.workspaces).values({ name: process.env.MIKEE_BUSINESS_NAME?.trim() || "העסק שלי" }).returning())[0];
-  await d.insert(schema.users).values({ workspaceId: ws.id, email, name: process.env.MIKEE_OWNER_NAME?.trim() || email.split("@")[0], passwordHash: hashPassword(password) });
+  await d.insert(schema.users).values({ workspaceId: ws.id, email, username, name: process.env.MIKEE_OWNER_NAME?.trim() || email.split("@")[0], passwordHash: hashPassword(password) });
   console.log(`[setup] No user had ${email}; created one in "${ws.name}". Remove MIKEE_RESET_EMAIL and MIKEE_RESET_PASSWORD from the variables.`);
 }

@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS conversations (
 CREATE INDEX IF NOT EXISTS conversations_ws_idx ON conversations (workspace_id, updated_at DESC);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFAULT 1;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_hash text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username text;
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower ON users (lower(username));
 CREATE TABLE IF NOT EXISTS rate_limits (
   key text NOT NULL,
   window_start bigint NOT NULL,

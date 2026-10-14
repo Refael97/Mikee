@@ -1,20 +1,21 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { db, schema } from "@/lib/db";
 import { endSession, startSession } from "@/lib/auth";
 import { DUMMY_HASH, verifyPassword } from "@/lib/crypto";
 import { hit, LIMITS } from "@/lib/guard";
 import { logActivity } from "@/lib/activity";
 import { registerBusiness } from "@/lib/signup";
+import { resetWithCode } from "@/lib/recovery";
+import { findUserByLogin } from "@/lib/username";
 
 /**
  * Sign in. Limits per email and per network address stop password guessing; the answer is the same for a
  * wrong email and a wrong password, and takes the same time.
  */
 export async function login(_: string | null, form: FormData): Promise<string | null> {
+  // One field: email or username.
   const email = String(form.get("email") ?? "").trim().toLowerCase().slice(0, 200);
   const password = String(form.get("password") ?? "").slice(0, 256);
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -22,12 +23,11 @@ export async function login(_: string | null, form: FormData): Promise<string | 
   if (!byEmail.ok || !byIp.ok) {
     return `יותר מדי ניסיונות. אפשר לנסות שוב בעוד ${Math.ceil(Math.max(byEmail.retryAfter, byIp.retryAfter) / 60)} דקות.`;
   }
-  const d = await db();
-  const user = email ? await d.query.users.findFirst({ where: eq(schema.users.email, email) }) : undefined;
+  const user = await findUserByLogin(email);
   const ok = verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !ok) {
     if (user) await logActivity(user.workspaceId, "security", "ניסיון כניסה עם סיסמה שגויה", { ip }, false);
-    return "האימייל או הסיסמה לא נכונים";
+    return "הפרטים או הסיסמה לא נכונים";
   }
   await startSession(user.id, user.sessionVersion);
   await logActivity(user.workspaceId, "security", "כניסה לחשבון", { ip });
@@ -39,8 +39,7 @@ export async function signup(_: string | null, form: FormData): Promise<string |
   const field = (k: string, max: number) => String(form.get(k) ?? "").slice(0, max);
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const r = await registerBusiness({
-    business: field("business", 200),
-    name: field("name", 200),
+    username: field("username", 60),
     email: field("email", 200),
     password: field("password", 256),
     confirm: field("confirm", 256),
@@ -51,6 +50,21 @@ export async function signup(_: string | null, form: FormData): Promise<string |
   if (!r.ok) return r.error;
   await startSession(r.userId, r.sessionVersion);
   redirect("/onboarding");
+}
+
+/** Forgot password: a recovery code (the user's own, or the platform owner's) sets a new one right away. */
+export async function resetPassword(_: string | null, form: FormData): Promise<string | null> {
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const r = await resetWithCode({
+    email: String(form.get("email") ?? ""),
+    code: String(form.get("code") ?? ""),
+    password: String(form.get("password") ?? "").slice(0, 256),
+    confirm: String(form.get("confirm") ?? "").slice(0, 256),
+    ip,
+  });
+  if (!r.ok) return r.error;
+  await startSession(r.userId, r.sessionVersion);
+  redirect("/");
 }
 
 export async function logout() {

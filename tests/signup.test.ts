@@ -7,7 +7,7 @@ import { registerBusiness, signupMode } from "@/lib/signup";
 let n = 0;
 const form = (over: Partial<Parameters<typeof registerBusiness>[0]> = {}) => {
   n++;
-  return { business: "שמלות של רחל", name: "רחל", email: `owner${n}@example.com`, password: "a-long-pass-123", confirm: "a-long-pass-123", ip: `10.0.0.${n}`, ...over };
+  return { username: `owner${n}`, business: "שמלות של רחל", name: "רחל", email: `owner${n}@example.com`, password: "a-long-pass-123", confirm: "a-long-pass-123", ip: `10.0.0.${n}`, ...over };
 };
 
 afterEach(() => {

@@ -17,11 +17,16 @@ export default function LoginPage() {
         <p className="mt-1 text-[14.5px] text-ink-2">איש השיווק של העסק שלך מחכה.</p>
         <form action={action} className="mt-6 space-y-4">
           <label className="block space-y-1.5">
-            <span className="label">אימייל</span>
-            <input name="email" type="email" required autoComplete="email" maxLength={200} className="field" dir="ltr" />
+            <span className="label">שם משתמש או אימייל</span>
+            <input name="email" required autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={200} className="field" dir="ltr" />
           </label>
           <label className="block space-y-1.5">
-            <span className="label">סיסמה</span>
+            <span className="flex items-baseline justify-between">
+              <span className="label">סיסמה</span>
+              <Link href="/forgot" className="link text-[13.5px]">
+                שכחתי סיסמה
+              </Link>
+            </span>
             <input name="password" type="password" required autoComplete="current-password" maxLength={256} className="field" dir="ltr" />
           </label>
           {error && <p className="note note-bad text-[14px]">{error}</p>}

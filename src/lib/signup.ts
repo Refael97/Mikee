@@ -5,6 +5,7 @@ import { db, schema } from "./db";
 import { hashPassword, passwordProblem } from "./crypto";
 import { cleanClientText, hit } from "./guard";
 import { logActivity } from "./activity";
+import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 
 /**
  * Who may open a new business account.
@@ -23,7 +24,7 @@ export function signupMode(): SignupMode {
 
 export const SIGNUP_LIMITS = { perIpHour: 3, perIpDay: 10, globalDay: Number(process.env.MIKEE_SIGNUP_DAILY_CAP) || 50 };
 
-export type SignupInput = { business: string; name: string; email: string; password: string; confirm: string; invite?: string; website?: string; ip: string };
+export type SignupInput = { username: string; email: string; password: string; confirm: string; business?: string; name?: string; invite?: string; website?: string; ip: string };
 export type SignupResult = { ok: true; userId: string; sessionVersion: number; workspaceId: string } | { ok: false; error: string };
 
 const EMAIL = /^[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.[a-z]{2,}$/i;
@@ -57,11 +58,13 @@ export async function registerBusiness(input: SignupInput): Promise<SignupResult
 
   if (mode === "invite" && !inviteMatches(String(input.invite ?? "").slice(0, 200))) return { ok: false, error: "קוד ההזמנה לא נכון." };
 
-  const business = cleanClientText(input.business, 80).replace(/\s+/g, " ");
-  const name = cleanClientText(input.name, 80).replace(/\s+/g, " ");
+  const username = cleanUsername(input.username);
+  const badName = usernameProblem(username);
+  if (badName) return { ok: false, error: badName };
+  // Business and personal names are optional here; they can be filled in later (profile, the business page).
+  const name = cleanClientText(input.name ?? "", 80).replace(/\s+/g, " ") || username;
+  const business = cleanClientText(input.business ?? "", 80).replace(/\s+/g, " ") || `העסק של ${username}`;
   const email = input.email.trim().toLowerCase().slice(0, 200);
-  if (business.length < 2) return { ok: false, error: "מה שם העסק?" };
-  if (name.length < 2) return { ok: false, error: "איך קוראים לך?" };
   if (!EMAIL.test(email)) return { ok: false, error: "כתובת האימייל לא נראית תקינה." };
   if (input.password !== input.confirm) return { ok: false, error: "הסיסמאות לא זהות." };
   const weak = passwordProblem(input.password);
@@ -70,17 +73,19 @@ export async function registerBusiness(input: SignupInput): Promise<SignupResult
   const taken = "לא הצלחנו לפתוח חשבון עם הפרטים האלה. אם כבר יש לך חשבון, אפשר להיכנס או לאפס סיסמה דרך התמיכה.";
   const hash = hashPassword(input.password); // before the lookup, so a taken email takes as long as a new one
   const d = await db();
+  if (await usernameTaken(username)) return { ok: false, error: "שם המשתמש תפוס. אפשר לנסות אחר." };
   if (await d.query.users.findFirst({ where: eq(schema.users.email, email), columns: { id: true } })) return { ok: false, error: taken };
 
   try {
     const created = await d.transaction(async (tx) => {
       const [ws] = await tx.insert(schema.workspaces).values({ name: business }).returning();
-      const [user] = await tx.insert(schema.users).values({ workspaceId: ws.id, email, name, passwordHash: hash }).returning();
+      const [user] = await tx.insert(schema.users).values({ workspaceId: ws.id, email, username, name, passwordHash: hash }).returning();
       return { ws, user };
     });
     await logActivity(created.ws.id, "security", "החשבון נפתח", { ip: input.ip });
     return { ok: true, userId: created.user.id, sessionVersion: created.user.sessionVersion, workspaceId: created.ws.id };
   } catch (e) {
+    if (/username/i.test(String((e as Error)?.message ?? e))) return { ok: false, error: "שם המשתמש תפוס. אפשר לנסות אחר." };
     if (/unique|duplicate/i.test(String((e as Error)?.message ?? e))) return { ok: false, error: taken };
     throw e;
   }
