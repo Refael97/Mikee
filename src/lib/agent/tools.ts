@@ -11,6 +11,7 @@ import { metaContext, money, requireAdAccount } from "../meta/context";
 import { currentDailyBudget, describeError } from "../meta/actions";
 import { insights, readCampaigns } from "../meta/performance";
 import { metaMedia } from "../meta/media";
+import { listIdentities } from "../meta/identities";
 import { fileConversation } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict } from "../proposals";
@@ -402,6 +403,30 @@ export const TOOLS = [
       after: z.string().max(500).optional().describe("The `next` value from the previous answer, for the next page"),
     }),
     run: async (ctx, i) => stripTokens(await metaMedia(ctx.workspaceId, i.kind, i.limit, i.after)),
+  }),
+
+  tool({
+    name: "advertiser_identity",
+    effect: "read",
+    description:
+      "Who Meta lists as the advertiser and payer of this business's ads (needed when Meta answers 100/3858634, 'a verified advertiser is required'): the client's saved choices and their scope (this ad account, the whole business, or one campaign). " +
+      "Only the client chooses or changes them, in the failed campaign card or in Settings; never pick one yourself and never infer a name from a campaign name.",
+    input: z.object({}),
+    run: async (ctx) => {
+      const meta = await metaContext(ctx.workspaceId).catch(() => null);
+      const rows = await listIdentities(ctx.workspaceId);
+      return {
+        adAccountId: meta?.adAccountId,
+        saved: rows.map((r) => ({
+          scope: r.scope,
+          appliesHere: r.scope === "workspace" || (r.scope === "ad_account" && r.adAccountId === meta?.adAccountId),
+          proposalId: r.proposalId,
+          advertiser: r.beneficiaryName,
+          payer: r.payerName,
+          nameConfirmedBy: r.nameSource === "meta" ? "meta" : "client",
+        })),
+      };
+    },
   }),
 
   tool({

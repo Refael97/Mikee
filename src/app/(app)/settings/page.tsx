@@ -10,6 +10,7 @@ import { Page, PageHeader } from "@/components/Page";
 import { getSettings } from "@/lib/settings";
 import { monthUsage } from "@/lib/usage";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
+import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
 
 async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: string }) {
   try {
@@ -106,6 +107,7 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
           {meta?.secret && (
             <>
               <MetaAssets workspaceId={workspaceId} businessName={businessName} />
+              <AdvertiserIdentitySettings />
               <form action={disconnectMeta}>
                 <button className="btn btn-danger btn-sm">ניתוק</button>
               </form>

@@ -13,7 +13,7 @@ export class FakeMeta {
   account = { id: "act_1", currency: "ILS", amount_spent: "1000000", spend_cap: "0", account_status: 1 };
   monthSpend = 0;
   private seq = 1000;
-  private failures: { match: (c: Call) => boolean; times: number; message: string; code?: number }[] = [];
+  private failures: { match: (c: Call) => boolean; times: number; message: string; code?: number; subcode?: number }[] = [];
 
   constructor() {
     this.nodes.set("page_1", { id: "page_1", type: "page", name: "Studio Noa", access_token: "page-token" });
@@ -21,8 +21,8 @@ export class FakeMeta {
   }
 
   /** Make the next `times` matching calls fail. */
-  failOn(match: (c: Call) => boolean, times = 1, message = "Simulated Meta failure", code = 2) {
-    this.failures.push({ match, times, message, code });
+  failOn(match: (c: Call) => boolean, times = 1, message = "Simulated Meta failure", code = 2, subcode?: number) {
+    this.failures.push({ match, times, message, code, subcode });
   }
 
   writes(pathPattern?: RegExp) {
@@ -76,7 +76,7 @@ export class FakeMeta {
     const fail = this.failures.find((f) => f.times > 0 && f.match(call));
     if (fail) {
       fail.times--;
-      return { __error: { message: fail.message, code: fail.code } };
+      return { __error: { message: fail.message, code: fail.code, error_subcode: fail.subcode } };
     }
     const parts = path.split("/").filter(Boolean);
     const [root, edge] = parts;
@@ -119,6 +119,8 @@ export class FakeMeta {
               daily_budget: params.daily_budget,
               start_time: params.start_time,
               end_time: params.end_time,
+              targeting: params.targeting ? JSON.parse(params.targeting) : undefined,
+              regional_regulation_identities: params.regional_regulation_identities ? JSON.parse(params.regional_regulation_identities) : undefined,
             }).id,
           };
         case "adcreatives":

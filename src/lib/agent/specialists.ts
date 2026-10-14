@@ -69,7 +69,7 @@ Report: your recommended variant first and why in one line, then all variants cl
     label: "בונה קמפיין",
     purpose:
       "Paid campaigns on Facebook/Instagram: builds new campaigns and proposes changes (pause, resume, budget, end date). Give the business goal, what to promote, and the ready copy and media (from the copywriter and the creative).",
-    tools: ["budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "meta_read", "meta_write", "propose_campaign", "propose_change"],
+    tools: ["budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "advertiser_identity", "meta_read", "meta_write", "propose_campaign", "propose_change"],
     effort: "medium",
     tier: "main",
     web: false,

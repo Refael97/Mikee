@@ -250,6 +250,10 @@ body {
     background: var(--bad-tint);
     color: var(--bad);
   }
+  .note-good {
+    background: var(--good-tint);
+    color: var(--good);
+  }
   .note-warn {
     background: var(--warn-tint);
     color: var(--warn);

@@ -7,6 +7,7 @@ import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
 import { plainTitle } from "@/lib/text";
 import { cueMikee } from "./MikeeAvatar";
+import { IdentityPicker } from "./AdvertiserIdentity";
 
 export type Brand = { name: string; handle?: string; /** The profile picture (Instagram, else the page). */ avatar?: string };
 
@@ -242,6 +243,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
   const [view, setView] = useState(proposal);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [identitySaved, setIdentitySaved] = useState(false);
   const { card } = view;
   const kind = KIND[card.kind] ?? KIND.campaign;
 
@@ -361,6 +363,18 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
         {view.status === "failed" && (
           <div className="space-y-3">
             <p className="note note-bad text-[15px] leading-relaxed">{view.error}</p>
+            {view.needsIdentity && !identitySaved && (
+              <div className="rounded-[6px] border border-line p-3">
+                <IdentityPicker
+                  proposalId={view.id}
+                  onSaved={() => {
+                    setIdentitySaved(true);
+                    setNotice(null);
+                  }}
+                />
+              </div>
+            )}
+            {identitySaved && <p className="note note-good text-[14.5px]">נשמר. עכשיו אפשר לנסות שוב, וקבוצת המודעות תיבנה עם המפרסם והמשלם שבחרת.</p>}
             {view.technical && (
               <details className="rounded-[6px] border border-line px-3 py-2 text-[13.5px]">
                 <summary className="cursor-pointer text-ink-2">פרטים טכניים מהשגיאה</summary>

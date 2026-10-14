@@ -7,6 +7,7 @@ import { storeBytes, storeFromUrl } from "./media";
 import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
+import { resolveIdentity } from "./meta/identities";
 import { activateCampaign, applyChange, buildCampaign, describeBuild, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
 import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
@@ -66,7 +67,9 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         const spec = CampaignSpec.parse(p.action);
         const ctx = await metaContext(p.workspaceId);
         await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
-        const ids = await buildCampaign(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp);
+        // The advertiser and payer the client chose for this card, account or business (null if none fits).
+        const identity = await resolveIdentity(ctx, p.workspaceId, p.id);
+        const ids = await buildCampaign(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp, identity?.regional_regulation_identities);
         const check = await verifyBuild(ctx, spec, ids);
         if (!check.ok) throw new NotRetryable(`The built campaign does not match the approved card (${check.mismatches.join("; ")}). It stays paused.`);
         const activation = await openActivation(p, spec, ids, check.review, tz, ctx.currency).catch((e) => (e instanceof ProposalConflict ? null : Promise.reject(e)));

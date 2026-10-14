@@ -180,7 +180,16 @@ async function createCreative(ctx: MetaContext, spec: CampaignSpec, ad: Campaign
   return id;
 }
 
-export type LaunchResult = { campaignId: string; adsetId: string; adIds: string[] };
+export type LaunchResult = {
+  campaignId: string;
+  adsetId: string;
+  adIds: string[];
+  /** The advertiser and payer identities the ad set carries, as read back from Meta. */
+  identities?: Record<string, string> | null;
+};
+
+/** The advertiser and payer sent with an ad set (top level, outside targeting). */
+export type AdsetIdentities = { universal_beneficiary: string; universal_payer: string };
 
 /** Progress store for an execution. Every created object is saved before the next step. */
 export type Checkpoint = {
@@ -214,7 +223,7 @@ async function findTagged(ctx: MetaContext, edge: string, tag: string): Promise<
  * A retry (after a failure or a restart) resumes from the saved ids or from objects tagged with the
  * proposal's tag, so it never creates a second campaign or a second copy of an ad.
  */
-export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint): Promise<LaunchResult> {
+export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint, identities?: AdsetIdentities): Promise<LaunchResult> {
   const account = requireAdAccount(ctx);
   const currency = ctx.currency ?? "ILS";
   const name = `Mikee · ${spec.title.replace(/[^\p{L}\p{N} ]/gu, "").trim()} · ${tag}`;
@@ -246,6 +255,8 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
       end_time: spec.endTime,
       status: "PAUSED",
       ...optimization(ctx, spec),
+      // Who Meta lists as advertiser and payer, when the client chose them (never guessed, no category added).
+      ...(identities ? { regional_regulation_identities: identities } : {}),
     } as Record<string, unknown>;
     try {
       ({ id: adsetId } = await ctx.graph.post<{ id: string }>(`/${account}/adsets`, adset));
@@ -280,7 +291,12 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
     await cp.save({ ads });
   }
 
-  return { campaignId: campaignId!, adsetId: adsetId!, adIds: Object.values(ads) };
+  // Read back what Meta stored, so the card reports the identities the ad set really carries.
+  const stored = await ctx.graph
+    .get<{ regional_regulation_identities?: Record<string, string> }>(`/${adsetId}`, { fields: "regional_regulation_identities" })
+    .then((r) => r.regional_regulation_identities ?? null)
+    .catch(() => undefined);
+  return { campaignId: campaignId!, adsetId: adsetId!, adIds: Object.values(ads), identities: stored };
 }
 
 export type BuildState =

@@ -146,6 +146,9 @@ The model has no tool to create or approve an activation. Errors are shown to th
 
 **Verifying the Meta token:** with `META_APP_ID` and `META_APP_SECRET`, every token (whether from login or pasted in) is checked with `debug_token`. It must come from the MIKEE app, not from an old app such as simpleAd, and it must be valid. The permissions it carries and its expiry are stored, and settings shows any missing permissions. Instant forms are created with the page's own token.
 
+### Advertiser and payer (`src/lib/meta/identities.ts`, `src/components/AdvertiserIdentity.tsx`)
+Some accounts and locations make Meta refuse an ad set without a verified advertiser (100/3858634). The identities come only from the account's own existing ad sets (`regional_regulation_identities`); a name is Meta's when `GET /{id}?fields=name` returns it, otherwise the client confirms it as Ads Manager shows it. The client chooses once, in the failed campaign card or in Settings, for this ad account, the whole business (used in another account only if that account already uses it) or one campaign; card beats account beats business. The choice is stored per workspace and sent as `regional_regulation_identities: { universal_beneficiary, universal_payer }` at the top level of the ad set (never a regulated category copied from other ad sets), then read back. A retry continues from the paused campaign already built. Meta reviewing the identity does not mean ads can run yet.
+
 ### Monthly budget (`src/lib/budget.ts`)
 The calculation is a projection. The policy:
 - **spent:** what Meta reports for this month. Today is always counted as a full day, which covers the lag in Meta's reporting.

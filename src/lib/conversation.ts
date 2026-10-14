@@ -96,6 +96,8 @@ export type CardView = {
   output?: { url: string; type: "image" | "video" }[];
   /** After a failure: Meta's own error fields and what exists at Meta, to pass on to support (never tokens). */
   technical?: { lines: { label: string; value: string }[] };
+  /** Meta asked for the advertiser and payer (100/3858634): the card offers to choose them. */
+  needsIdentity?: boolean;
 };
 
 /** Meta's original error fields and the checked build state, as short labelled lines. */
@@ -138,6 +140,7 @@ export function cardView(p: { id: string; status: string; versionHash: string; c
     retryable: r.retryable,
     output: r.media,
     technical: p.status === "failed" ? technical(r as Record<string, any>) : undefined,
+    needsIdentity: p.status === "failed" && (r as Record<string, any>).meta?.error_subcode === 3858634,
   };
 }
 

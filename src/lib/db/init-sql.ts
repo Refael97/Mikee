@@ -228,6 +228,20 @@ CREATE TABLE IF NOT EXISTS agent_playbook_history (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS agent_playbook_history_ws ON agent_playbook_history (workspace_id, agent, version);
+CREATE TABLE IF NOT EXISTS advertiser_identities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  scope text NOT NULL,
+  ad_account_id text,
+  proposal_id uuid,
+  beneficiary_id text NOT NULL,
+  beneficiary_name text NOT NULL,
+  payer_id text NOT NULL,
+  payer_name text NOT NULL,
+  name_source text NOT NULL,
+  confirmed_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS advertiser_identities_one ON advertiser_identities (workspace_id, scope, coalesce(ad_account_id, ''), coalesce(proposal_id::text, ''));
 CREATE TABLE IF NOT EXISTS activity (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),

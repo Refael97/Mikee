@@ -322,6 +322,26 @@ export const agentPlaybookHistory = pgTable("agent_playbook_history", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+/**
+ * Who Meta lists as the advertiser (beneficiary) and the payer of this business's ads, chosen by the client.
+ * scope: "ad_account" (that account only; adAccountId set), "workspace" (every account of this business,
+ * after checking the account accepts it), or "proposal" (one campaign card; proposalId set).
+ * nameSource: "meta" when Meta returned the name, "client" when the client typed it as Meta shows it.
+ */
+export const advertiserIdentities = pgTable("advertiser_identities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  scope: text("scope").notNull(),
+  adAccountId: text("ad_account_id"),
+  proposalId: uuid("proposal_id"),
+  beneficiaryId: text("beneficiary_id").notNull(),
+  beneficiaryName: text("beneficiary_name").notNull(),
+  payerId: text("payer_id").notNull(),
+  payerName: text("payer_name").notNull(),
+  nameSource: text("name_source").notNull(),
+  confirmedAt: ts("confirmed_at").notNull().defaultNow(),
+});
+
 export const activity = pgTable("activity", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
