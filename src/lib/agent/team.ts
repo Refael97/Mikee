@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, schema } from "../db";
 import { businessBrief } from "./brief";
 import { getPlaybook } from "../playbooks";
-import { agentLoop, proposalIdsIn, type Row } from "./loop";
+import { agentLoop, proposalIdsIn, type Row, tierFor } from "./loop";
 import { SPECIALISTS, type Specialist, TEAM_PREAMBLE } from "./specialists";
 import { pick, tool, type ToolDef } from "./tools";
 
@@ -34,7 +34,7 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       pending,
       tools,
       effort: spec.effort,
-      tier: spec.tier,
+      tier: tierFor(spec.id),
       web: spec.web,
       maxSteps: 20,
       // After its card is created the specialist is done; the report is the card itself.

@@ -150,13 +150,14 @@ describe("delegation", () => {
     expect(team.requests.map((r) => r.agent).sort()).toEqual(["copywriter", "creative", "mikee", "mikee"]);
     // Each role runs on its tier: writing on Haiku, deciding and building on Sonnet.
     const by = (agent: string) => team.requests.find((r) => r.agent === agent)!.req;
-    expect(by("mikee").model).toBe("claude-sonnet-5-5");
-    expect(by("creative").model).toBe("claude-sonnet-5-5");
+    expect(by("mikee").model).toBe("claude-haiku-5-5");
+    expect(by("creative").model).toBe("claude-haiku-5-5");
     expect(by("copywriter").model).toBe("claude-haiku-5-5");
-    // Haiku gets no server-side fallback and no web tools (Sonnet and Opus only).
+    // Haiku gets no server-side fallback and no web tools (Sonnet and Opus only), and compacts before 100K.
     expect(by("copywriter").fallbacks).toBeUndefined();
     expect(by("copywriter").betas).not.toContain("server-side-fallback-2026-07-01");
-    expect(by("mikee").fallbacks).toBe("default");
+    expect(by("mikee").tools.some((t: any) => t.type?.startsWith("web_search"))).toBe(false);
+    expect(by("mikee").context_management.edits.find((e: any) => e.type === "compact_20260112").trigger.value).toBeLessThan(100_000);
     // The conversation is cached for the following steps; Mikee's instructions stay the same within a turn.
     const mikee = team.requests.filter((r) => r.agent === "mikee").map((r) => r.req);
     expect(mikee.every((r) => r.cache_control?.type === "ephemeral")).toBe(true);
@@ -183,5 +184,20 @@ describe("delegation", () => {
     expect(runs[0].error).toBeTruthy();
     const last = (await timeline(ws, job.conversationId)).at(-1);
     expect(last?.type).toBe("mikee");
+  });
+});
+
+describe("model per role", () => {
+  it("Haiku by default, Sonnet for the media buyer and the analyst, and any role can be moved for a comparison", async () => {
+    const { tierFor, MODELS } = await import("@/lib/agent/loop");
+    expect(["mikee", "copywriter", "social", "creative", "video_editor"].map(tierFor)).toEqual(["light", "light", "light", "light", "light"]);
+    expect(["media_buyer", "analyst"].map(tierFor)).toEqual(["main", "main"]);
+    expect([MODELS.light, MODELS.main]).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5"]);
+    process.env.MIKEE_TIERS = "mikee=main, creative=main";
+    try {
+      expect([tierFor("mikee"), tierFor("creative"), tierFor("copywriter")]).toEqual(["main", "main", "light"]);
+    } finally {
+      delete process.env.MIKEE_TIERS;
+    }
   });
 });

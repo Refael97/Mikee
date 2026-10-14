@@ -155,7 +155,7 @@ describe("measurement", () => {
     await drainJobs();
     const d = await db();
     const [c] = await d.select().from(schema.modelCalls).where(eq(schema.modelCalls.workspaceId, ws)).orderBy(asc(schema.modelCalls.id));
-    expect(c).toMatchObject({ agent: "mikee", inputTokens: 500, outputTokens: 80, cacheReadTokens: 9000, cacheWriteTokens: 1200, model: "claude-sonnet-5-5" });
+    expect(c).toMatchObject({ agent: "mikee", inputTokens: 500, outputTokens: 80, cacheReadTokens: 9000, cacheWriteTokens: 1200, model: "claude-haiku-5-5" });
     expect(c.costUsd).toBeGreaterThan(0);
     expect(c.ms).toBeGreaterThanOrEqual(0);
   });

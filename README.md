@@ -154,6 +154,7 @@ The model has no tool to create or approve an activation. Errors are shown to th
 - A loop ends as soon as every tool call of a step produced a card: no extra model call to announce it.
 - Old tool results are cleared server-side (`clear_tool_uses_20250919`, cards and reports kept), and stale thinking blocks are dropped (`block_binding: drop_block`) instead of failing; history is never edited client-side. If the API refuses either control, it is turned off and the call retried.
 - Jobs carry a lease renewed by a 20 s heartbeat timer (independent of slow calls); a copy that lost its lease stops before its next model call or Meta write.
+- Models per role: `DEFAULT_TIERS` in `src/lib/agent/loop.ts` (Haiku for Mikee and most specialists, Sonnet for the media buyer and the analyst), moved with `MIKEE_TIERS` without code. On Haiku, compaction triggers at 80K and old tool results clear at 30K input tokens, below its 100K price step. To compare: run the same scenario under each setting and `select model, count(*), sum(input_tokens), sum(cache_read_tokens), sum(output_tokens), sum(ms), sum(cost_usd) from model_calls where job_id in (...) group by model;`
 - A trace for one task: `select agent, model, step, input_tokens, cache_read_tokens, cache_write_tokens, output_tokens, ms, cost_usd, tools from model_calls where job_id = '<job id>' order by id;` and `select kind, status, metrics from jobs where id = '<job id>';`
 
 ### Advertiser and payer (`src/lib/meta/identities.ts`, `src/components/AdvertiserIdentity.tsx`)

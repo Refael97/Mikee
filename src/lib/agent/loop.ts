@@ -18,6 +18,30 @@ export const MODELS: Record<Tier, string> = {
 };
 export const MODEL = MODELS.main;
 
+/**
+ * Which tier each role runs on. Haiku by default (conversation, choosing tools, a regular campaign spec,
+ * drafts); Sonnet where judgment is the job: the media buyer (campaign strategy) and the analyst
+ * (performance). Any role can be moved without code for an A/B comparison, e.g.
+ * MIKEE_TIERS="mikee=main,creative=main". model_calls records the model of every call to compare by.
+ */
+export const DEFAULT_TIERS: Record<string, Tier> = {
+  mikee: "light",
+  media_buyer: "main",
+  analyst: "main",
+  copywriter: "light",
+  social: "light",
+  creative: "light",
+  video_editor: "light",
+};
+
+export function tierFor(role: string): Tier {
+  const override = (process.env.MIKEE_TIERS ?? "")
+    .split(",")
+    .map((p) => p.trim().split("="))
+    .find(([r]) => r === role)?.[1];
+  return override === "main" || override === "light" ? override : (DEFAULT_TIERS[role] ?? "main");
+}
+
 /** Server-side refusal fallback and the newer web tools exist on Sonnet and Opus, not on Haiku. */
 const isHaiku = (model: string) => model.startsWith("claude-haiku");
 
@@ -84,14 +108,15 @@ export async function agentLoop(opts: {
           ? [
               {
                 type: "clear_tool_uses_20250919" as const,
-                trigger: { type: "input_tokens" as const, value: 40_000 },
+                // Earlier on Haiku: its price is five times higher past 100K prompt tokens.
+                trigger: { type: "input_tokens" as const, value: haiku ? 30_000 : 40_000 },
                 keep: { type: "tool_uses" as const, value: 4 },
                 clear_at_least: { type: "input_tokens" as const, value: 10_000 },
                 exclude_tools: keepTools,
               },
             ]
           : []),
-        ...(opts.compaction ? [{ type: "compact_20260112" as const }] : []),
+        ...(opts.compaction ? [{ type: "compact_20260112" as const, ...(haiku ? { trigger: { type: "input_tokens" as const, value: 80_000 } } : {}) }] : []),
       ];
       return anthropic().beta.messages.stream({
         model,

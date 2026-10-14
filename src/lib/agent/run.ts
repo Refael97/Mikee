@@ -8,7 +8,7 @@ import { AiBudgetExceeded } from "../usage";
 import { TaskLimit } from "../telemetry";
 import { businessBrief } from "./brief";
 import { playbookStatus } from "../playbooks";
-import { agentLoop, type LoopEvent, type Row } from "./loop";
+import { agentLoop, type LoopEvent, type Row, tierFor } from "./loop";
 import { LEAK_MARKERS, LEAK_REPLACEMENT, MIKEE_CONSTITUTION, stageInstructions } from "./prompt";
 import { TEAM_TOOLS } from "./team";
 import { pick, type ToolDef } from "./tools";
@@ -76,6 +76,7 @@ export async function runMikee(opts: {
       tools: MIKEE_TOOLS,
       // Mikee talks and delegates; the specialists do the heavy thinking.
       effort: "low",
+      tier: tierFor("mikee"),
       web: true,
       // Once a card is in front of the client the turn is over: no extra model call to announce it.
       stopAfterCard: true,

@@ -5,7 +5,7 @@ Hebrew, RTL, chat-first AI marketing manager for small Israeli businesses (SaaS)
 Read first: `README.md` (architecture, setup, Meta, videos), `PRODUCT.md` (users, purpose, visual standard), `DESIGN.md` (design system). The character (SVG + CSS, `src/components/MikeeAvatar.tsx`) and its brief: `docs/MIKEE-CHARACTER.md`.
 
 ## Stack
-Next.js 15 (App Router), React 19, TypeScript, Tailwind v4, drizzle-orm (Postgres in production, PGlite locally and in tests), Vitest, zod 4, Claude API via `@anthropic-ai/sdk` (Claude Sonnet 5.5 for Mikee and the deciding specialists, Claude Haiku 5.5 for writing and image descriptions; see `MODELS` in `src/lib/agent/loop.ts`). Meta Graph API v26.0 (Facebook Login for Business, system-user tokens). Video: HyperFrames render worker in `render-worker/`. Node 22.
+Next.js 15 (App Router), React 19, TypeScript, Tailwind v4, drizzle-orm (Postgres in production, PGlite locally and in tests), Vitest, zod 4, Claude API via `@anthropic-ai/sdk` (Claude Haiku 5.5 for Mikee and most specialists, Claude Sonnet 5.5 for the media buyer and the analyst; per-role tiers in `DEFAULT_TIERS` / `tierFor` in `src/lib/agent/loop.ts`, overridable with `MIKEE_TIERS`). Meta Graph API v26.0 (Facebook Login for Business, system-user tokens). Video: HyperFrames render worker in `render-worker/`. Node 22.
 
 ## Commands
 - `npm install`

@@ -16,7 +16,7 @@ export type Specialist = {
   purpose: string;
   tools: string[];
   effort: Effort;
-  /** main: Claude Sonnet 5.5 (deciding, spending, building). light: Claude Haiku 5.5 (writing). */
+  /** Default tier (see DEFAULT_TIERS / tierFor in loop.ts): main = Claude Sonnet 5.5, light = Claude Haiku 5.5. */
   tier: Tier;
   web: boolean;
   instructions: string;
@@ -100,7 +100,7 @@ Report: what you set up or recommend, the key numbers behind it, the card ids, a
       "Visuals: picks the best existing photos/videos for an ad or post, or creates new images/videos with Higgsfield (costs credits, shown as a card unless within the pre-approved allowance). For editing videos from the business's own footage and photos, use the video editor. Give what is promoted, where it will run (feed, reels, stories) and the message.",
     tools: ["search_library", "meta_media", "read_social", "scan_website", "read_store", "read_results", "propose_media"],
     effort: "medium",
-    tier: "main",
+    tier: "light",
     web: false,
     instructions: `# Your role: creative director
 You choose and create the visuals that will stop the scroll and sell, in this brand's look.
@@ -122,7 +122,7 @@ Report: for each placement, the chosen asset URLs (with type image/video) and on
       "Video editing: cuts reels, stories and video ads from the business's own clips, photos and music in the library (free, the client watches it play in a card and approves before it is rendered). Give what the video is for (product, collection, sale, event, behind the scenes), where it will run, the message, and any clips or music the client pointed at.",
     tools: ["search_library", "meta_media", "read_social", "read_results", "scan_website", "read_store", "propose_video"],
     effort: "medium",
-    tier: "main",
+    tier: "light",
     web: false,
     instructions: `# Your role: video editor
 You edit short marketing videos for this business from its own footage, photos and music, with propose_video. Your playbook for this business (below the brief) is written by Mikee from what the client likes and dislikes: follow it before your own taste.
