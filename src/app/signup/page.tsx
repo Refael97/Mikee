@@ -23,7 +23,7 @@ export default async function SignupPage() {
         ) : (
           <>
             <p className="mt-1 text-[14.5px] text-ink-2">שתי דקות, ואז מחברים את העמוד ואת חשבון המודעות.</p>
-            <SignupForm invite={mode === "invite"} />
+            <SignupForm />
           </>
         )}
       </div>

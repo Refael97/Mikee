@@ -19,7 +19,6 @@ import { cleanClientText, hit, LIMITS } from "./guard";
 import { checkUrl } from "./net";
 import { planOf } from "./plans";
 import { shopifyDomain } from "./store";
-import { createRecoveryCode } from "./recovery";
 import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 
 /** Every form value is capped and cleaned before use. */
@@ -223,16 +222,6 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
   await startSession(user.id, version);
   await logActivity(user.workspaceId, "security", "הסיסמה הוחלפה");
   return { ok: "הסיסמה הוחלפה. כל שאר המכשירים נותקו." };
-}
-
-/** A new one-time recovery code, shown once. The previous code stops working. */
-export async function makeRecoveryCode(_: { code?: string; error?: string } | null): Promise<{ code?: string; error?: string }> {
-  const { user } = await requireSession();
-  const r = await hit(`recovery:${user.id}`, 5, 3600);
-  if (!r.ok) return { error: "יותר מדי ניסיונות. אפשר לנסות שוב בעוד שעה." };
-  const code = await createRecoveryCode(user.id);
-  await logActivity(user.workspaceId, "security", "נוצר קוד שחזור חדש");
-  return { code };
 }
 
 export async function signOutEverywhere() {

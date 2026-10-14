@@ -12,7 +12,6 @@ const form = (over: Partial<Parameters<typeof registerBusiness>[0]> = {}) => {
 
 afterEach(() => {
   delete process.env.MIKEE_SIGNUP;
-  delete process.env.MIKEE_INVITE_CODE;
 });
 
 describe("a new business can open an account", () => {
@@ -59,18 +58,16 @@ describe("a new business can open an account", () => {
     expect((await registerBusiness(form({ website: "http://spam" }))).ok).toBe(false);
     const ip = "203.0.113.9";
     const results = [];
-    for (let i = 0; i < 4; i++) results.push(await registerBusiness(form({ ip })));
-    expect(results.slice(0, 3).every((r) => r.ok)).toBe(true);
-    expect(results[3].ok).toBe(false);
+    for (let i = 0; i < 21; i++) results.push(await registerBusiness(form({ ip })));
+    expect(results.slice(0, 20).every((r) => r.ok)).toBe(true);
+    expect(results[20].ok).toBe(false);
   });
 
-  it("can be invite-only or closed", async () => {
-    process.env.MIKEE_INVITE_CODE = "RACHEL-2026";
-    expect(signupMode()).toBe("invite");
-    expect((await registerBusiness(form({ invite: "wrong" }))).ok).toBe(false);
-    expect((await registerBusiness(form({ invite: "RACHEL-2026" }))).ok).toBe(true);
+  it("needs only a username, an email and a password, and can be closed", async () => {
+    expect(signupMode()).toBe("open");
+    expect((await registerBusiness(form({ confirm: undefined }))).ok).toBe(true);
     process.env.MIKEE_SIGNUP = "closed";
-    expect((await registerBusiness(form({ invite: "RACHEL-2026" }))).ok).toBe(false);
+    expect((await registerBusiness(form())).ok).toBe(false);
   });
 });
 

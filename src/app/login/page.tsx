@@ -18,7 +18,7 @@ export default function LoginPage() {
         <p className="mt-1 text-[14.5px] text-ink-2">איש השיווק של העסק שלך מחכה.</p>
         <form action={action} className="mt-6 space-y-4">
           <label className="block space-y-1.5">
-            <span className="label">שם משתמש או אימייל</span>
+            <span className="label">שם משתמש</span>
             <input name="email" required autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={200} className="field" dir="ltr" />
           </label>
           <label className="block space-y-1.5">

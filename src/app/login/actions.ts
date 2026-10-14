@@ -7,7 +7,7 @@ import { DUMMY_HASH, verifyPassword } from "@/lib/crypto";
 import { hit, LIMITS } from "@/lib/guard";
 import { logActivity } from "@/lib/activity";
 import { registerBusiness } from "@/lib/signup";
-import { resetWithCode } from "@/lib/recovery";
+import { resetPassword as resetNow } from "@/lib/recovery";
 import { findUserByLogin } from "@/lib/username";
 
 /**
@@ -42,8 +42,6 @@ export async function signup(_: string | null, form: FormData): Promise<string |
     username: field("username", 60),
     email: field("email", 200),
     password: field("password", 256),
-    confirm: field("confirm", 256),
-    invite: field("invite", 200),
     website: field("website", 200),
     ip,
   });
@@ -52,16 +50,10 @@ export async function signup(_: string | null, form: FormData): Promise<string |
   redirect("/onboarding");
 }
 
-/** Forgot password: a recovery code (the user's own, or the platform owner's) sets a new one right away. */
+/** Forgot password (pilot): a username and a new password, and she is in. */
 export async function resetPassword(_: string | null, form: FormData): Promise<string | null> {
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const r = await resetWithCode({
-    email: String(form.get("email") ?? ""),
-    code: String(form.get("code") ?? ""),
-    password: String(form.get("password") ?? "").slice(0, 256),
-    confirm: String(form.get("confirm") ?? "").slice(0, 256),
-    ip,
-  });
+  const r = await resetNow({ login: String(form.get("email") ?? ""), password: String(form.get("password") ?? "").slice(0, 256), ip });
   if (!r.ok) return r.error;
   await startSession(r.userId, r.sessionVersion);
   redirect("/");

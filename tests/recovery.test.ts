@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { verifyPassword } from "@/lib/crypto";
-import { createRecoveryCode, resetWithCode } from "@/lib/recovery";
+import { resetPassword } from "@/lib/recovery";
 import { registerBusiness } from "@/lib/signup";
 import { findUserByLogin, usernameProblem } from "@/lib/username";
 
@@ -13,11 +13,7 @@ const account = async () => {
   if (!r.ok) throw new Error(r.error);
   return { ...r, username: `rachel${n}`, email: `r${n}@example.com` };
 };
-const reset = (o: Partial<Parameters<typeof resetWithCode>[0]>) =>
-  resetWithCode({ email: "", code: "", password: "brand-new-pass-1", confirm: "brand-new-pass-1", ip: `10.8.0.${++n}`, ...o });
-afterEach(() => {
-  delete process.env.MIKEE_RESET_CODE;
-});
+const reset = (o: Partial<Parameters<typeof resetPassword>[0]>) => resetPassword({ login: "", password: "brand-new-pass-1", ip: `10.8.0.${++n}`, ...o });
 
 describe("usernames", () => {
   it("are unique ignoring case, follow the shape, and sign in like an email", async () => {
@@ -33,41 +29,27 @@ describe("usernames", () => {
   });
 });
 
-describe("forgot password, without email but never without proof", () => {
-  it("the personal recovery code resets the password once, signs out other devices, and is used up", async () => {
+describe("forgot password (pilot): a username and a new password", () => {
+  it("sets the new password right away and signs out other devices", async () => {
     const a = await account();
-    const code = await createRecoveryCode(a.userId);
-    expect(code).toMatch(/^[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
-    const r = await reset({ email: a.username, code: code.toLowerCase().replace(/-/g, " ") });
+    const r = await reset({ login: a.username.toUpperCase() });
     expect(r.ok).toBe(true);
     const d = await db();
     const u = (await d.query.users.findFirst({ where: eq(schema.users.id, a.userId) }))!;
     expect(verifyPassword("brand-new-pass-1", u.passwordHash)).toBe(true);
     expect(u.sessionVersion).toBe(a.sessionVersion + 1);
-    expect(u.recoveryHash).toBeNull();
-    expect((await reset({ email: a.email, code })).ok).toBe(false);
   });
 
-  it("knowing the email alone is never enough", async () => {
+  it("says so when there is no such user, and still asks for a reasonable password", async () => {
     const a = await account();
-    expect(await reset({ email: a.email, code: "" })).toMatchObject({ ok: false });
-    expect(await reset({ email: a.email, code: "AAAA-BBBB-CCCC-DDDD" })).toMatchObject({ ok: false, error: expect.stringMatching(/לא נכונים/) });
-    expect(await reset({ email: "nobody@example.com", code: "AAAA-BBBB-CCCC-DDDD" })).toMatchObject({ ok: false, error: expect.stringMatching(/לא נכונים/) });
+    expect(await reset({ login: "nobody-here" })).toMatchObject({ ok: false, error: expect.stringMatching(/לא מצאנו/) });
+    expect(await reset({ login: a.email, password: "short" })).toMatchObject({ ok: false });
   });
 
-  it("the platform owner's code works for anyone, and only when it is long enough", async () => {
-    const a = await account();
-    process.env.MIKEE_RESET_CODE = "short";
-    expect((await reset({ email: a.email, code: "short" })).ok).toBe(false);
-    process.env.MIKEE_RESET_CODE = "OWNER-CODE-1234-5678";
-    expect((await reset({ email: a.username, code: "owner-code-1234-5678" })).ok).toBe(true);
-  });
-
-  it("stops guessing after a few tries", async () => {
-    const a = await account();
+  it("is rate limited", async () => {
     const ip = "10.6.6.6";
     const results = [];
-    for (let i = 0; i < 6; i++) results.push(await reset({ email: a.email, code: `WRONG-${i}`, ip }));
-    expect(results[5]).toMatchObject({ ok: false, error: expect.stringMatching(/יותר מדי/) });
+    for (let i = 0; i < 21; i++) results.push(await reset({ login: `ghost${i}`, ip }));
+    expect(results[20]).toMatchObject({ ok: false, error: expect.stringMatching(/יותר מדי/) });
   });
 });

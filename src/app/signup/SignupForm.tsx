@@ -56,15 +56,13 @@ function Field({ label, hint, ...props }: { label: string; hint?: string } & Rea
   );
 }
 
-export function SignupForm({ invite }: { invite: boolean }) {
+export function SignupForm() {
   const [error, action, pending] = useActionState(signup, null);
   return (
     <form action={action} className="mt-6 space-y-4">
       <UsernameField />
       <Field label="אימייל" name="email" type="email" required maxLength={200} autoComplete="email" dir="ltr" />
       <Field label="סיסמה" name="password" type="password" required minLength={10} maxLength={200} autoComplete="new-password" dir="ltr" hint="10 תווים לפחות" />
-      <Field label="הסיסמה שוב" name="confirm" type="password" required minLength={10} maxLength={200} autoComplete="new-password" dir="ltr" />
-      {invite && <Field label="קוד הזמנה" name="invite" required maxLength={200} autoComplete="off" dir="ltr" />}
       {/* Hidden from people; a bot that fills it is turned away. */}
       <div aria-hidden className="absolute -start-[9999px] h-px w-px overflow-hidden">
         <input name="website" tabIndex={-1} autoComplete="off" />

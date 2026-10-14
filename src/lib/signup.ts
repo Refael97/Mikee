@@ -1,5 +1,4 @@
 import "server-only";
-import { timingSafeEqual } from "crypto";
 import { eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { hashPassword, passwordProblem } from "./crypto";
@@ -8,34 +7,20 @@ import { logActivity } from "./activity";
 import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 
 /**
- * Who may open a new business account.
- * - open: anyone (with per-network and daily limits)
- * - invite: only with MIKEE_INVITE_CODE
- * - closed: nobody; accounts are created by us
- * Default: invite when an invite code is set, otherwise open.
+ * Who may open a new business account: anyone (with per-network and daily limits), unless MIKEE_SIGNUP=closed.
  */
-export type SignupMode = "open" | "invite" | "closed";
+export type SignupMode = "open" | "closed";
 
 export function signupMode(): SignupMode {
-  const m = process.env.MIKEE_SIGNUP?.trim().toLowerCase();
-  if (m === "open" || m === "invite" || m === "closed") return m;
-  return process.env.MIKEE_INVITE_CODE ? "invite" : "open";
+  return process.env.MIKEE_SIGNUP?.trim().toLowerCase() === "closed" ? "closed" : "open";
 }
 
-export const SIGNUP_LIMITS = { perIpHour: 3, perIpDay: 10, globalDay: Number(process.env.MIKEE_SIGNUP_DAILY_CAP) || 50 };
+export const SIGNUP_LIMITS = { perIpHour: 20, perIpDay: 50, globalDay: Number(process.env.MIKEE_SIGNUP_DAILY_CAP) || 50 };
 
-export type SignupInput = { username: string; email: string; password: string; confirm: string; business?: string; name?: string; invite?: string; website?: string; ip: string };
+export type SignupInput = { username: string; email: string; password: string; confirm?: string; business?: string; name?: string; website?: string; ip: string };
 export type SignupResult = { ok: true; userId: string; sessionVersion: number; workspaceId: string } | { ok: false; error: string };
 
 const EMAIL = /^[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.[a-z]{2,}$/i;
-
-function inviteMatches(given: string): boolean {
-  const want = process.env.MIKEE_INVITE_CODE ?? "";
-  if (!want) return false;
-  const a = Buffer.from(given.trim());
-  const b = Buffer.from(want);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 /**
  * Opens a new business and its owner. Every field is capped and cleaned, the password must be strong, and the
@@ -56,8 +41,6 @@ export async function registerBusiness(input: SignupInput): Promise<SignupResult
   if (!hour.ok || !day.ok) return { ok: false, error: "נפתחו יותר מדי חשבונות מהרשת הזו. אפשר לנסות שוב מאוחר יותר." };
   if (!all.ok) return { ok: false, error: "ההרשמה עמוסה היום. אפשר לנסות שוב מחר, או לפנות אלינו." };
 
-  if (mode === "invite" && !inviteMatches(String(input.invite ?? "").slice(0, 200))) return { ok: false, error: "קוד ההזמנה לא נכון." };
-
   const username = cleanUsername(input.username);
   const badName = usernameProblem(username);
   if (badName) return { ok: false, error: badName };
@@ -66,7 +49,7 @@ export async function registerBusiness(input: SignupInput): Promise<SignupResult
   const business = cleanClientText(input.business ?? "", 80).replace(/\s+/g, " ") || `העסק של ${username}`;
   const email = input.email.trim().toLowerCase().slice(0, 200);
   if (!EMAIL.test(email)) return { ok: false, error: "כתובת האימייל לא נראית תקינה." };
-  if (input.password !== input.confirm) return { ok: false, error: "הסיסמאות לא זהות." };
+  if (input.confirm !== undefined && input.password !== input.confirm) return { ok: false, error: "הסיסמאות לא זהות." };
   const weak = passwordProblem(input.password);
   if (weak) return { ok: false, error: weak };
 

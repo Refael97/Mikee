@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { changePassword, makeRecoveryCode, updateProfile } from "@/lib/actions";
+import { changePassword, updateProfile } from "@/lib/actions";
 
 export function ProfileForm({ name, email, username }: { name: string; email: string; username?: string | null }) {
   const [state, action, pending] = useActionState(updateProfile, null);
@@ -58,38 +58,3 @@ export function PasswordForm() {
   );
 }
 
-/** The one-time recovery code: shown once, right after it is made. It resets the password without email. */
-export function RecoveryCodeForm({ has }: { has: boolean }) {
-  const [state, action, pending] = useActionState(makeRecoveryCode, null);
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="max-w-xl space-y-4">
-      <p className="text-[15px] text-ink-2">
-        אם תשכחי את הסיסמה, הקוד הזה מאפס אותה מיד ממסך הכניסה. שמרי אותו במקום בטוח (מנהל סיסמאות, או מודפס). כל קוד עובד פעם אחת, וקוד חדש מבטל את הקודם.
-      </p>
-      {state?.code ? (
-        <div className="space-y-3 rounded-[6px] border border-line bg-surface-2 p-4">
-          <p className="text-[14px] font-medium">הקוד שלך (מוצג פעם אחת בלבד):</p>
-          <p className="num select-all font-mono text-[20px] font-semibold tracking-[0.12em]" dir="ltr">
-            {state.code}
-          </p>
-          <button
-            type="button"
-            className="btn btn-quiet btn-sm"
-            onClick={() => navigator.clipboard?.writeText(state.code!).then(() => setCopied(true), () => undefined)}
-          >
-            {copied ? "הועתק" : "העתקה"}
-          </button>
-        </div>
-      ) : (
-        <form action={action} className="flex flex-wrap items-center gap-4">
-          <button className="btn btn-primary" disabled={pending}>
-            {has ? "יצירת קוד חדש" : "יצירת קוד שחזור"}
-          </button>
-          <span className={`tag ${has ? "tag-good" : "tag-warn"}`}>{has ? "יש קוד שמור" : "עדיין אין קוד"}</span>
-          {state?.error && <span className="tag tag-bad">{state.error}</span>}
-        </form>
-      )}
-    </div>
-  );
-}
