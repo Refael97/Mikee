@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Images, LifeBuoy, LogOut, Megaphone, Menu, MessagesSquare, Settings, Store, User, X } from "lucide-react";
+import { BarChart3, Images, Inbox, LifeBuoy, LogOut, Megaphone, Menu, MessagesSquare, Settings, Store, User, X } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { HelpPanel } from "./HelpPanel";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
@@ -13,12 +13,13 @@ export const LINKS = [
   { href: "/results", label: "תוצאות", icon: BarChart3 },
   { href: "/campaigns", label: "קמפיינים", icon: Megaphone },
   { href: "/library", label: "ספרייה", icon: Images },
+  { href: "/inbox", label: "הודעות", icon: Inbox },
   { href: "/brand", label: "העסק", icon: Store },
 ];
 
 type Who = { name: string; email: string; business: string };
 
-function NavLink({ href, label, icon: Icon, active, compact }: { href: string; label: string; icon: typeof Store; active: boolean; compact?: boolean }) {
+function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: string; label: string; icon: typeof Store; active: boolean; compact?: boolean; dot?: boolean }) {
   // Desktop: an icon in the rail, its name on hover. Mobile sheet: icon and name in a row.
   return (
     <Link
@@ -28,12 +29,13 @@ function NavLink({ href, label, icon: Icon, active, compact }: { href: string; l
       title={compact ? label : undefined}
       className={
         compact
-          ? `flex h-12 w-12 items-center justify-center rounded-[14px] transition-colors ${active ? "bg-black/[.06] text-ink dark:bg-white/[.08]" : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"}`
+          ? `relative flex h-12 w-12 items-center justify-center rounded-[14px] transition-colors ${active ? "bg-black/[.06] text-ink dark:bg-white/[.08]" : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"}`
           : `flex h-[38px] items-center gap-3 rounded-[10px] px-2.5 text-[17px] transition-colors ${active ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`
       }
     >
       <Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={1.5} />
       {!compact && <span>{label}</span>}
+      {dot && <span className={`h-2 w-2 rounded-full bg-blue ${compact ? "absolute end-2.5 top-2.5" : "ms-auto"}`} aria-label="ממתין לך" />}
     </Link>
   );
 }
@@ -42,7 +44,7 @@ function NavLink({ href, label, icon: Icon, active, compact }: { href: string; l
  * The app frame. Desktop: a sidebar on the start side (labels from 1280px, an icon rail between 1024 and 1280).
  * Mobile: a top bar with the current section and a menu sheet.
  */
-export function Nav({ who, support }: { who: Who; support: { email?: string; whatsapp?: string } }) {
+export function Nav({ who, support, waiting = {} }: { who: Who; support: { email?: string; whatsapp?: string }; waiting?: Record<string, boolean> }) {
   const path = usePathname();
   const [sheet, setSheet] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -73,7 +75,7 @@ export function Nav({ who, support }: { who: Who; support: { email?: string; wha
 
         <nav className="flex flex-col items-center gap-1" aria-label="ניווט ראשי">
           {LINKS.map((l) => (
-            <NavLink key={l.href} {...l} active={path.startsWith(l.href)} compact />
+            <NavLink key={l.href} {...l} active={path.startsWith(l.href)} dot={waiting[l.href]} compact />
           ))}
         </nav>
 
@@ -162,7 +164,7 @@ export function Nav({ who, support }: { who: Who; support: { email?: string; wha
           </div>
           <nav className="flex flex-col gap-0.5">
             {LINKS.map((l) => (
-              <NavLink key={l.href} {...l} active={path.startsWith(l.href)} />
+              <NavLink key={l.href} {...l} active={path.startsWith(l.href)} dot={waiting[l.href]} />
             ))}
           </nav>
           <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-2">

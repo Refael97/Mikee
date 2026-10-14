@@ -64,7 +64,7 @@ function fromMeta(err: unknown, access?: DmAccess): DmError {
  * the app's credentials when possible), the page token, and that the page is linked to the chosen
  * Instagram account. Returns the page Graph to read with, or the exact reason it cannot be read.
  */
-async function messagingAccess(workspaceId: string): Promise<{ ok: true; page: Graph; igId: string; access: DmAccess } | ({ ok: false } & DmError)> {
+export async function messagingAccess(workspaceId: string): Promise<{ ok: true; page: Graph; igId: string; access: DmAccess } | ({ ok: false } & DmError)> {
   const conn = await getConnection<MetaConfig>(workspaceId, "meta");
   if (!conn?.secret) return { ok: false, status: "error", reason: "not_connected", error: "Facebook and Instagram are not connected for this business. The client connects them in Settings." };
   const cfg = conn.config;

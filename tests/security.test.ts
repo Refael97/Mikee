@@ -171,8 +171,10 @@ describe("one business never reaches another's data", () => {
     const files: string[] = [];
     const walk = (dir: string) => readdirSync(dir).forEach((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : f === "route.ts" && files.push(join(dir, f))));
     walk(root);
-    // Public on purpose: health; the cron (its own secret); the username check at sign-up (read-only, limited per network).
-    const PUBLIC = ["health", "cron/checkin", "username"];
+    // Public on purpose: health; the cron (its own secret); the username check at sign-up (read-only, limited per network);
+    // Meta's webhook, which must verify Meta's signature on every delivery instead.
+    const PUBLIC = ["health", "cron/checkin", "username", "meta/webhook"];
+    expect(readFileSync(join(root, "meta/webhook/route.ts"), "utf8"), "meta/webhook verifies Meta's signature").toContain("validSignature(raw, req.headers.get(\"x-hub-signature-256\"))");
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       const rel = f.slice(root.length + 1, -"/route.ts".length);

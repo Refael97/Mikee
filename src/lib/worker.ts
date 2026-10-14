@@ -6,7 +6,8 @@ import { CHECKIN_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
 import { deleteIfEmpty, markUnread } from "./conversations";
 import { executeProposal } from "./executor";
 import { describeMedia } from "./library";
-import { claimNext, finishJob, heartbeat, type Job, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
+import { handleInstagramMessage } from "./instagram/autoreply";
+import { claimNext, finishJob, heartbeat, type Job, type JobKind, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 import { newTask, runInTask, TaskLimit, type TaskScope, taskMetrics } from "./telemetry";
 
 /** Runs one job to completion. Exported for tests; the worker loop below calls it. */
@@ -35,6 +36,8 @@ async function runJobIn(job: Job, task: TaskScope) {
     }
     if (job.kind === "execute") {
       await executeProposal(String(job.input.proposalId), { cleanup: !!job.input.cleanup });
+    } else if (job.kind === "igreply") {
+      await handleInstagramMessage(String(job.input.messageId));
     } else if (job.kind === "describe") {
       const d = await db();
       const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, job.workspaceId) });
@@ -103,11 +106,13 @@ const g = globalThis as unknown as { mikeeWorker?: boolean };
 export function startWorker(concurrency = 3) {
   if (g.mikeeWorker) return;
   g.mikeeWorker = true;
-  for (let i = 0; i < concurrency; i++) {
+  // One lane only for Instagram messages, so a customer is answered at once even while long turns run.
+  const lanes: (JobKind[] | undefined)[] = [...Array.from({ length: concurrency }, () => undefined), ["igreply"]];
+  for (const kinds of lanes) {
     void (async function loop() {
       for (;;) {
         try {
-          const job = await claimNext();
+          const job = await claimNext(kinds);
           if (job) await runJob(job);
           else await new Promise((r) => setTimeout(r, 1000));
         } catch (e) {

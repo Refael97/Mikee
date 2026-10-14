@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 
-export type JobKind = "turn" | "execute" | "checkin" | "describe";
+export type JobKind = "turn" | "execute" | "checkin" | "describe" | "igreply";
 export type Job = typeof schema.jobs.$inferSelect;
 
 /** A running job that has not sent a heartbeat for this long is considered dead and is picked up again. */

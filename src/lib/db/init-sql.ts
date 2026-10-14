@@ -271,6 +271,43 @@ CREATE TABLE IF NOT EXISTS activity (
   ok boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS business_facts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  topic text NOT NULL,
+  label text,
+  value text NOT NULL,
+  approved_by uuid,
+  approved_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS business_facts_ws ON business_facts (workspace_id);
+CREATE TABLE IF NOT EXISTS ig_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  mid text NOT NULL UNIQUE,
+  customer_id text NOT NULL,
+  direction text NOT NULL,
+  text text,
+  has_attachment boolean NOT NULL DEFAULT false,
+  sent_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'new',
+  reason text,
+  reply text,
+  reply_mid text,
+  fact_ids jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ig_messages_ws ON ig_messages (workspace_id, created_at);
+CREATE INDEX IF NOT EXISTS ig_messages_reply ON ig_messages (workspace_id, reply_mid);
+CREATE TABLE IF NOT EXISTS ig_threads (
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  customer_id text NOT NULL,
+  last_customer_at timestamptz,
+  human_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, customer_id)
+);
 -- Messages from before conversations existed move into one first conversation per business.
 INSERT INTO conversations (workspace_id, title, category)
   SELECT w.id, 'השיחה הראשונה', 'general' FROM workspaces w

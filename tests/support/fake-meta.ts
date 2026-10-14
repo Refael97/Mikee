@@ -140,6 +140,13 @@ export class FakeMeta {
 
     if (root === "page_1") {
       if (method === "GET" && !edge) return this.nodes.get("page_1");
+      if (method === "POST" && edge === "messages") {
+        const recipient = JSON.parse(params.recipient);
+        const message = JSON.parse(params.message);
+        const sent = this.add("sentdm", { recipient: recipient.id, text: message.text });
+        return { recipient_id: recipient.id, message_id: `m_${sent.id}` };
+      }
+      if (method === "POST" && edge === "subscribed_apps") return { success: true };
       if (method === "GET" && edge === "conversations") {
         const convs = params.platform === "instagram" ? this.list("igconv") : [];
         return { data: convs.map((c) => ({ id: c.id, updated_time: c.updated_time, participants: { data: c.participants } })), paging: {} };

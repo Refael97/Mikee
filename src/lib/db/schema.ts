@@ -21,7 +21,11 @@ export type WorkspaceSettings = {
   businessType?: "ecommerce" | "services" | "local" | "content";
   /** The results page Mikee chose for this kind of business. */
   dashboard?: DashboardSpec;
+  /** Instant answers to Instagram direct messages, from approved business facts only (switched on by the client). */
+  instagramAutoReply?: { enabled: boolean; topics: FactTopic[]; updatedAt: string; subscription?: { ok: boolean; at: string; detail: string } };
 };
+
+export type FactTopic = "address" | "hours" | "phone" | "website" | "other";
 
 export type KpiId = "spend" | "leads" | "cost_per_lead" | "purchases" | "revenue" | "roas" | "cost_per_purchase" | "messages" | "calls" | "link_clicks" | "cost_per_click" | "reach" | "followers" | "store_orders" | "store_revenue";
 export type DashboardSpec = { kpis: KpiId[]; headline?: string; note?: string; updatedAt: string };
@@ -375,3 +379,52 @@ export const activity = pgTable("activity", {
   ok: boolean("ok").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+/** Facts the client entered and approved herself; the only source for automatic replies. */
+export const businessFacts = pgTable("business_facts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  topic: text("topic").$type<FactTopic>().notNull(),
+  /** A branch name, or the subject of an "other" fact. */
+  label: text("label"),
+  value: text("value").notNull(),
+  approvedBy: uuid("approved_by"),
+  approvedAt: ts("approved_at").notNull().defaultNow(),
+});
+
+/**
+ * Instagram direct messages received by webhook (one row per Meta message id, so a repeated delivery is
+ * handled once). status: new | sending | answered | pending | handled | human | off | ignored.
+ */
+export const igMessages = pgTable("ig_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  mid: text("mid").notNull().unique(),
+  customerId: text("customer_id").notNull(),
+  /** in: from the customer; echo: sent from the business's account (by Mikee or by a person). */
+  direction: text("direction").$type<"in" | "echo">().notNull(),
+  text: text("text"),
+  hasAttachment: boolean("has_attachment").notNull().default(false),
+  sentAt: ts("sent_at").notNull(),
+  status: text("status").notNull().default("new"),
+  reason: text("reason"),
+  reply: text("reply"),
+  replyMid: text("reply_mid"),
+  factIds: jsonb("fact_ids").$type<string[]>(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** One per customer conversation: when she last wrote (the reply window), and whether a person took it over. */
+export const igThreads = pgTable(
+  "ig_threads",
+  {
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+    customerId: text("customer_id").notNull(),
+    lastCustomerAt: ts("last_customer_at"),
+    /** Set when a person answered from the business's account; automatic replies stop until the client resumes them. */
+    humanAt: ts("human_at"),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.customerId] })],
+);
