@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -56,7 +57,8 @@ export type Session = {
   workspace: typeof schema.workspaces.$inferSelect;
 };
 
-export async function getSession(): Promise<Session | null> {
+/** Read once per request: the layout and the page share it. */
+export const getSession = cache(async (): Promise<Session | null> => {
   const claim = await sessionClaim();
   if (!claim) return null;
   const d = await db();
@@ -67,7 +69,7 @@ export async function getSession(): Promise<Session | null> {
   });
   if (!workspace) return null;
   return { user, workspace };
-}
+});
 
 /** For pages: redirects to /login when signed out. */
 export async function requireSession(): Promise<Session> {

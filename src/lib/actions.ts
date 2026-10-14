@@ -21,6 +21,7 @@ import { checkUrl } from "./net";
 import { planOf } from "./plans";
 import { shopifyDomain } from "./store";
 import { cleanUsername, usernameProblem, usernameTaken } from "./username";
+import { forgetBusiness } from "./ttl";
 
 /** Every form value is capped and cleaned before use. */
 const str = (form: FormData, key: string, max = 500) => cleanClientText(String(form.get(key) ?? ""), max);
@@ -29,6 +30,7 @@ const isId = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
 /** Pilot shortcut: paste an access token instead of the Facebook login flow. */
 export async function saveMetaToken(form: FormData) {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   const token = String(form.get("token") ?? "").trim();
   if (!token || token.length > 1000 || !/^[A-Za-z0-9_|.-]+$/.test(token)) return;
   // A pasted token must come from this app (not an older or test app) and still be valid.
@@ -44,6 +46,7 @@ export async function saveMetaToken(form: FormData) {
 /** Saves the confirmed (or hand-picked) assets, then verifies the token really reaches each of them. */
 export async function saveMetaAssets(form: FormData) {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   const conn = await getConnection(workspace.id, "meta");
   if (!conn?.secret) return;
   const site = await getConnection<WebsiteConfig>(workspace.id, "website");
@@ -71,18 +74,21 @@ export async function saveMetaAssets(form: FormData) {
 
 export async function disconnectMeta() {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   await removeConnection(workspace.id, "meta");
   revalidatePath("/", "layout");
 }
 
 export async function recheckMeta() {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   await checkMetaHealth(workspace.id);
   revalidatePath("/", "layout");
 }
 
 export async function saveWebsiteAndStore(form: FormData) {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   const raw = str(form, "website", 300);
   const platform = str(form, "storePlatform", 20);
   let url = "";
@@ -116,6 +122,7 @@ export async function saveWebsiteAndStore(form: FormData) {
 
 export async function saveBudget(form: FormData) {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   const amount = Number(str(form, "monthlyLimit").replace(/[^\d.]/g, ""));
   if (!Number.isFinite(amount) || amount <= 0 || amount > 10_000_000) return;
   const currency = /^[A-Z]{3}$/.test(str(form, "currency", 3)) ? str(form, "currency", 3) : "ILS";
@@ -131,6 +138,7 @@ export async function saveBudget(form: FormData) {
 
 export async function saveLimits(form: FormData) {
   const { workspace } = await requireSession();
+  forgetBusiness(workspace.id);
   const num = (k: string) => {
     const n = Number(str(form, k));
     return Number.isFinite(n) && n >= 0 ? n : undefined;

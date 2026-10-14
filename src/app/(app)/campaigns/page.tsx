@@ -5,6 +5,7 @@ import { money } from "@/lib/meta/context";
 import { DELIVERY_LABEL, GOAL_LABEL, type Period } from "@/lib/meta/performance";
 import { allCampaigns, PLATFORMS, type PlatformCampaign } from "@/lib/platforms";
 import { Page, PageHeader, Segmented } from "@/components/Page";
+import { remember } from "@/lib/ttl";
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: "last_7d", label: "7 ימים" },
@@ -119,7 +120,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
   const { p, show } = await searchParams;
   const period = PERIODS.some((x) => x.key === p) ? p! : "last_7d";
   const all = show === "all";
-  const data = await allCampaigns(workspace.id, period);
+  const data = await remember(`campaigns:${workspace.id}:${period}:${all}`, 60_000, () => allCampaigns(workspace.id, period, all));
   const list = data.campaigns
     .filter((c) => all || c.live || c.numbers.spend > 0)
     .sort((a, b) => Number(b.live) - Number(a.live) || b.numbers.spend - a.numbers.spend);

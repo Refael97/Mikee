@@ -11,6 +11,7 @@ import { LineChart } from "@/components/LineChart";
 import { dashboardSpec, KPIS } from "@/lib/dashboard";
 import { plainTitle } from "@/lib/text";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
+import { remember } from "@/lib/ttl";
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
 
@@ -37,7 +38,7 @@ export default async function ResultsPage() {
   const { workspace } = await requireSession();
   const ctx = await metaContext(workspace.id).catch(() => null);
   const [data, journey, pending] = await Promise.all([
-    dashboardData(workspace.id, workspace.timezone, ctx).catch(() => null),
+    remember(`dashboard:${workspace.id}`, 60_000, () => dashboardData(workspace.id, workspace.timezone, ctx)).catch(() => null),
     journeyStatus(workspace.id).catch(() => null),
     db().then((d) =>
       d

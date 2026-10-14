@@ -16,7 +16,8 @@ export const PLATFORMS: { id: PlatformId; name: string; sub: string; ready: bool
 
 export type PlatformCampaign = FriendlyCampaign & { platform: PlatformId };
 
-export async function allCampaigns(workspaceId: string, period: Period) {
+/** `includeArchived` also reads archived and deleted campaigns (only when the client asks for ended ones). */
+export async function allCampaigns(workspaceId: string, period: Period, includeArchived = false) {
   const meta = await getConnection<MetaConfig>(workspaceId, "meta");
   const out: { campaigns: PlatformCampaign[]; currency: string; connected: Record<PlatformId, boolean>; error: string | null } = {
     campaigns: [],
@@ -27,7 +28,7 @@ export async function allCampaigns(workspaceId: string, period: Period) {
   if (out.connected.meta) {
     try {
       const ctx = await metaContext(workspaceId);
-      out.campaigns.push(...(await readCampaigns(ctx, period, true)).map((c) => ({ ...c, platform: "meta" as const })));
+      out.campaigns.push(...(await readCampaigns(ctx, period, includeArchived)).map((c) => ({ ...c, platform: "meta" as const })));
     } catch (e) {
       out.error = (e as Error).message;
     }

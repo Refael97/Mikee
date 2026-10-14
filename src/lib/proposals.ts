@@ -7,6 +7,7 @@ import { renderCard } from "./cards";
 import { appendMessage } from "./conversation";
 import { enqueue } from "./jobs";
 import type { ProposalKind } from "./specs";
+import { forgetBusiness } from "./ttl";
 
 export type Proposal = typeof schema.proposals.$inferSelect;
 
@@ -207,6 +208,7 @@ export async function saveProgress(id: string, patch: Record<string, unknown>) {
 }
 
 export async function finishProposal(p: Proposal, ok: boolean, result: Record<string, unknown>) {
+  forgetBusiness(p.workspaceId); // what pages show from Meta may have changed
   const d = await db();
   await d.update(schema.proposals).set({ status: ok ? "done" : "failed", result, finishedAt: new Date() }).where(eq(schema.proposals.id, p.id));
   const title = String(p.card.title);

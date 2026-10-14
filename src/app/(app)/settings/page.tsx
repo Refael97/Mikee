@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { requireSession } from "@/lib/auth";
 import { budgetStatus } from "@/lib/budget";
 import { getConnection, type MetaConfig } from "@/lib/connections";
@@ -11,10 +12,12 @@ import { getSettings } from "@/lib/settings";
 import { monthUsage } from "@/lib/usage";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
 import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
+import { remember } from "@/lib/ttl";
 
 async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: string }) {
   try {
-    const s = await budgetStatus(workspaceId, tz, await metaContext(workspaceId));
+    // Display only, remembered for a minute; every decision re-checks the budget live.
+    const s = await remember(`budget-meter:${workspaceId}`, 60_000, async () => budgetStatus(workspaceId, tz, await metaContext(workspaceId)));
     if (!s.configured) return null;
     const pct = (v: number) => `${Math.min(100, (Math.max(0, v) / Math.max(1, s.limit)) * 100)}%`;
     const c = s.currency;
@@ -106,7 +109,9 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
           <MetaConnect workspaceId={workspaceId} />
           {meta?.secret && (
             <>
-              <MetaAssets workspaceId={workspaceId} businessName={businessName} />
+              <Suspense fallback={<div className="h-24 animate-pulse rounded-[12px] bg-surface-2" aria-label="טוען את הנכסים" />}>
+                <MetaAssets workspaceId={workspaceId} businessName={businessName} />
+              </Suspense>
               <AdvertiserIdentitySettings />
               <form action={disconnectMeta}>
                 <button className="btn btn-danger btn-sm">ניתוק</button>
@@ -174,7 +179,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Section id="budget" title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
         <BudgetForm workspaceId={workspace.id} />
-        <BudgetMeter workspaceId={workspace.id} tz={workspace.timezone} />
+        <Suspense fallback={<div className="mt-6 h-12 animate-pulse rounded-[10px] bg-surface-2" />}>
+          <BudgetMeter workspaceId={workspace.id} tz={workspace.timezone} />
+        </Suspense>
       </Section>
 
       <Section id="limits" title="מגבלות" hint="כל עלות מחוץ לתקציב הפרסום, בנפרד. אפשר להוריד, עד הגבול של המנוי.">

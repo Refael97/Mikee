@@ -6,6 +6,7 @@ import { StoreFields } from "./StoreFields";
 import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndStore } from "@/lib/actions";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { remember } from "@/lib/ttl";
 
 /** A settings group: title and explanation on the start side, the controls in a card beside them. */
 export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
@@ -97,7 +98,8 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
   const site = await getConnection<WebsiteConfig>(workspaceId, "website");
   let found: Detected;
   try {
-    found = await detectBusiness(new Graph(conn.secret), businessName, site?.config.url);
+    // The scan reads everything the login can reach: remembered for a few minutes, cleared when assets change.
+    found = await remember(`assets-scan:${workspaceId}`, 5 * 60_000, () => detectBusiness(new Graph(conn.secret!), businessName, site?.config.url));
   } catch (e) {
     return <p className="text-warn">לא הצלחתי לקרוא את החשבונות ({(e as Error).message}). נסי להתחבר מחדש.</p>;
   }
