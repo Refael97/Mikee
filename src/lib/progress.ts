@@ -47,6 +47,7 @@ const ACTIONS: Record<string, string> = {
   meta_write: "מסדר הגדרה בחשבון המודעות",
   list_instagram_conversations: "קורא את ההודעות באינסטגרם",
   read_instagram_conversation: "קורא שיחה באינסטגרם",
+  use_skill: "עובד לפי הסקיל שהוספת",
   request_budget_increase: "מכין בקשה להגדלת התקציב",
   propose_campaign: "מכין לך את הקמפיין לאישור",
   propose_change: "מכין לך שינוי לאישור",

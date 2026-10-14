@@ -14,6 +14,8 @@ import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/co
 import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
 import { remember } from "@/lib/ttl";
 import { SubmitButton } from "@/components/SubmitButton";
+import { SkillsEditor } from "@/components/SkillsEditor";
+import { listSkills } from "@/lib/skills";
 
 async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: string }) {
   try {
@@ -82,6 +84,11 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
       <SubmitButton>שמירה</SubmitButton>
     </form>
   );
+}
+
+async function Skills({ workspaceId }: { workspaceId: string }) {
+  const list = await listSkills(workspaceId);
+  return <SkillsEditor initial={list.map((s) => ({ id: s.id, name: s.name, whenToUse: s.whenToUse, body: s.body, agents: s.agents, enabled: s.enabled, source: s.source }))} />;
 }
 
 const ERRORS: Record<string, string> = {
@@ -187,6 +194,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Section id="limits" title="מגבלות" hint="כל עלות מחוץ לתקציב הפרסום, בנפרד. אפשר להוריד, עד הגבול של המנוי.">
         <Limits workspaceId={workspace.id} tz={workspace.timezone} />
+      </Section>
+
+      <Section id="skills" title="סקילים" hint="דרכי עבודה שלך שמייקי והצוות פועלים לפיהן כשהמשימה מתאימה. כותבים כאן או מעלים קובץ SKILL.md.">
+        <Skills workspaceId={workspace.id} />
       </Section>
 
       <Section id="connectors" title="חיבורים" hint="כל מה שמייקי יכול לעבוד איתו. הגישה נשמרת מוצפנת ולא מגיעה למודל.">

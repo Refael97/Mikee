@@ -9,6 +9,7 @@ import { AiBudgetExceeded } from "../usage";
 import { TaskLimit } from "../telemetry";
 import { businessBrief } from "./brief";
 import { playbookStatus } from "../playbooks";
+import { skillsBrief, skillsFor } from "../skills";
 import { agentLoop, type LoopEvent, type Row, tierFor } from "./loop";
 import { LEAK_MARKERS, LEAK_REPLACEMENT, MIKEE_CONSTITUTION, stageInstructions } from "./prompt";
 import { TEAM_TOOLS } from "./team";
@@ -24,7 +25,7 @@ export type AgentEvent = LoopEvent | { t: "done" } | { t: "error"; message: stri
  * specialist. He runs at medium effort; the specialists think hard about their narrow tasks.
  */
 export const MIKEE_TOOLS: ToolDef[] = [
-  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "get_campaign_context", "meta_media", "list_instagram_conversations", "read_instagram_conversation", "advertiser_identity", "budget_status", "propose_campaign", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
+  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "get_campaign_context", "meta_media", "list_instagram_conversations", "read_instagram_conversation", "use_skill", "advertiser_identity", "budget_status", "propose_campaign", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
   ...TEAM_TOOLS,
 ];
 
@@ -65,11 +66,12 @@ export async function runMikee(opts: {
       // the request would make the cached conversation behind it count again at full price.
       system: await (async () => {
         const stage = ws.stage;
+        const skills = skillsBrief(await skillsFor(workspaceId, "mikee"));
         return [
           { type: "text", text: MIKEE_CONSTITUTION, cache_control: { type: "ephemeral" } },
           {
             type: "text",
-            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}\n\n# How much to ask the client\n${AUTONOMY_RULES[ws.settings?.autonomy ?? DEFAULT_AUTONOMY]}`,
+            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}\n\n# How much to ask the client\n${AUTONOMY_RULES[ws.settings?.autonomy ?? DEFAULT_AUTONOMY]}${skills ? `\n\n${skills}` : ""}`,
           },
         ];
       })(),

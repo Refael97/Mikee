@@ -430,3 +430,24 @@ export const igThreads = pgTable(
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.customerId] })],
 );
+
+/**
+ * Skills the client added: a working method in plain text (written here, or uploaded as a SKILL.md file) that
+ * Mikee or a specialist reads when a task matches. Text only: nothing in it runs, and it grants no tool or
+ * permission. Only the client writes them, from Settings; the agents can read but never change them.
+ */
+export const skills = pgTable("skills", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  name: text("name").notNull(),
+  /** When to use it, in her words; the agents see this line and decide whether to open the skill. */
+  whenToUse: text("when_to_use").notNull(),
+  body: text("body").notNull(),
+  /** Who may use it: "mikee" and/or specialist ids. */
+  agents: jsonb("agents").$type<string[]>().notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  source: text("source").$type<"written" | "file">().notNull().default("written"),
+  createdBy: uuid("created_by"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

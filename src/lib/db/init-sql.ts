@@ -308,6 +308,20 @@ CREATE TABLE IF NOT EXISTS ig_threads (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (workspace_id, customer_id)
 );
+CREATE TABLE IF NOT EXISTS skills (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  name text NOT NULL,
+  when_to_use text NOT NULL,
+  body text NOT NULL,
+  agents jsonb NOT NULL,
+  enabled boolean NOT NULL DEFAULT true,
+  source text NOT NULL DEFAULT 'written',
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS skills_ws ON skills (workspace_id);
 -- Messages from before conversations existed move into one first conversation per business.
 INSERT INTO conversations (workspace_id, title, category)
   SELECT w.id, 'השיחה הראשונה', 'general' FROM workspaces w

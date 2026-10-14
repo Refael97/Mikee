@@ -129,7 +129,7 @@ export function cleanClientText(text: string, max = LIMITS.messageChars): string
     .replace(/[​-‏‪-‮⁠-⁤﻿]/g, "")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replace(/\[(\s*)(platform event|scheduled check-in|mikee reaching out|system|untrusted)/gi, "($1$2")
-    .replace(/<\/?\s*(untrusted|system|instructions?)[^>]*>/gi, "")
+    .replace(/<\/?\s*(untrusted|system|instructions?|client[_\s-]*skill)[^>]*>/gi, "")
     .slice(0, max)
     .trim();
 }

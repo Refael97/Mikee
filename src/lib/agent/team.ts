@@ -3,13 +3,15 @@ import { z } from "zod";
 import { db, schema } from "../db";
 import { businessBrief } from "./brief";
 import { getPlaybook } from "../playbooks";
+import { skillsBrief, skillsFor } from "../skills";
 import { agentLoop, proposalIdsIn, type Row, tierFor } from "./loop";
 import { SPECIALISTS, type Specialist, TEAM_PREAMBLE } from "./specialists";
 import { pick, tool, type ToolDef } from "./tools";
 
 /** Runs one specialist on one task, with a fresh context: the business brief, its instructions, the task. */
 export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["run"]>[0], task: string, materials?: string) {
-  const tools = pick(spec.tools);
+  // Every specialist can open the client's skills given to it (the tool list stays the same, for the prompt cache).
+  const tools = pick([...spec.tools, "use_skill"]);
   const pending: Row[] = [
     {
       role: "user",
@@ -17,7 +19,7 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       content: [{ type: "text", text: `Task from Mikee:\n${task}${materials ? `\n\nMaterials:\n${materials}` : ""}` }],
     },
   ];
-  const [brief, playbook] = await Promise.all([businessBrief(ctx.workspaceId, ctx.tz), getPlaybook(ctx.workspaceId, spec.id)]);
+  const [brief, playbook, skills] = await Promise.all([businessBrief(ctx.workspaceId, ctx.tz), getPlaybook(ctx.workspaceId, spec.id), skillsFor(ctx.workspaceId, spec.id)]);
   const startedAt = new Date();
   let output = "";
   let error: string | undefined;
@@ -28,7 +30,7 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       system: [
         { type: "text", text: `${TEAM_PREAMBLE}\n\n${spec.instructions}`, cache_control: { type: "ephemeral" } },
         { type: "text", text: brief },
-        { type: "text", text: playbookBlock(playbook) },
+        { type: "text", text: [playbookBlock(playbook), skillsBrief(skills)].filter(Boolean).join("\n\n") },
       ],
       history: [],
       pending,

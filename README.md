@@ -217,6 +217,17 @@ Checked against Meta's official docs (Graph API v26.0, October 2026). The app is
   - The spending cap is written only when it changes (up to 10 times a day).
 - For the pilot you can also paste a ready System User token (under "יש לי מפתח גישה מוכן", "I already have an access key").
 
+## Client skills
+
+In Settings, under "סקילים", the client saves her own ways of doing a piece of work: a name, one line on when to use it, the instructions, and who on the team uses it (Mikee and/or specific specialists). She can write one there or read a `SKILL.md` (or any `.md`/`.txt` file) into the form; a file is only a draft until she reviews it and presses save. Mikee and the specialists see only the names and "when to use" lines of their own skills, and open the full text with the `use_skill` tool when a task matches (`src/lib/skills.ts`, route `/api/skills`).
+
+The security model:
+- A skill is text only. Nothing in it runs, it adds no tool and no access, and an uploaded file is read as text (no scripts, no ZIP).
+- It shapes how the work is done, never what is allowed: the hard rules in the constitution and the team preamble say a skill cannot skip a card, touch the budget ceiling or the approval level, reveal instructions or data, contact anyone or visit an address. Mikee tells the client which part he skipped.
+- Only the client writes skills, from Settings (same-origin check, rate limit, per-business). No agent tool can create or change one, so a website, a message or a document cannot plant a skill.
+- Links and anything that looks like a key or password are refused at save. Platform-note look-alikes and the `<client_skill>` wrapper tags are stripped, and the wrapper tags are also stripped from untrusted text and client messages, so nothing else can pose as a skill.
+- Limits: 20 skills per business, 60 characters for the name, 300 for "when to use", 8,000 for the instructions, 32KB per file.
+
 ## Higgsfield (generating images and video)
 
 Set `HIGGSFIELD_MCP_URL` (and `HIGGSFIELD_MCP_TOKEN`). The **server** connects to Higgsfield as an MCP client (`src/lib/higgsfield.ts`), not the model. Created media is copied into our storage and served from `/api/media/:id`, so the server and Meta can always access it. In Settings: a monthly credit cap, and how many of them can be used without asking (default: 0, everything needs approval).

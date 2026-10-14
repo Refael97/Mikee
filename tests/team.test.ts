@@ -93,7 +93,7 @@ describe("delegation", () => {
     expect(sys).toContain("כותבים חם וקליל");
     expect(buyer[0].messages[0].content[0].text).toContain("Build a traffic campaign");
     expect(buyer[0].messages[0].content[0].text).toContain("Use the two approved ads");
-    expect(buyer[0].tools.map((t: any) => t.name).sort()).toEqual([...SPECIALISTS.find((s) => s.id === "media_buyer")!.tools].sort());
+    expect(buyer[0].tools.map((t: any) => t.name).sort()).toEqual([...SPECIALISTS.find((s) => s.id === "media_buyer")!.tools, "use_skill"].sort());
     expect(buyer[0].output_config.effort).toBe("medium");
     // The specialist does not see the client conversation.
     expect(JSON.stringify(buyer[0].messages)).not.toContain("יש קולקציה חדשה");

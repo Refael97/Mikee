@@ -4,7 +4,7 @@
  * instructions to follow. Any look-alike tags inside it are neutralised so it cannot close the wrapper.
  */
 export function untrusted(source: string, text: string): string {
-  const clean = text.replace(/<\/?\s*untrusted[^>]*>/gi, "").replace(/\[(\s*)(platform event|scheduled check-in|mikee reaching out)/gi, "($1$2");
+  const clean = text.replace(/<\/?\s*(untrusted|client[_\s-]*skill)[^>]*>/gi, "").replace(/\[(\s*)(platform event|scheduled check-in|mikee reaching out)/gi, "($1$2");
   return `<untrusted source="${source}">\n${clean}\n</untrusted>`;
 }
 
