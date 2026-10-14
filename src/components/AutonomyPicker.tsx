@@ -32,15 +32,15 @@ export function AutonomyPicker({ value, onChange }: { value: Autonomy; onChange:
         aria-haspopup="menu"
         aria-expanded={open}
         title="מתי מייקי מבקש אישור"
-        className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[14px] transition-colors ${open ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
+        className={`flex h-7 items-center gap-1 rounded-full px-2 text-[12px] transition-colors ${open ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
       >
-        <Icon className="h-4 w-4" strokeWidth={1.5} />
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
         <span className="max-sm:hidden">אישור {current.short}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-ink-3 transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={1.5} />
+        <ChevronDown className={`h-3 w-3 text-ink-3 transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={1.5} />
       </button>
       {open && (
-        <div role="menu" className="pop-over rise absolute bottom-11 start-0 z-30 w-max max-w-[calc(100vw-48px)] p-1">
-          <p className="px-2.5 pb-1 pt-1.5 text-[13px] text-ink-3">מתי מייקי מבקש אישור?</p>
+        <div role="menu" className="pop-over rise absolute bottom-9 start-0 z-30 w-max max-w-[calc(100vw-48px)] !rounded-[14px] p-1">
+          <p className="px-2 pb-0.5 pt-1 text-[11px] text-ink-3">מתי מייקי מבקש אישור?</p>
           {AUTONOMY.map((a) => {
             const I = ICON[a.id];
             const on = a.id === value;
@@ -54,14 +54,14 @@ export function AutonomyPicker({ value, onChange }: { value: Autonomy; onChange:
                   onChange(a.id);
                   setOpen(false);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-start hover:bg-surface-2"
+                className="flex w-full items-center gap-2 rounded-[8px] px-2 py-1 text-start hover:bg-surface-2"
               >
-                <I className="h-[18px] w-[18px] shrink-0 text-ink-2" strokeWidth={1.5} />
+                <I className="h-3.5 w-3.5 shrink-0 text-ink-2" strokeWidth={1.5} />
                 <span className="min-w-0 flex-1 whitespace-nowrap leading-tight">
-                  <span className="block text-[15px] text-ink">{a.label}</span>
-                  <span className="block text-[13px] text-ink-3">{a.description}</span>
+                  <span className="block text-[12px] text-ink">{a.label}</span>
+                  <span className="block text-[11px] text-ink-3">{a.description}</span>
                 </span>
-                <Check className={`ms-3 h-4 w-4 shrink-0 text-ink ${on ? "" : "invisible"}`} strokeWidth={2} />
+                <Check className={`ms-2 h-3 w-3 shrink-0 text-ink ${on ? "" : "invisible"}`} strokeWidth={2} />
               </button>
             );
           })}
