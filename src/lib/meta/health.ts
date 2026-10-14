@@ -1,6 +1,6 @@
 import "server-only";
-import { getConnection, markConnection, type MetaConfig } from "../connections";
-import { Graph, MetaError } from "./graph";
+import { getConnection, markConnection, saveConnection, type MetaConfig } from "../connections";
+import { Graph, inspectToken, MetaError, renewSystemUserToken } from "./graph";
 
 const PERMISSIONS_NEEDED = ["ads_management", "pages_manage_posts", "instagram_content_publish"];
 
@@ -48,4 +48,22 @@ export async function checkMetaHealth(workspaceId: string): Promise<{ ok: boolea
   if (problems.length) await markConnection(workspaceId, "meta", "broken", problems.join("; "));
   else await markConnection(workspaceId, "meta", "ok");
   return { ok: problems.length === 0, problems };
+}
+
+/**
+ * A business integration system-user token set to 60 days is renewed about ten days before it expires, so
+ * the client never has to reconnect. User tokens cannot be renewed without the person; for those the
+ * settings page asks her to reconnect in time.
+ */
+export async function renewMetaTokenIfDue(workspaceId: string): Promise<"renewed" | "not_due" | "not_renewable"> {
+  const conn = await getConnection<MetaConfig>(workspaceId, "meta");
+  const c = conn?.config;
+  if (!conn?.secret || !c?.tokenExpiresAt) return "not_due";
+  if (new Date(c.tokenExpiresAt).getTime() - Date.now() > 10 * 86400_000) return "not_due";
+  if (c.tokenType !== "SYSTEM_USER" || !c.clientBusinessId) return "not_renewable";
+  const token = await renewSystemUserToken(conn.secret, c.clientBusinessId);
+  const info = await inspectToken(token);
+  if (!info?.valid || info.appId !== process.env.META_APP_ID) throw new MetaError("The renewed token did not check out");
+  await saveConnection(workspaceId, "meta", { tokenExpiresAt: info.expiresAt, scopes: info.scopes }, token);
+  return "renewed";
 }

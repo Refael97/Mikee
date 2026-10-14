@@ -30,11 +30,12 @@ export async function saveMetaToken(form: FormData) {
   const token = String(form.get("token") ?? "").trim();
   if (!token || token.length > 1000 || !/^[A-Za-z0-9_|.-]+$/.test(token)) return;
   // A pasted token must come from this app (not an older or test app) and still be valid.
+  // A token that cannot be inspected is refused: it may come from another app.
   const info = await inspectToken(token).catch(() => null);
-  if (info && (!info.valid || info.appId !== process.env.META_APP_ID)) redirect("/settings?error=meta_wrong_app");
+  if (!info || !info.valid || info.appId !== process.env.META_APP_ID) redirect("/settings?error=meta_wrong_app");
   const me = await new Graph(token).get<{ name: string }>("/me", { fields: "name" }).catch(() => null);
   if (!me) redirect("/settings?error=meta_token");
-  await saveConnection(workspace.id, "meta", { userName: me.name, tokenExpiresAt: info?.expiresAt ?? null, scopes: info?.scopes, appId: info?.appId, tokenType: info?.type }, token);
+  await saveConnection(workspace.id, "meta", { userName: me.name, tokenExpiresAt: info.expiresAt ?? null, scopes: info.scopes, appId: info.appId, tokenType: info.type }, token);
   revalidatePath("/", "layout");
 }
 

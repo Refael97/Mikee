@@ -6,8 +6,9 @@ import { oauthDialogUrl } from "@/lib/meta/graph";
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.redirect(new URL("/login", process.env.APP_URL));
-  // Without the app's id and public address Facebook shows its own error page; say what is missing instead.
-  if (!/^\d+$/.test(process.env.META_APP_ID ?? "") || !/^https:\/\//.test(process.env.APP_URL ?? "")) {
+  // Without the app's id, its Login for Business configuration and the public address, Facebook shows its
+  // own error page; say what is missing instead.
+  if (!/^\d+$/.test(process.env.META_APP_ID ?? "") || !/^\d+$/.test(process.env.META_LOGIN_CONFIG_ID ?? "") || !process.env.META_APP_SECRET || !/^https:\/\//.test(process.env.APP_URL ?? "")) {
     const back = session.workspace.stage === "connect" ? "/onboarding" : "/settings";
     return NextResponse.redirect(new URL(`${back}?error=meta_not_configured`, process.env.APP_URL || "http://localhost:3000"));
   }

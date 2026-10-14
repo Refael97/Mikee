@@ -176,7 +176,7 @@ export class FakeMeta {
       const params: Record<string, any> = {};
       const source = method === "POST" ? new URLSearchParams(String(init?.body ?? "")) : url.searchParams;
       source.forEach((v, k) => {
-        if (k !== "access_token") params[k] = v;
+        if (k !== "access_token" && k !== "appsecret_proof") params[k] = v;
       });
       const path = url.pathname.replace(/^\/v\d+\.\d+/, "");
       const out = this.handle(method, path, params) as any;

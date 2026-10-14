@@ -2,7 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { db, schema } from "@/lib/db";
 import { syncMetaSpendCap } from "@/lib/budget";
 import { metaContext } from "@/lib/meta/context";
-import { checkMetaHealth } from "@/lib/meta/health";
+import { checkMetaHealth, renewMetaTokenIfDue } from "@/lib/meta/health";
 import { runProactive } from "@/lib/proactive";
 
 export const runtime = "nodejs";
@@ -27,10 +27,11 @@ export async function POST(req: Request) {
   const workspaces = await d.select().from(schema.workspaces);
   const report: Record<string, unknown> = {};
   for (const ws of workspaces.filter((w) => w.stage !== "connect" && w.stage !== "scanning")) {
+    const renewal = await renewMetaTokenIfDue(ws.id).catch((e) => `renewal failed: ${(e as Error).message}`);
     const health = await checkMetaHealth(ws.id).catch((e) => ({ ok: false, problems: [(e as Error).message] }));
     if (health.ok) await syncMetaSpendCap(ws.id, ws.timezone, await metaContext(ws.id)).catch(() => undefined);
     const outreach = await runProactive(ws.id, ws.timezone).catch((e) => ({ skipped: (e as Error).message }));
-    report[ws.id] = { health, outreach };
+    report[ws.id] = { renewal, health, outreach };
   }
   return Response.json(report);
 }

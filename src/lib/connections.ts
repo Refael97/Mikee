@@ -22,6 +22,8 @@ export type MetaConfig = {
   scopes?: string[];
   appId?: string;
   tokenType?: string;
+  /** For business integration system-user tokens: the client's business portfolio (used to renew the token). */
+  clientBusinessId?: string;
 };
 
 export type WebsiteConfig = { url?: string; platform?: "shopify" | "woocommerce" | "other" };
