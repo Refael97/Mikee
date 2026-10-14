@@ -8,6 +8,7 @@ import { endSession, startSession } from "@/lib/auth";
 import { DUMMY_HASH, verifyPassword } from "@/lib/crypto";
 import { hit, LIMITS } from "@/lib/guard";
 import { logActivity } from "@/lib/activity";
+import { registerBusiness } from "@/lib/signup";
 
 /**
  * Sign in. Limits per email and per network address stop password guessing; the answer is the same for a
@@ -31,6 +32,25 @@ export async function login(_: string | null, form: FormData): Promise<string | 
   await startSession(user.id, user.sessionVersion);
   await logActivity(user.workspaceId, "security", "כניסה לחשבון", { ip });
   redirect("/");
+}
+
+/** Open a new business account and sign its owner in; she continues to the setup steps. */
+export async function signup(_: string | null, form: FormData): Promise<string | null> {
+  const field = (k: string, max: number) => String(form.get(k) ?? "").slice(0, max);
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const r = await registerBusiness({
+    business: field("business", 200),
+    name: field("name", 200),
+    email: field("email", 200),
+    password: field("password", 256),
+    confirm: field("confirm", 256),
+    invite: field("invite", 200),
+    website: field("website", 200),
+    ip,
+  });
+  if (!r.ok) return r.error;
+  await startSession(r.userId, r.sessionVersion);
+  redirect("/onboarding");
 }
 
 export async function logout() {

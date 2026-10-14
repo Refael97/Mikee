@@ -1,0 +1,87 @@
+import "server-only";
+import { timingSafeEqual } from "crypto";
+import { eq } from "drizzle-orm";
+import { db, schema } from "./db";
+import { hashPassword, passwordProblem } from "./crypto";
+import { cleanClientText, hit } from "./guard";
+import { logActivity } from "./activity";
+
+/**
+ * Who may open a new business account.
+ * - open: anyone (with per-network and daily limits)
+ * - invite: only with MIKEE_INVITE_CODE
+ * - closed: nobody; accounts are created by us
+ * Default: invite when an invite code is set, otherwise open.
+ */
+export type SignupMode = "open" | "invite" | "closed";
+
+export function signupMode(): SignupMode {
+  const m = process.env.MIKEE_SIGNUP?.trim().toLowerCase();
+  if (m === "open" || m === "invite" || m === "closed") return m;
+  return process.env.MIKEE_INVITE_CODE ? "invite" : "open";
+}
+
+export const SIGNUP_LIMITS = { perIpHour: 3, perIpDay: 10, globalDay: Number(process.env.MIKEE_SIGNUP_DAILY_CAP) || 50 };
+
+export type SignupInput = { business: string; name: string; email: string; password: string; confirm: string; invite?: string; website?: string; ip: string };
+export type SignupResult = { ok: true; userId: string; sessionVersion: number; workspaceId: string } | { ok: false; error: string };
+
+const EMAIL = /^[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.[a-z]{2,}$/i;
+
+function inviteMatches(given: string): boolean {
+  const want = process.env.MIKEE_INVITE_CODE ?? "";
+  if (!want) return false;
+  const a = Buffer.from(given.trim());
+  const b = Buffer.from(want);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Opens a new business and its owner. Every field is capped and cleaned, the password must be strong, and the
+ * same answer is given for an email that is taken as for one that is not accepted, so the form cannot be used
+ * to find out who has an account.
+ */
+export async function registerBusiness(input: SignupInput): Promise<SignupResult> {
+  const mode = signupMode();
+  if (mode === "closed") return { ok: false, error: "ההרשמה סגורה כרגע. אפשר לפנות אלינו ונפתח לך חשבון." };
+  // A field people never see; bots fill it.
+  if (input.website) return { ok: false, error: "לא הצלחנו לפתוח את החשבון. אפשר לנסות שוב." };
+
+  const [hour, day, all] = await Promise.all([
+    hit(`signup:ip:h:${input.ip}`, SIGNUP_LIMITS.perIpHour, 3600),
+    hit(`signup:ip:d:${input.ip}`, SIGNUP_LIMITS.perIpDay, 86400),
+    hit("signup:all", SIGNUP_LIMITS.globalDay, 86400),
+  ]);
+  if (!hour.ok || !day.ok) return { ok: false, error: "נפתחו יותר מדי חשבונות מהרשת הזו. אפשר לנסות שוב מאוחר יותר." };
+  if (!all.ok) return { ok: false, error: "ההרשמה עמוסה היום. אפשר לנסות שוב מחר, או לפנות אלינו." };
+
+  if (mode === "invite" && !inviteMatches(String(input.invite ?? "").slice(0, 200))) return { ok: false, error: "קוד ההזמנה לא נכון." };
+
+  const business = cleanClientText(input.business, 80).replace(/\s+/g, " ");
+  const name = cleanClientText(input.name, 80).replace(/\s+/g, " ");
+  const email = input.email.trim().toLowerCase().slice(0, 200);
+  if (business.length < 2) return { ok: false, error: "מה שם העסק?" };
+  if (name.length < 2) return { ok: false, error: "איך קוראים לך?" };
+  if (!EMAIL.test(email)) return { ok: false, error: "כתובת האימייל לא נראית תקינה." };
+  if (input.password !== input.confirm) return { ok: false, error: "הסיסמאות לא זהות." };
+  const weak = passwordProblem(input.password);
+  if (weak) return { ok: false, error: weak };
+
+  const taken = "לא הצלחנו לפתוח חשבון עם הפרטים האלה. אם כבר יש לך חשבון, אפשר להיכנס או לאפס סיסמה דרך התמיכה.";
+  const hash = hashPassword(input.password); // before the lookup, so a taken email takes as long as a new one
+  const d = await db();
+  if (await d.query.users.findFirst({ where: eq(schema.users.email, email), columns: { id: true } })) return { ok: false, error: taken };
+
+  try {
+    const created = await d.transaction(async (tx) => {
+      const [ws] = await tx.insert(schema.workspaces).values({ name: business }).returning();
+      const [user] = await tx.insert(schema.users).values({ workspaceId: ws.id, email, name, passwordHash: hash }).returning();
+      return { ws, user };
+    });
+    await logActivity(created.ws.id, "security", "החשבון נפתח", { ip: input.ip });
+    return { ok: true, userId: created.user.id, sessionVersion: created.user.sessionVersion, workspaceId: created.ws.id };
+  } catch (e) {
+    if (/unique|duplicate/i.test(String((e as Error)?.message ?? e))) return { ok: false, error: taken };
+    throw e;
+  }
+}

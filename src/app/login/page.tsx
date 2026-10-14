@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { login } from "./actions";
 
@@ -29,7 +30,13 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
-      <p className="mt-6 max-w-[400px] text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך.</p>
+      <p className="mt-6 text-[14.5px] text-ink-2">
+        אין לך חשבון?{" "}
+        <Link href="/signup" className="link">
+          פתיחת חשבון לעסק
+        </Link>
+      </p>
+      <p className="mt-3 max-w-[400px] text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך.</p>
     </main>
   );
 }

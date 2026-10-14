@@ -179,6 +179,10 @@ npm test
 
 **Not yet tested against the real services:** the actual Meta API, the Claude API, and Higgsfield's real MCP server. That's the first step of the pilot.
 
+## Sign-up
+
+New businesses open an account at `/signup` (business name, their name, email, password). The account starts at the setup steps (`/onboarding`) on the default plan. `MIKEE_SIGNUP` sets who may sign up: `open`, `invite` (needs the code in `MIKEE_INVITE_CODE`) or `closed`. Protection: 3 sign-ups per network per hour and 10 per day, a daily cap for all sign-ups (`MIKEE_SIGNUP_DAILY_CAP`, default 50), a hidden field that catches bots, the same strong-password rule as everywhere else, and one answer whether or not an email is already taken.
+
 ## Running locally
 
 ```bash
