@@ -168,7 +168,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { workspace } = await requireSession();
   const { error } = await searchParams;
   return (
-    <Page>
+    <Page narrow>
       <PageHeader title="הגדרות" lead="התקציב, המגבלות, וכל מה שמחובר למייקי." />
       {error && ERRORS[error] && <p className="note note-warn mb-6">{ERRORS[error]}</p>}
 

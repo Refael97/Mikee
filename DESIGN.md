@@ -59,6 +59,14 @@ Rules: line height 1.5–1.55. Titles `letter-spacing: -0.01em`. Numbers use `fo
 - **Mobile (<640px):** rail and sidebar hidden, main panel full width with no radius, 16px side margins.
 - **Spacing:** 4 / 8 / 12 / 22 / 28. Between blocks 22px, panel padding 18–28px.
 
+### Density
+Two densities. The home and the chat may stay roomy. Work screens (settings, connections, lists, tables) are compact on desktop:
+- Text 14–16px (base 15px from 1024px), page title 28–32px (30px; 26px on mobile).
+- Fields and buttons 40–44px high on desktop; on phones fields stay 44px with 16px text (comfortable taps, no iOS zoom).
+- Card padding 20–24px, 24–32px between areas. The explanation sits right above its fields, not in a side column.
+- Popovers with many items: about 340px wide, height capped to the screen with inner scroll, one compact row per item, ids under an expander.
+- Never shrink a screen with `zoom` or transforms; change the scale itself.
+
 ## 5. Components
 **Icon rail:** 48px icons, radius 14. Active: background `rgba(0,0,0,.06)`. Notification: an 8px blue dot at the top corner. Profile circle at the bottom (40px, grey, initials).
 

@@ -192,7 +192,7 @@ export function Composer({
         }}
         rows={1}
         placeholder={listening ? "מקשיב…" : placeholder}
-        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-[17px] leading-[1.5] no-ring outline-none placeholder:text-ink-3"
+        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-[16px] leading-[1.5] no-ring outline-none placeholder:text-ink-3"
       />
 
       <div className="flex items-center gap-1 px-2.5 pb-2.5">
@@ -213,7 +213,7 @@ export function Composer({
                   setMenu(false);
                   fileInput.current?.click();
                 }}
-                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-[17px] hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-[15px] hover:bg-surface-2"
               >
                 <Paperclip className="h-5 w-5 text-ink-2" strokeWidth={1.5} />
                 קבצים ותמונות
@@ -224,7 +224,7 @@ export function Composer({
                   setMenu(false);
                   cameraInput.current?.click();
                 }}
-                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-[17px] hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-[15px] hover:bg-surface-2"
               >
                 <Camera className="h-5 w-5 text-ink-2" strokeWidth={1.5} />
                 צילום

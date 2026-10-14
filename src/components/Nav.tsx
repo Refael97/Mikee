@@ -32,7 +32,7 @@ function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: stri
       className={
         compact
           ? `relative flex h-12 w-12 items-center justify-center rounded-[14px] transition-colors ${active ? "bg-black/[.06] text-ink dark:bg-white/[.08]" : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"}`
-          : `flex h-[38px] items-center gap-3 rounded-[10px] px-2.5 text-[17px] transition-colors ${active ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`
+          : `flex h-[38px] items-center gap-3 rounded-[10px] px-2.5 text-[15px] transition-colors ${active ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`
       }
     >
       <Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={1.5} />
@@ -115,7 +115,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
                 <MenuLink href="/settings" icon={Settings} label="הגדרות וחיבורים" />
                 <div className="my-1 border-t border-line" />
                 <form action={logout}>
-                  <button className="flex h-10 w-full items-center gap-3 rounded-[10px] px-2.5 text-start text-[17px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+                  <button className="flex h-10 w-full items-center gap-3 rounded-[10px] px-2.5 text-start text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
                     <LogOut className="h-5 w-5" strokeWidth={1.5} />
                     יציאה
                   </button>
@@ -155,7 +155,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
             <span className="flex items-center gap-2.5">
               <MikeeAvatar size={28} />
               <span className="leading-tight">
-                <span className="block text-[17px] font-medium">מייקי</span>
+                <span className="block text-[15px] font-medium">מייקי</span>
                 <span className="meta block">{who.business}</span>
               </span>
             </span>
@@ -172,7 +172,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
             <NavLink href="/settings" label="הגדרות וחיבורים" icon={Settings} active={settingsActive} />
             <NavLink href="/account" label="הפרופיל שלי" icon={User} active={path.startsWith("/account")} />
             <form action={logout}>
-              <button className="flex h-[38px] w-full items-center gap-3 rounded-[10px] px-2.5 text-[17px] text-ink-2 hover:bg-surface-2">
+              <button className="flex h-[38px] w-full items-center gap-3 rounded-[10px] px-2.5 text-[15px] text-ink-2 hover:bg-surface-2">
                 <LogOut className="h-[22px] w-[22px]" strokeWidth={1.5} /> יציאה
               </button>
             </form>
@@ -187,7 +187,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
 
 function MenuLink({ href, icon: Icon, label }: { href: string; icon: typeof User; label: string }) {
   return (
-    <Link href={href} className="flex h-10 items-center gap-3 rounded-[10px] px-2.5 text-[17px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+    <Link href={href} className="flex h-10 items-center gap-3 rounded-[10px] px-2.5 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
       <Icon className="h-5 w-5" strokeWidth={1.5} />
       {label}
     </Link>

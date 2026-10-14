@@ -103,7 +103,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
         <label className="relative mt-3 block">
           <Search className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ink-3" strokeWidth={1.5} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="field h-10 rounded-full ps-10 text-[15px]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="field h-10 rounded-full ps-10 text-[15px] lg:h-9 lg:text-[14px]" />
         </label>
 
         <nav className="-mx-1 mt-4 flex-1 overflow-y-auto px-1 pb-6">
@@ -113,10 +113,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             const { title } = CATEGORY_UI[cat];
             const isCollapsed = collapsed[cat];
             return (
-              <section key={cat} className="mb-4">
+              <section key={cat} className="mb-3">
                 <button
                   onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))}
-                  className="flex w-full items-center gap-1.5 px-2 pb-1.5 text-[17px] text-ink-3 hover:text-ink-2"
+                  className="flex w-full items-center gap-1.5 px-2 pb-1 text-[14px] text-ink-3 hover:text-ink-2"
                 >
                   {title}
                   <ChevronDown className={`ms-auto h-3.5 w-3.5 text-ink-3 transition-transform duration-200 ${isCollapsed ? "rotate-90" : ""}`} strokeWidth={1.75} />
@@ -130,13 +130,13 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                           <Link
                             href={`/mikee/${c.id}`}
                             onClick={onClose}
-                            className={`flex h-[38px] items-center gap-2 rounded-[10px] pe-9 ps-2 text-ink transition-colors duration-100 ${
+                            className={`flex h-10 items-center gap-2 rounded-[10px] pe-9 ps-2 text-ink lg:h-9 transition-colors duration-100 ${
                               active ? "bg-surface-2" : "hover:bg-surface-2"
                             }`}
                           >
                             {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-blue" aria-label="חדש" />}
-                            <span className={`min-w-0 flex-1 truncate text-[17px] ${c.unread && !active ? "font-medium" : ""}`}>{c.title}</span>
-                            <span className="num shrink-0 text-[13.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
+                            <span className={`min-w-0 flex-1 truncate text-[16px] lg:text-[14.5px] ${c.unread && !active ? "font-medium" : ""}`}>{c.title}</span>
+                            <span className="num shrink-0 text-[12.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
                           </Link>
                           <button
                             aria-label="אפשרויות"
@@ -153,13 +153,13 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                               {ORDER.filter((x) => x !== c.category).map((x) => {
                                 const { title: t } = CATEGORY_UI[x];
                                 return (
-                                  <button key={x} onClick={() => patch(c.id, { category: x })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[17px] hover:bg-surface-2">
+                                  <button key={x} onClick={() => patch(c.id, { category: x })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[15px] hover:bg-surface-2">
                                     {t}
                                   </button>
                                 );
                               })}
                               <div className="my-1 h-px bg-line" />
-                              <button onClick={() => patch(c.id, { archived: true })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[17px] text-bad hover:bg-bad-tint">
+                              <button onClick={() => patch(c.id, { archived: true })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[15px] text-bad hover:bg-bad-tint">
                                 <X className="h-4 w-4" />
                                 הסרה מהרשימה
                               </button>

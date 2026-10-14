@@ -10,9 +10,10 @@ import { eq } from "drizzle-orm";
 /** A settings group: title and explanation on the start side, the controls in a card beside them. */
 export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="grid scroll-mt-6 gap-x-10 gap-y-3 border-t border-line py-7 first-of-type:border-t-0 lg:grid-cols-[260px_1fr]">
+    // The explanation sits right above its fields, so the eye does not cross the page to find them.
+    <section id={id} className="scroll-mt-6 space-y-3 border-t border-line py-6 first-of-type:border-t-0 first-of-type:pt-2">
       <div>
-        <h2 className="flex items-center gap-2 font-semibold">
+        <h2 className="flex items-center gap-2 text-[16px] font-medium">
           {step != null &&
             (done ? (
               <CheckCircle2 className="h-5 w-5 text-good" strokeWidth={1.75} aria-label="הושלם" />
@@ -21,7 +22,7 @@ export function Section({ step, title, hint, done, children, id }: { step?: numb
             ))}
           {title}
         </h2>
-        {hint && <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{hint}</p>}
+        {hint && <p className="mt-0.5 text-[14px] leading-relaxed text-ink-2">{hint}</p>}
       </div>
       <div className="card min-w-0 p-4 sm:p-5">{children}</div>
     </section>

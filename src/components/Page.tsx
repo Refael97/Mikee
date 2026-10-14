@@ -3,7 +3,7 @@ import { MikeeAvatar } from "@/components/MikeeAvatar";
 /** The top of a page: the title, an optional line under it, and the page's actions on the end side. */
 export function PageHeader({ title, lead, action }: { title: React.ReactNode; lead?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-[22px]">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pb-5">
       <div className="min-w-0 max-w-2xl">
         <h1 className="title">{title}</h1>
         {lead && <p className="lead mt-1.5">{lead}</p>}
@@ -17,7 +17,7 @@ export function PageHeader({ title, lead, action }: { title: React.ReactNode; le
 export function Page({ children, narrow = false }: { children: React.ReactNode; narrow?: boolean }) {
   return (
     <main className="flex-1 bg-bg lg:min-h-[calc(100dvh-20px)] lg:rounded-[18px] lg:shadow-[var(--shadow)]">
-      <div className={`mx-auto w-full px-4 pb-16 pt-6 sm:px-7 sm:pt-7 ${narrow ? "max-w-[820px]" : "max-w-[1100px]"}`}>{children}</div>
+      <div className={`mx-auto w-full px-4 pb-14 pt-6 sm:px-7 lg:pt-7 ${narrow ? "max-w-[820px]" : "max-w-[1100px]"}`}>{children}</div>
     </main>
   );
 }
