@@ -73,3 +73,30 @@ describe("a new business can open an account", () => {
     expect((await registerBusiness(form({ invite: "RACHEL-2026" }))).ok).toBe(false);
   });
 });
+
+describe("the owner can recover access from the server's variables", () => {
+  it("resets the password and signs out old sessions, or creates the user if it is missing", async () => {
+    const { resetPasswordFromEnv } = await import("@/lib/setup");
+    const first = form();
+    const r = await registerBusiness(first);
+    if (!r.ok) throw new Error("setup");
+    process.env.MIKEE_RESET_EMAIL = first.email.toUpperCase();
+    process.env.MIKEE_RESET_PASSWORD = "a-brand-new-pass-1";
+    await resetPasswordFromEnv();
+    const d = await db();
+    const u = await d.query.users.findFirst({ where: eq(schema.users.id, r.userId) });
+    expect(verifyPassword("a-brand-new-pass-1", u!.passwordHash)).toBe(true);
+    expect(u!.sessionVersion).toBe(r.sessionVersion + 1);
+
+    process.env.MIKEE_RESET_EMAIL = "lost-owner@example.com";
+    await resetPasswordFromEnv();
+    expect(await d.query.users.findFirst({ where: eq(schema.users.email, "lost-owner@example.com") })).toBeTruthy();
+
+    process.env.MIKEE_RESET_PASSWORD = "short";
+    process.env.MIKEE_RESET_EMAIL = first.email;
+    await resetPasswordFromEnv();
+    expect(verifyPassword("a-brand-new-pass-1", (await d.query.users.findFirst({ where: eq(schema.users.id, r.userId) }))!.passwordHash)).toBe(true);
+    delete process.env.MIKEE_RESET_EMAIL;
+    delete process.env.MIKEE_RESET_PASSWORD;
+  });
+});
