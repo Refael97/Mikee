@@ -6,11 +6,11 @@ import type { Category } from "./db/schema";
 export type { Category };
 
 export const CATEGORIES: Record<Category, { title: string; hint: string }> = {
-  campaigns: { title: "קמפיינים", hint: "מודעות ממומנות, תקציבים, קהלים" },
+  campaigns: { title: "קמפיינים ממומנים", hint: "מודעות ממומנות, תקציבים, קהלים" },
   content: { title: "תוכן ופוסטים", hint: "פוסטים, רילס, טקסטים, תמונות" },
-  results: { title: "תוצאות ונתונים", hint: "ביצועים, דוחות, המלצות" },
-  business: { title: "העסק", hint: "מוצרים, מטרות, מותג" },
-  general: { title: "כללי", hint: "כל השאר" },
+  results: { title: "תוצאות וביצועים", hint: "ביצועים, דוחות, המלצות" },
+  business: { title: "העסק והמותג", hint: "מוצרים, מטרות, מותג" },
+  general: { title: "שאלות ובירורים", hint: "כל השאר" },
 };
 
 export const CATEGORY_ORDER: Category[] = ["campaigns", "content", "results", "business", "general"];
@@ -34,6 +34,18 @@ export function guessCategory(text: string): Category {
     }
   }
   return best;
+}
+
+/**
+ * A conversation's name says what it is about ("קמפיין לידים לשמלות ערב"), never only its category or a
+ * placeholder: those are refused, so Mikee names it again.
+ */
+const GENERIC = new Set(
+  ["שיחה חדשה", "שיחה", "כללי", "שאלה", "שאלות", "בירור", "קמפיין", "קמפיינים", "קמפיינים ממומנים", "תוכן", "פוסט", "פוסטים", "תוכן ופוסטים", "תוצאות", "נתונים", "תוצאות ונתונים", "תוצאות וביצועים", "העסק", "העסק והמותג", "שאלות ובירורים", "עזרה", "היי", "שלום"].map((x) => x.replace(/\s+/g, " ")),
+);
+export function isGenericTitle(title: string): boolean {
+  const t = title.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+  return !t || GENERIC.has(t) || t.split(" ").length < 2;
 }
 
 export function titleFrom(text: string): string {

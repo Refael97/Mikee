@@ -24,6 +24,9 @@ beforeEach(() => {
   setMediaGeneratorForTests(null);
 });
 
+/** Mikee's own turn calls, without the short call that names a new conversation afterwards. */
+const turnCalls = (c: { requests: any[] }) => c.requests.filter((r) => !String(r.system ?? "").startsWith("Name a marketing conversation"));
+
 const userSays = async (ws: string, text: string, conversationId?: string) => {
   const conv = conversationId ?? (await createConversation(ws, { firstText: text })).id;
   await appendMessage(ws, conv, "user", "chat", [{ type: "text", text }]);
@@ -79,7 +82,7 @@ describe("a Mikee turn", () => {
     const job = await userSays(ws, "כמה נשאר בתקציב?");
     await drainJobs();
 
-    for (const req of claude.requests) {
+    for (const req of turnCalls(claude)) {
       expect(req.mcp_servers).toBeUndefined();
       expect(req.tools.some((t: any) => t.type === "mcp_toolset")).toBe(false);
     }
@@ -88,7 +91,7 @@ describe("a Mikee turn", () => {
     const rows = await d.select().from(schema.messages).where(eq(schema.messages.conversationId, job.conversationId)).orderBy(asc(schema.messages.id));
     expect(rows.map((r) => r.role)).toEqual(["user", "assistant", "user", "assistant"]);
     const usage = await d.select().from(schema.usage).where(eq(schema.usage.workspaceId, ws));
-    expect(usage).toHaveLength(2);
+    expect(usage.filter((u) => (u.detail as { purpose?: string } | null)?.purpose !== "conversation_title")).toHaveLength(2);
   });
 
   it("after a restart, continues from the last completed step instead of redoing it", async () => {
@@ -111,7 +114,7 @@ describe("a Mikee turn", () => {
     setAnthropicForTests(claude);
     await drainJobs();
 
-    expect(claude.requests).toHaveLength(1);
+    expect(turnCalls(claude)).toHaveLength(1);
     const sent = claude.requests[0].messages;
     expect(sent.at(-1).content[0].type).toBe("tool_result"); // resumed after the saved tool round
     const proposals = await d.select().from(schema.proposals).where(eq(schema.proposals.workspaceId, ws));

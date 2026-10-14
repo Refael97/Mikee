@@ -9,11 +9,11 @@ type Category = "campaigns" | "content" | "results" | "business" | "general";
 type Conv = { id: string; title: string; category: Category; auto: boolean; updatedAt: string; unread?: boolean };
 
 export const CATEGORY_UI: Record<Category, { title: string }> = {
-  campaigns: { title: "קמפיינים" },
+  campaigns: { title: "קמפיינים ממומנים" },
   content: { title: "תוכן ופוסטים" },
-  results: { title: "תוצאות ונתונים" },
-  business: { title: "העסק" },
-  general: { title: "כללי" },
+  results: { title: "תוצאות וביצועים" },
+  business: { title: "העסק והמותג" },
+  general: { title: "שאלות ובירורים" },
 };
 const ORDER: Category[] = ["campaigns", "content", "results", "business", "general"];
 
@@ -119,7 +119,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   className="flex w-full items-center gap-1.5 px-2 pb-1.5 text-[17px] text-ink-3 hover:text-ink-2"
                 >
                   {title}
-                  <span className="num text-[13.5px]">{list.length}</span>
                   <ChevronDown className={`ms-auto h-3.5 w-3.5 text-ink-3 transition-transform duration-200 ${isCollapsed ? "rotate-90" : ""}`} strokeWidth={1.75} />
                 </button>
                 {!isCollapsed && (

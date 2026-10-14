@@ -7,6 +7,7 @@ import { deleteIfEmpty, markUnread } from "./conversations";
 import { executeProposal } from "./executor";
 import { describeMedia } from "./library";
 import { handleInstagramMessage } from "./instagram/autoreply";
+import { ensureTitle } from "./titles";
 import { claimNext, finishJob, heartbeat, type Job, type JobKind, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 import { newTask, runInTask, TaskLimit, type TaskScope, taskMetrics } from "./telemetry";
 
@@ -76,6 +77,10 @@ async function runJobIn(job: Job, task: TaskScope) {
         },
         discardIf: discard,
       });
+      if (job.kind === "turn") {
+        const ws = await (await db()).query.workspaces.findFirst({ where: eq(schema.workspaces.id, job.workspaceId) });
+        await ensureTitle(job.workspaceId, conversationId, ws?.timezone ?? "Asia/Jerusalem").catch((e) => console.warn("[titles]", (e as Error).message));
+      }
       if (job.kind === "checkin") {
         if (silent(written) && discard) {
           // Nothing worth saying: no empty conversation is left behind, and it does not count toward the daily limit.

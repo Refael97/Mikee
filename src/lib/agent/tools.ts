@@ -14,7 +14,7 @@ import { metaMedia } from "../meta/media";
 import { instagramConversation, instagramConversations } from "../meta/messages";
 import { listIdentities } from "../meta/identities";
 import { campaignContext } from "../meta/campaignContext";
-import { fileConversation } from "../conversations";
+import { fileConversation, isGenericTitle } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict } from "../proposals";
 import { CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "../specs";
@@ -237,7 +237,8 @@ export const TOOLS = [
     name: "file_conversation",
     effect: "memory",
     description:
-      "Give the current conversation a short title (2-5 words, Hebrew, like a folder label) and file it under a category: " +
+      "Name the current conversation by what it is specifically about (2-6 words, Hebrew), e.g. 'קמפיין לידים לשמלות ערב', 'פוסטים לקולקציית החורף', 'למה העלות לליד עלתה', 'כתובת וזמני פתיחה לאינסטגרם'. " +
+      "Never only a category word or a placeholder ('קמפיינים', 'כללי', 'שיחה חדשה'): the category is shown as the section heading already. File it under a category: " +
       "campaigns (paid ads, budgets, audiences), content (posts, reels, copy, visuals), results (performance, reports, recommendations), " +
       "business (products, goals, brand), general. Call it in your first turn of a new conversation, and again only if the topic clearly changes.",
     input: z.object({
@@ -246,6 +247,7 @@ export const TOOLS = [
     }),
     run: async (ctx, i) => {
       if (!ctx.conversationId) return { error: "No conversation" };
+      if (isGenericTitle(i.title)) return { error: `"${i.title}" only names the category. Give a title that says what this conversation is about, e.g. 'קמפיין לידים לשמלות ערב'.` };
       const c = await fileConversation(ctx.workspaceId, ctx.conversationId, i);
       return { title: c?.title, category: c?.category, note: c && !c.auto ? "The client filed this conversation herself; the category stays." : undefined };
     },
