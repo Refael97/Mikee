@@ -361,6 +361,21 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
         {view.status === "failed" && (
           <div className="space-y-3">
             <p className="note note-bad text-[15px] leading-relaxed">{view.error}</p>
+            {view.technical && (
+              <details className="rounded-[6px] border border-line px-3 py-2 text-[13.5px]">
+                <summary className="cursor-pointer text-ink-2">פרטים טכניים מהשגיאה</summary>
+                <dl className="mt-2 space-y-1">
+                  {view.technical.lines.map((l) => (
+                    <div key={l.label} className="flex gap-2">
+                      <dt className="shrink-0 text-ink-3">{l.label}:</dt>
+                      <dd className="min-w-0 select-all break-words font-mono text-[12.5px]" dir="auto">
+                        {l.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            )}
             <div className="flex flex-col gap-2 sm:flex-row">
               {view.retryable !== false && (
                 <button className="btn btn-primary sm:flex-1" disabled={busy} onClick={() => decide("approve")}>

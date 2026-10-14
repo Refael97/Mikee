@@ -37,7 +37,8 @@ export function friendlyError(err: unknown): string {
     if (err.code === 368) return "מטא חסמה זמנית את הפעולה הזאת בחשבון בגלל המדיניות שלה. אפשר לנסות שוב מאוחר יותר.";
     if (err.code === 10 || (err.code != null && err.code >= 200 && err.code < 300)) return "חסרה הרשאה לחשבון המודעות, לדף או לאינסטגרם. צריך לחבר מחדש ולאשר את כל ההרשאות שמייקי מבקש.";
     if (err.transient) return "מטא החזירה תקלה זמנית. אפשר לנסות שוב בעוד כמה דקות; שום דבר לא ייווצר פעמיים.";
-    return "מטא לא קיבלה את הבקשה. אפשר לנסות שוב, ואם זה חוזר, מייקי יבדוק מה השתנה.";
+    if (err.userMessage) return `מטא לא קיבלה את הבקשה: "${err.userMessage.slice(0, 200)}"`;
+    return "מטא לא קיבלה את הבקשה. הפרטים המדויקים מופיעים למטה בפרטים הטכניים.";
   }
   if (err instanceof MediaRejected) return err.message;
   if (err instanceof VideoProblem) {

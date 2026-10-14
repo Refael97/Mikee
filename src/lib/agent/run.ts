@@ -58,8 +58,10 @@ export async function runMikee(opts: {
     const r = await agentLoop({
       ctx: { workspaceId, tz: ws.timezone, conversationId, agent: "mikee" },
       agent: "mikee",
-      system: async () => {
-        const stage = (await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, workspaceId) }))?.stage ?? ws.stage;
+      // Built once per turn, not at every step: the brief carries the time, and any change at the front of
+      // the request would make the cached conversation behind it count again at full price.
+      system: await (async () => {
+        const stage = ws.stage;
         return [
           { type: "text", text: MIKEE_CONSTITUTION, cache_control: { type: "ephemeral" } },
           {
@@ -67,11 +69,12 @@ export async function runMikee(opts: {
             text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}`,
           },
         ];
-      },
+      })(),
       history,
       pending,
       tools: MIKEE_TOOLS,
-      effort: "medium",
+      // Mikee talks and delegates; the specialists do the heavy thinking.
+      effort: "low",
       web: true,
       compaction: true,
       emit,

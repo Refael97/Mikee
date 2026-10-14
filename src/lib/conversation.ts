@@ -94,12 +94,47 @@ export type CardView = {
   retryable?: boolean;
   /** What execution produced that the client should see, e.g. the created images. */
   output?: { url: string; type: "image" | "video" }[];
+  /** After a failure: Meta's own error fields and what exists at Meta, to pass on to support (never tokens). */
+  technical?: { lines: { label: string; value: string }[] };
 };
+
+/** Meta's original error fields and the checked build state, as short labelled lines. */
+function technical(r: Record<string, any>): CardView["technical"] {
+  const m = r.meta as Record<string, unknown> | undefined;
+  const b = r.built as { checked: boolean; campaignId?: string; adsetId?: string; adIds?: string[]; error?: string } | undefined;
+  if (!m && !b) return undefined;
+  const lines: { label: string; value: string }[] = [];
+  const add = (label: string, v: unknown) => v != null && v !== "" && lines.push({ label, value: String(v).slice(0, 300) });
+  if (m) {
+    add("פעולה", m.operation);
+    add("טוקן", m.token);
+    add("message", m.message);
+    add("code", m.code);
+    add("error_subcode", m.error_subcode);
+    add("error_user_msg", m.error_user_msg);
+    add("fbtrace_id", m.fbtrace_id);
+    if (m.outcome_unknown) add("תוצאה", "לא ידוע אם הבקשה בוצעה במטא");
+  }
+  if (b) {
+    const parts = [b.campaignId && `קמפיין ${b.campaignId}`, b.adsetId && `קבוצת מודעות ${b.adsetId}`, b.adIds?.length && `${b.adIds.length} מודעות`].filter(Boolean);
+    add("מה קיים במטא", !b.checked ? `לא הצלחנו לבדוק (${b.error ?? ""})` : parts.length ? `${parts.join(", ")}, הכל מושהה` : "נבדק: לא נוצר כלום");
+  }
+  return { lines };
+}
 
 /** The client-facing view of one proposal row. */
 export function cardView(p: { id: string; status: string; versionHash: string; card: unknown; result: unknown }): CardView {
   const r = (p.result ?? {}) as { error?: string; retryable?: boolean; media?: CardView["output"] };
-  return { id: p.id, status: p.status, version: p.versionHash, card: p.card as ProposalCard, error: r.error, retryable: r.retryable, output: r.media };
+  return {
+    id: p.id,
+    status: p.status,
+    version: p.versionHash,
+    card: p.card as ProposalCard,
+    error: r.error,
+    retryable: r.retryable,
+    output: r.media,
+    technical: p.status === "failed" ? technical(r as Record<string, any>) : undefined,
+  };
 }
 
 /** Labels for what Mikee is doing behind the scenes, as the client sees it. */

@@ -71,6 +71,9 @@ export async function agentLoop(opts: {
     const stream = anthropic().beta.messages.stream({
       model,
       max_tokens: 64000,
+      // Caches everything up to the newest block: each step of a turn rereads the conversation and tool
+      // results at about a tenth of the price instead of paying for them again.
+      cache_control: { type: "ephemeral" },
       thinking: { type: "adaptive" },
       output_config: { effort: opts.effort },
       system,

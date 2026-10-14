@@ -84,7 +84,7 @@ describe("delegation", () => {
     await drainJobs();
 
     const mikeeReq = team.requests.find((r) => r.agent === "mikee")!.req;
-    expect(mikeeReq.output_config.effort).toBe("medium");
+    expect(mikeeReq.output_config.effort).toBe("low");
     const buyer = team.requests.filter((r) => r.agent === "media_buyer").map((r) => r.req);
     expect(buyer).toHaveLength(3);
     // The specialist got the business brief, its own instructions, Mikee's task, and only its tools.
@@ -147,6 +147,10 @@ describe("delegation", () => {
     expect(by("copywriter").fallbacks).toBeUndefined();
     expect(by("copywriter").betas).not.toContain("server-side-fallback-2026-07-01");
     expect(by("mikee").fallbacks).toBe("default");
+    // The conversation is cached for the following steps; Mikee's instructions stay the same within a turn.
+    const mikee = team.requests.filter((r) => r.agent === "mikee").map((r) => r.req);
+    expect(mikee.every((r) => r.cache_control?.type === "ephemeral")).toBe(true);
+    expect(JSON.stringify(mikee[1].system)).toBe(JSON.stringify(mikee[0].system));
   });
 
   it("a specialist that fails reports back and Mikee carries on", async () => {

@@ -49,7 +49,7 @@ export const SPECIALISTS: Specialist[] = [
     purpose:
       "Writes the words: ad primary texts, headlines, descriptions, hooks for reels, post captions, rewrites of copy that underperforms. Give the goal, the product/offer, the audience and the placement.",
     tools: ["scan_website", "read_store", "read_social", "read_results"],
-    effort: "medium",
+    effort: "low",
     tier: "light",
     web: false,
     instructions: `# Your role: copywriter
@@ -146,7 +146,7 @@ Report: the card id, the length and structure in one line (e.g. "18 שניות: 
     purpose:
       "Organic social: prepares Instagram/Facebook posts, reels and carousels as cards to approve (with timing). Give the topic, the goal, and the copy/media if already prepared.",
     tools: ["search_library", "meta_media", "read_social", "scan_website", "read_store", "propose_post"],
-    effort: "medium",
+    effort: "low",
     tier: "light",
     web: false,
     instructions: `# Your role: social media manager

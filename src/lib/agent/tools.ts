@@ -91,6 +91,17 @@ export function checkMetaWrite(path: string, params: Record<string, unknown>, as
   return null;
 }
 
+/**
+ * A read path that leaves this business: another ad account, or the login's lists of every account, page
+ * and business it can reach. Objects under the business's own assets (campaigns, forms, creatives) pass.
+ */
+export function foreignRoot(path: string, meta: { adAccountId?: string; pageId?: string; igUserId?: string; pixelId?: string; catalogId?: string }): string | null {
+  const root = path.split("/")[1] ?? "";
+  if (/^act_/.test(root) && root !== meta.adAccountId) return "That ad account is not this business's. Only the connected ad account can be read.";
+  if (root === "me" && path !== "/me" && !/^\/me\/permissions$/.test(path)) return "Lists of everything the Facebook login can reach are not read here; use this business's own ad account and page.";
+  return null;
+}
+
 /** Strips any access token Meta might include in a response (page tokens, app tokens). */
 export function stripTokens(value: unknown, depth = 0): unknown {
   if (depth > 8 || value == null || typeof value !== "object") return value;
@@ -454,10 +465,13 @@ export const TOOLS = [
     untrusted: "meta",
     run: async (ctx, i) => {
       if (!SAFE_PATH.test(i.path) || /^\/me\/accounts/.test(i.path)) return { error: "Unsupported path" };
+      // Only this business's own assets: the login may also reach other businesses' accounts and pages.
+      const meta0 = await metaContext(ctx.workspaceId);
+      const foreign = foreignRoot(i.path, meta0);
+      if (foreign) return { error: foreign };
       const params = Object.fromEntries(Object.entries(i.params as Record<string, unknown>).filter(([k]) => !/token|secret|appsecret/i.test(k)));
       if (JSON.stringify(params).match(/access_token|token/i)) return { error: "Tokens are never read" };
-      const meta = await metaContext(ctx.workspaceId);
-      return stripTokens(await meta.graph.get(i.path, params));
+      return stripTokens(await meta0.graph.get(i.path, params));
     },
   }),
 
