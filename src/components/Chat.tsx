@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, FileText } from "lucide-react";
+import { ArrowDown, ArrowLeft, Check, FileText } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
 import { Composer, type Upload } from "./Composer";
 import { MikeeAvatar, type MikeeState } from "./MikeeAvatar";
@@ -18,6 +18,10 @@ const SUGGESTIONS = [
   { title: "פוסטים לשבוע הקרוב", sub: "תוכן ברוח העמוד שלך, מוכן לאישור" },
   { title: "רעיון לסרטון קצר", sub: "מהתמונות והסרטונים שכבר יש לך" },
 ];
+
+/** A message of the client's that is still on its way, or that did not get through (kept, with a retry). */
+type ChatItem = TimelineItem & { state?: "sending" | "failed" };
+type Retry = { body: { text?: string; attachments?: string[] }; uploads: Upload[] };
 
 type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: CardView };
 type Live = { segments: Segment[]; steps: Step[]; activity: string | null };
@@ -90,7 +94,10 @@ export function Chat({
   suggestions?: { title: string; sub: string }[];
   autonomy?: Autonomy;
 }) {
-  const [items, setItems] = useState(initialItems);
+  const [items, setItems] = useState<ChatItem[]>(initialItems);
+  const retries = useRef(new Map<string, Retry>());
+  /** Scrolled up to read: the view stops following, and a button leads back to the latest message. */
+  const [away, setAway] = useState(false);
   const [autonomy, setAutonomy] = useState<Autonomy>(initialAutonomy);
   const chooseAutonomy = (a: Autonomy) => {
     setAutonomy(a);
@@ -115,7 +122,8 @@ export function Chat({
       const res = await fetch(`/api/timeline?conversationId=${convId.current}`, { cache: "no-store" }).catch(() => null);
       if (res?.ok) {
         const data = await res.json().catch(() => null);
-        if (data?.items) return setItems(data.items);
+        // A message that did not get through stays where she wrote it, with its retry.
+        if (data?.items) return setItems((prev) => [...data.items, ...prev.filter((x) => x.state === "failed")]);
       }
       await new Promise((r) => setTimeout(r, 1000));
     }
@@ -163,16 +171,21 @@ export function Chat({
   const send = useCallback(
     async (body: { text?: string; kickoff?: "scan"; attachments?: string[] }, uploads: Upload[] = []) => {
       setError(null);
-      if (body.text || uploads.length)
+      const localId = `local-${Date.now()}`;
+      const mark = (state: ChatItem["state"]) => setItems((prev) => prev.map((x) => (x.id === localId ? { ...x, state } : x)));
+      if (body.text || uploads.length) {
+        retries.current.set(localId, { body: { text: body.text, attachments: body.attachments }, uploads });
         setItems((prev) => [
           ...prev,
           {
             type: "user",
-            id: `local-${Date.now()}`,
+            id: localId,
             text: body.text ?? "",
             attachments: uploads.map((u) => ({ id: u.id!, name: u.name, type: u.type, size: u.size, url: u.preview ?? "" })),
+            state: "sending",
           },
         ]);
+      }
       setLive({ ...EMPTY, activity: body.kickoff ? "מתחיל ללמוד את העסק" : null });
       try {
         const res = await fetch("/api/chat", {
@@ -187,14 +200,23 @@ export function Chat({
           refreshConversations(data.conversationId);
         }
         if (data?.jobId) {
-          if (data.alreadyRunning && body.text) setError("מייקי עוד מסיים משהו קודם. ההודעה לא נשלחה, נסי שוב בעוד רגע.");
+          if (data.alreadyRunning && body.text) {
+            // Not stored: Mikee is still on the previous message. It stays here to send again.
+            mark("failed");
+            setError("מייקי עוד מסיים משהו קודם. ההודעה לא נשלחה, אפשר לנסות שוב כשהוא יסיים.");
+          } else {
+            mark(undefined);
+            retries.current.delete(localId);
+          }
           await follow(data.jobId);
           return;
         }
-        throw new Error(data?.error ?? "משהו השתבש, נסי שוב.");
+        throw new Error(data?.error ?? "ההודעה לא נשלחה. אפשר לנסות שוב.");
       } catch (e) {
-        setError((e as Error).message);
-        await refresh();
+        mark("failed");
+        // The message itself says "not sent" with its retry; a note is added only when there is more to say.
+        const msg = (e as Error).message;
+        if (!/fetch|network/i.test(msg)) setError(msg);
         setLive(null);
       }
     },
@@ -242,6 +264,7 @@ export function Chat({
     const onScroll = () => {
       const fromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
       pinned.current = fromBottom < 200;
+      setAway(fromBottom > 400);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     const el = list.current;
@@ -272,6 +295,16 @@ export function Chat({
     if ((!text.trim() && !attachments.length) || live) return;
     pinned.current = true;
     void send({ text: text.trim(), attachments }, uploads);
+  }
+
+  /** Sends a message that did not get through, in its place: no copy is left behind. */
+  function retry(id: string) {
+    const r = retries.current.get(id);
+    if (!r || live) return;
+    retries.current.delete(id);
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    pinned.current = true;
+    void send(r.body, r.uploads);
   }
 
   const empty = items.length === 0 && !live;
@@ -346,7 +379,16 @@ export function Chat({
                       </div>
                     ) : null}
                     {item.text && item.text !== "(קבצים מצורפים)" && (
-                      <div className="max-w-[80%] whitespace-pre-line rounded-[10px] bg-surface-2 px-3.5 py-2 text-[16px]">{item.text}</div>
+                      <div className={`max-w-[80%] whitespace-pre-line rounded-[10px] bg-surface-2 px-3.5 py-2 text-[16px] transition-opacity duration-[var(--dur-2)] ${item.state === "sending" ? "opacity-70" : ""}`}>{item.text}</div>
+                    )}
+                    {item.state === "sending" && <span className="text-[12.5px] text-ink-3">שולח…</span>}
+                    {item.state === "failed" && (
+                      <span className="flex items-center gap-2 text-[13px] text-bad">
+                        לא נשלח
+                        <button type="button" disabled={!!live} onClick={() => retry(item.id)} className="link text-[13px] text-ink disabled:opacity-40">
+                          לנסות שוב
+                        </button>
+                      </span>
                     )}
                   </div>
                 );
@@ -406,8 +448,22 @@ export function Chat({
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-70% to-transparent px-5 pb-3 pt-8 sm:pb-5">
+        {away && !empty && (
+          <button
+            type="button"
+            onClick={() => {
+              pinned.current = true;
+              setAway(false);
+              window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+            }}
+            className="fade-in absolute -top-3 left-1/2 flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full bg-surface px-3 text-[13.5px] text-ink shadow-[var(--shadow-float)] transition-colors hover:bg-surface-2"
+          >
+            <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+            להודעה האחרונה
+          </button>
+        )}
         <Composer onTyping={setTyping} autonomy={{ value: autonomy, onChange: chooseAutonomy }} busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
-        <p className="mt-2 text-center text-[12.5px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
+        <p className="mt-2 text-center text-[12.5px] text-ink-3">{live && typing ? "אפשר לשלוח כשמייקי יסיים לענות. מה שכתבת נשמר כאן." : "שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך"}</p>
       </div>
     </div>
   );

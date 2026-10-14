@@ -248,3 +248,6 @@ src/lib/            budget.ts · proposals.ts · brain.ts · website.ts · store
 src/app/(app)/      mikee (main screen) · results · brand · settings
 src/app/onboarding  getting connected
 ```
+
+### Measuring page speed locally
+`MIKEE_META_GRAPH_BASE=http://127.0.0.1:4555` sends every Graph call to a local stand-in (for example one that answers after 3 seconds, or fails), so a production build (`MIKEE_DB=pglite npx next start`) can be measured against a slow or broken Meta. Production leaves it unset.

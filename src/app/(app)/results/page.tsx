@@ -13,7 +13,9 @@ import { LineChart } from "@/components/LineChart";
 import { dashboardSpec, KPIS } from "@/lib/dashboard";
 import { plainTitle } from "@/lib/text";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
-import { remember } from "@/lib/ttl";
+import { remember, rememberedAge } from "@/lib/ttl";
+import { Freshness } from "@/components/Freshness";
+import { RetryButton } from "@/components/RetryButton";
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
 
@@ -38,9 +40,15 @@ function Change({ k }: { k: KpiValue }) {
 
 type Data = Awaited<ReturnType<typeof dashboardData>> | null;
 
-async function Kpis({ data }: { data: Promise<Data> }) {
+async function Kpis({ data, workspaceId }: { data: Promise<Data>; workspaceId: string }) {
   const d = await data;
-  if (!d) return <p className="note note-warn">לא הצלחתי לקרוא את המספרים כרגע. נסי לרענן בעוד רגע.</p>;
+  if (!d)
+    return (
+      <div className="note note-warn flex flex-wrap items-center justify-between gap-3">
+        <span>מטא לא ענתה כרגע, ולכן המספרים לא נטענו.</span>
+        <RetryButton />
+      </div>
+    );
   return (
     <section className="card grid grid-cols-2 lg:grid-cols-4" aria-label="המספרים העיקריים">
       {d.kpis.map((k, i) => (
@@ -53,13 +61,14 @@ async function Kpis({ data }: { data: Promise<Data> }) {
           </div>
         </div>
       ))}
+      <Freshness ageMs={rememberedAge(`dashboard:${workspaceId}`)} className="col-span-full border-t border-line px-5 py-2" />
     </section>
   );
 }
 
 async function Daily({ data }: { data: Promise<Data> }) {
   const d = await data;
-  if (!d) return <p className="text-[14.5px] text-ink-3">אין נתונים להצגה כרגע.</p>;
+  if (!d) return <p className="text-[14.5px] text-ink-3">הגרף יופיע כשהמספרים ייטענו.</p>;
   return <LineChart points={d.daily.map((x) => ({ date: x.date, value: x.results }))} unit="תוצאות" />;
 }
 
@@ -133,7 +142,7 @@ export default async function ResultsPage() {
               </section>
             }
           >
-            <Kpis data={data} />
+            <Kpis data={data} workspaceId={workspace.id} />
           </Suspense>
 
           <Block title="תוצאות בכל יום החודש" className="mt-8">

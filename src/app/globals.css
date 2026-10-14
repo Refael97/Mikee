@@ -54,6 +54,10 @@
   --shadow-float: 0 0 0 1px var(--line), 0 18px 50px rgba(0, 0, 0, 0.12);
   --ring: 0 0 0 3px rgba(74, 141, 246, 0.35);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  /* One set of durations for the whole product: quick feedback, short transitions, nothing that waits. */
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 220ms;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -769,16 +773,20 @@ body {
 
 /* ---------- Motion: soft, never bouncy ---------- */
 .rise {
-  animation: rise 380ms var(--ease) both;
+  animation: rise var(--dur-3) var(--ease) both;
 }
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 }
 .fade-in {
-  animation: fade 260ms var(--ease) both;
+  animation: fade var(--dur-2) var(--ease) both;
+}
+/* A page appearing: a short fade, never holding back what is already there. */
+.page-in {
+  animation: fade var(--dur-2) var(--ease) both;
 }
 @keyframes fade {
   from {
@@ -846,30 +854,29 @@ body {
 
 /* A finished image arrives from blur to sharp. */
 .reveal {
-  animation: reveal 900ms var(--ease) both;
+  animation: reveal 300ms var(--ease) both;
 }
 @keyframes reveal {
   from {
     opacity: 0;
-    filter: blur(18px) saturate(0.6);
-    transform: scale(1.04);
+    transform: scale(1.02);
   }
 }
 
 /* Words arrive softly while Mikee writes. */
 .word-in {
-  animation: word-in 420ms var(--ease) both;
+  animation: word-in var(--dur-2) ease-out both;
 }
+/* Streamed words fade in (opacity only: a blur repaints the paragraph and flickers). */
 @keyframes word-in {
   from {
     opacity: 0;
-    filter: blur(4px);
   }
 }
 
 /* Status text that changes in place. */
 .swap-in {
-  animation: swap-in 360ms var(--ease) both;
+  animation: swap-in var(--dur-3) var(--ease) both;
 }
 @keyframes swap-in {
   from {
@@ -880,19 +887,16 @@ body {
 
 /* Success: a check that pops. */
 .pop {
-  animation: pop 520ms var(--ease) both;
+  animation: pop var(--dur-3) var(--ease) both;
 }
 @keyframes pop {
   0% {
-    transform: scale(0.4);
+    transform: scale(0.85);
     opacity: 0;
-  }
-  60% {
-    transform: scale(1.15);
-    opacity: 1;
   }
   100% {
     transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -918,7 +922,7 @@ body {
 
 /* Mikee reaching out: a note that slides in and settles. */
 .toast-in {
-  animation: toast-in 420ms var(--ease) both;
+  animation: toast-in var(--dur-3) var(--ease) both;
 }
 @keyframes toast-in {
   from {

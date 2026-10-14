@@ -42,7 +42,9 @@ export function LibraryView({
   folders: { name: string; count: number }[];
   drive: { available: boolean; connected: boolean; justConnected: boolean };
 }) {
-  const [items, setItems] = useState(initial);
+  // Everything the page loaded. Type and folder filter it right here, at once; only a text search (by meaning)
+  // asks the server, and a newer choice always wins over an older answer.
+  const [all, setAll] = useState(initial);
   const [usage, setUsage] = useState(initialUsage);
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<"" | "image" | "video" | "audio">("");
@@ -51,25 +53,64 @@ export function LibraryView({
   const [notice, setNotice] = useState<string | null>(drive.justConnected ? "גוגל דרייב מחובר. אפשר לבחור קבצים לייבוא." : null);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const first = useRef(true);
+  // The page loads at most this many; past it, a type or folder filter also asks the server for the rest.
+  const truncated = initial.length >= 120;
+  const want = { q: q.trim(), kind, folder };
+  const wantKey = JSON.stringify(want);
+  const needServer = !!want.q || (truncated && (!!kind || !!folder));
+  const [remote, setRemote] = useState<{ key: string; items: MediaView[] } | null>(null);
+  const [remoteState, setRemoteState] = useState<{ key: string; status: "loading" | "error" } | null>(null);
+  const request = useRef<AbortController | null>(null);
 
-  const load = useCallback(async () => {
-    const p = new URLSearchParams({ ...(q ? { q } : {}), ...(kind ? { kind } : {}), ...(folder ? { folder } : {}) });
-    const res = await fetch(`/api/library?${p}`, { cache: "no-store" });
-    if (!res.ok) return;
+  /** The full list again (after an upload, an import or a delete). */
+  const reload = useCallback(async () => {
+    const res = await fetch("/api/library", { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return;
     const data = await res.json();
-    setItems(data.items);
+    setAll(data.items);
     setUsage((u) => ({ ...u, ...data.usage }));
-  }, [q, kind, folder]);
+  }, []);
+
+  const fetchRemote = useCallback((key: string) => {
+    request.current?.abort();
+    const ctrl = new AbortController();
+    request.current = ctrl;
+    const w = JSON.parse(key) as { q: string; kind: string; folder: string };
+    const params = new URLSearchParams({ ...(w.q ? { q: w.q } : {}), ...(w.kind ? { kind: w.kind } : {}), ...(w.folder ? { folder: w.folder } : {}) });
+    setRemoteState({ key, status: "loading" });
+    fetch(`/api/library?${params}`, { cache: "no-store", signal: ctrl.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        if (request.current !== ctrl) return; // an older answer never replaces a newer choice
+        setRemote({ key, items: data.items });
+        setRemoteState(null);
+      })
+      .catch((e) => {
+        if ((e as Error).name === "AbortError" || request.current !== ctrl) return;
+        setRemoteState({ key, status: "error" });
+      });
+  }, []);
 
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
+    if (!needServer) {
+      request.current?.abort();
+      setRemoteState(null);
       return;
     }
-    const t = setTimeout(load, 250);
+    // Typing waits for a short pause; a click on a filter asks at once.
+    const t = setTimeout(() => fetchRemote(wantKey), want.q ? 250 : 0);
     return () => clearTimeout(t);
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantKey, needServer, fetchRemote]);
+
+  const local = all.filter((m) => (!kind || m.kind === kind) && (!folder || m.folder === folder));
+  const searching = !!want.q;
+  const current = remote?.key === wantKey ? remote.items : null;
+  // Filters show the local result at once (and the server's when it comes); a search shows its own answer.
+  const items = current ?? (searching ? null : local);
+  const loading = remoteState?.key === wantKey && remoteState.status === "loading";
+  const failed = remoteState?.key === wantKey && remoteState.status === "error";
 
   function upload(files: FileList | File[]) {
     for (const file of Array.from(files).slice(0, 30)) {
@@ -84,7 +125,7 @@ export function LibraryView({
           const data = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(data.error ?? "ההעלאה נכשלה");
           setPending((p) => p.filter((x) => x.localId !== localId));
-          await load();
+          await reload();
         })
         .catch((e: Error) => setPending((p) => p.map((x) => (x.localId === localId ? { ...x, error: e.message } : x))));
     }
@@ -117,7 +158,7 @@ export function LibraryView({
           setPending((p) => p.filter((x) => !ids.includes(x.localId)));
           if (!res.ok) return setNotice(out.error ?? "הייבוא נכשל");
           setNotice(`יובאו ${out.imported.length} קבצים${out.skipped.length ? `, ${out.skipped.length} דולגו (${out.skipped[0].reason})` : ""}.`);
-          await load();
+          await reload();
         })
         .build();
       picker.setVisible(true);
@@ -128,9 +169,17 @@ export function LibraryView({
 
   async function remove(id: string) {
     if (!confirm("למחוק את הקובץ מהספרייה? מודעות שכבר עלו לא יושפעו.")) return;
-    setItems((xs) => xs.filter((x) => x.id !== id));
-    await fetch(`/api/library/${id}`, { method: "DELETE" });
-    await load();
+    const removed = all.find((x) => x.id === id);
+    setAll((xs) => xs.filter((x) => x.id !== id));
+    setRemote((r) => (r ? { ...r, items: r.items.filter((x) => x.id !== id) } : r));
+    const res = await fetch(`/api/library/${id}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) {
+      // The server kept it: put it back and say so, rather than pretending it is gone.
+      if (removed) setAll((xs) => [removed, ...xs]);
+      setNotice("המחיקה לא הצליחה. נסי שוב.");
+      return;
+    }
+    await reload();
   }
 
   const pct = Math.min(100, (usage.used / Math.max(1, usage.limit)) * 100);
@@ -217,7 +266,27 @@ export function LibraryView({
 
       {notice && <p className="note mt-5 text-[15px]">{notice}</p>}
 
-      {items.length === 0 && pending.length === 0 ? (
+      {failed ? (
+        // A failed search is not an empty library: say so, and retry only the search.
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[12px] bg-warn-tint px-4 py-3 text-[14.5px] text-warn">
+          <span>החיפוש לא הצליח כרגע. מה שכבר בספרייה לא נפגע.</span>
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => fetchRemote(wantKey)}>
+            לנסות שוב
+          </button>
+        </div>
+      ) : items === null ? (
+        <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label="מחפש בספרייה">
+          {[0, 1, 2, 3].map((i) => (
+            <li key={i} className="card overflow-hidden">
+              <span className="skeleton block aspect-square w-full !rounded-none" />
+              <div className="space-y-2 px-3 py-3">
+                <span className="skeleton block h-3.5 w-3/4" />
+                <span className="skeleton block h-3 w-1/2" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : items.length === 0 && pending.length === 0 && !loading ? (
         <div className="mt-6 flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-line-strong px-6 py-14 text-center">
           <span className="h2">{q || kind || folder ? "לא מצאתי משהו כזה" : "הספרייה עוד ריקה"}</span>
           <p className="max-w-lg text-ink-2">

@@ -5,6 +5,7 @@ import { listFacts, sourceLabel, TOPICS, type Topic } from "@/lib/brain";
 import { addFact, decideFact, editFact } from "@/lib/actions";
 import { type ItemStatus, journeyStatus } from "@/lib/journey";
 import { Block, Page, PageHeader } from "@/components/Page";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const STATUS: Record<ItemStatus, { label: string; icon: typeof Circle; cls: string }> = {
   done: { label: "קיים", icon: CheckCircle2, cls: "text-good" },
@@ -110,12 +111,12 @@ export default async function BrandPage() {
                 </div>
                 <form action={decideFact} className="flex gap-1.5">
                   <input type="hidden" name="id" value={f.id} />
-                  <button name="decision" value="confirm" className="btn btn-primary btn-sm">
+                  <SubmitButton name="decision" value="confirm" className="btn btn-primary btn-sm" pendingText="…" doneText={null}>
                     נכון
-                  </button>
-                  <button name="decision" value="reject" className="btn btn-quiet btn-sm">
+                  </SubmitButton>
+                  <SubmitButton name="decision" value="reject" className="btn btn-quiet btn-sm" pendingText="…" doneText={null}>
                     לא נכון
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}
@@ -141,7 +142,7 @@ export default async function BrandPage() {
                         <textarea name="text" defaultValue={f.text} rows={1} maxLength={500} className="w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none [field-sizing:content]" />
                         <p className="text-[12.5px] text-ink-3">{sourceLabel(f)}</p>
                       </div>
-                      <button className="btn btn-quiet btn-sm opacity-0 transition-opacity group-focus-within:opacity-100">שמירה</button>
+                      <SubmitButton className="btn btn-quiet btn-sm opacity-0 transition-opacity group-focus-within:opacity-100">שמירה</SubmitButton>
                     </form>
                   </li>
                 ))}
@@ -150,7 +151,7 @@ export default async function BrandPage() {
                     <input type="hidden" name="topic" value={topic} />
                     <Plus className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.75} />
                     <input name="text" maxLength={500} placeholder="להוסיף משפט" className="min-w-0 flex-1 bg-transparent py-1 text-[15px] outline-none placeholder:text-ink-3" />
-                    <button className="btn btn-quiet btn-sm shrink-0">הוספה</button>
+                    <SubmitButton className="btn btn-quiet btn-sm shrink-0" pendingText="מוסיף…" doneText="נוסף">הוספה</SubmitButton>
                   </form>
                 </li>
               </ul>

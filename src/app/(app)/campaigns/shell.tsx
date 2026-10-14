@@ -57,7 +57,7 @@ export function CampaignsShell({ period, all, connected, rows, count }: { period
         lead={
           connected ? (
             <>
-              <Suspense fallback={<Sk w="1.2em" />}>{count ?? <Sk w="1.2em" />}</Suspense> פעילים עכשיו, בכל הפלטפורמות
+              <Suspense key={`${period}-${all}`} fallback={<Sk w="1.2em" />}>{count ?? <Sk w="1.2em" />}</Suspense> פעילים עכשיו, בכל הפלטפורמות
             </>
           ) : (
             "כל הקמפיינים, מכל הפלטפורמות, בשפה פשוטה"
@@ -92,7 +92,10 @@ export function CampaignsShell({ period, all, connected, rows, count }: { period
             </Link>
           </div>
         ) : (
-          <Suspense fallback={<RowsSkeleton />}>{rows ?? <RowsSkeleton />}</Suspense>
+          // A new key per view: switching the period shows the skeleton in the table at once, not the old rows.
+          <Suspense key={`${period}-${all}`} fallback={<RowsSkeleton />}>
+            {rows ?? <RowsSkeleton />}
+          </Suspense>
         )}
       </div>
     </Page>

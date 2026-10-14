@@ -3,7 +3,8 @@ import { createHash, createHmac } from "crypto";
 import { currentTask } from "../telemetry";
 
 const VERSION = process.env.META_GRAPH_VERSION || "v26.0";
-const BASE = `https://graph.facebook.com/${VERSION}`;
+// MIKEE_META_GRAPH_BASE points at a local stand-in for performance testing; production leaves it unset.
+const BASE = process.env.MIKEE_META_GRAPH_BASE ? `${process.env.MIKEE_META_GRAPH_BASE}/${VERSION}` : `https://graph.facebook.com/${VERSION}`;
 
 /** Minutes until Meta lifts a business-use-case throttle, from X-Business-Use-Case-Usage (docs: rate-limiting). */
 function regainMinutes(headers: Headers): number | undefined {

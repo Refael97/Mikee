@@ -379,6 +379,10 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
       } else {
         setView((v) => ({ ...v, status: "executing", error: undefined }));
       }
+    } catch {
+      // No answer at all: the card goes back to how it was, and says so. Nothing ran.
+      setView(before);
+      setNotice("אין חיבור כרגע, ולכן שום דבר לא בוצע. אפשר לנסות שוב.");
     } finally {
       setBusy(false);
     }
@@ -388,7 +392,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
   const settled = ["declined", "cancelled", "superseded"].includes(view.status);
 
   return (
-    <article key={view.status === "done" ? "done" : "live"} className={`card-float rise w-full max-w-[480px] overflow-hidden transition-opacity duration-500 ${view.status === "done" ? "flash" : ""} ${settled ? "opacity-60" : ""}`}>
+    <article key={view.status === "done" ? "done" : "live"} className={`card-float rise w-full max-w-[480px] overflow-hidden transition-opacity duration-[var(--dur-3)] ${view.status === "done" ? "flash" : ""} ${settled ? "opacity-60" : ""}`}>
       <header className="relative flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-4 py-2">
         <span className="flex items-center gap-2 text-[13.5px] font-medium text-ink-2">
           <kind.icon className="h-4 w-4" strokeWidth={1.75} />

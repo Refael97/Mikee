@@ -17,7 +17,7 @@ export function PageHeader({ title, lead, action }: { title: React.ReactNode; le
 export function Page({ children, narrow = false }: { children: React.ReactNode; narrow?: boolean }) {
   return (
     <main className="flex-1 bg-bg lg:min-h-[calc(100dvh-20px)] lg:rounded-[18px] lg:shadow-[var(--shadow)]">
-      <div className={`mx-auto w-full px-4 pb-14 pt-6 sm:px-7 lg:pt-7 ${narrow ? "max-w-[820px]" : "max-w-[1100px]"}`}>{children}</div>
+      <div className={`page-in mx-auto w-full px-4 pb-14 pt-6 sm:px-7 lg:pt-7 ${narrow ? "max-w-[820px]" : "max-w-[1100px]"}`}>{children}</div>
     </main>
   );
 }
@@ -47,19 +47,4 @@ export function Empty({ title, text, action }: { title: string; text?: string; a
   );
 }
 
-export function Segmented({ items, active }: { items: { href: string; label: string; key: string }[]; active: string }) {
-  return (
-    <nav className="inline-flex flex-wrap gap-1">
-      {items.map((x) => (
-        <a
-          key={x.key}
-          href={x.href}
-          aria-current={x.key === active ? "page" : undefined}
-          className="tab"
-        >
-          {x.label}
-        </a>
-      ))}
-    </nav>
-  );
-}
+export { Segmented } from "./Segmented";

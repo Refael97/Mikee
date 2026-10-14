@@ -7,6 +7,7 @@ import { recheckMeta, saveBudget, saveMetaAssets, saveMetaToken, saveWebsiteAndS
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { remember } from "@/lib/ttl";
+import { SubmitButton } from "@/components/SubmitButton";
 
 /** A settings group: title and explanation on the start side, the controls in a card beside them. */
 export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
@@ -44,7 +45,7 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
             </a>
           )}
           <form action={recheckMeta}>
-            <button className="btn btn-quiet">לבדוק שוב</button>
+            <SubmitButton className="btn btn-quiet" pendingText="בודק…" doneText={null}>לבדוק שוב</SubmitButton>
           </form>
         </div>
         <TokenForm />
@@ -82,7 +83,7 @@ function TokenForm() {
       <summary className="cursor-pointer select-none flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />יש לי מפתח גישה מוכן</summary>
       <form action={saveMetaToken} className="mt-3 flex gap-2">
         <input name="token" className="field" placeholder="מפתח גישה ממטא" dir="ltr" />
-        <button className="btn btn-quiet shrink-0">שמירה</button>
+        <SubmitButton className="btn btn-quiet shrink-0">שמירה</SubmitButton>
       </form>
     </details>
   );
@@ -154,7 +155,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
           <Select label="מעקב באתר" name="pixel" value={chosen.pixelId} options={[["", "בלי"], ...found.pixels.map((p) => [p.id, p.name] as [string, string])]} />
           <Select label="קטלוג מוצרים" name="catalog" value={chosen.catalogId} options={[["", "בלי"], ...found.catalogs.map((k) => [k.id, k.name] as [string, string])]} />
           <div className="sm:col-span-2">
-            <button className="btn btn-quiet">שמירה</button>
+            <SubmitButton className="btn btn-quiet">שמירה</SubmitButton>
           </div>
         </form>
       </details>
@@ -206,7 +207,7 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
         consumerKey={store?.config.consumerKey}
         hasSecret={!!store?.secret}
       />
-      <button className="btn btn-primary">שמירה</button>
+      <SubmitButton>שמירה</SubmitButton>
     </form>
   );
 }
@@ -231,7 +232,7 @@ export async function BudgetForm({ workspaceId }: { workspaceId: string }) {
       </div>
       <input type="hidden" name="currency" value={currency} />
       <span className="text-ink-2">לחודש</span>
-      <button className="btn btn-primary">שמירה</button>
+      <SubmitButton>שמירה</SubmitButton>
     </form>
   );
 }

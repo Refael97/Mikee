@@ -13,6 +13,7 @@ import { monthUsage } from "@/lib/usage";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
 import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
 import { remember } from "@/lib/ttl";
+import { SubmitButton } from "@/components/SubmitButton";
 
 async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: string }) {
   try {
@@ -78,7 +79,7 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
           <span className="text-[13px] text-ink-3">0 = כל תמונה וסרטון באישור</span>
         </label>
       </div>
-      <button className="btn btn-primary">שמירה</button>
+      <SubmitButton>שמירה</SubmitButton>
     </form>
   );
 }
@@ -114,7 +115,7 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
               </Suspense>
               <AdvertiserIdentitySettings />
               <form action={disconnectMeta}>
-                <button className="btn btn-danger btn-sm">ניתוק</button>
+                <SubmitButton className="btn btn-danger btn-sm" pendingText="מנתק…" doneText={null}>ניתוק</SubmitButton>
               </form>
             </>
           )}
@@ -139,7 +140,7 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
             <div className="flex items-center gap-4">
               <span className="tag tag-good">מחובר{(drive.config as { email?: string }).email ? ` · ${(drive.config as { email?: string }).email}` : ""}</span>
               <form action={disconnectDrive}>
-                <button className="btn btn-danger btn-sm">ניתוק</button>
+                <SubmitButton className="btn btn-danger btn-sm" pendingText="מנתק…" doneText={null}>ניתוק</SubmitButton>
               </form>
             </div>
           ) : (

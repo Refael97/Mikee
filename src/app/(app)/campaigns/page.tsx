@@ -5,7 +5,9 @@ import { money } from "@/lib/meta/context";
 import { DELIVERY_LABEL, GOAL_LABEL, type Period } from "@/lib/meta/performance";
 import { allCampaigns, PLATFORMS, type PlatformCampaign } from "@/lib/platforms";
 import { getConnection, type MetaConfig } from "@/lib/connections";
-import { remember } from "@/lib/ttl";
+import { remember, rememberedAge } from "@/lib/ttl";
+import { Freshness } from "@/components/Freshness";
+import { RetryButton } from "@/components/RetryButton";
 import { CampaignsShell, PERIODS } from "./shell";
 
 const VERDICT = {
@@ -99,20 +101,28 @@ function Num({ value, className = "" }: { value: string; className?: string }) {
   return <div className={`num text-end text-[15px] font-medium ${className}`}>{value}</div>;
 }
 
-const load = (workspaceId: string, period: Period, all: boolean) => remember(`campaigns:${workspaceId}:${period}:${all}`, 60_000, () => allCampaigns(workspaceId, period, all));
+const key = (workspaceId: string, period: Period, all: boolean) => `campaigns:${workspaceId}:${period}:${all}`;
+const load = (workspaceId: string, period: Period, all: boolean) => remember(key(workspaceId, period, all), 60_000, () => allCampaigns(workspaceId, period, all));
 const shown = (data: Awaited<ReturnType<typeof allCampaigns>>, all: boolean) =>
   data.campaigns.filter((c) => all || c.live || c.numbers.spend > 0).sort((a, b) => Number(b.live) - Number(a.live) || b.numbers.spend - a.numbers.spend);
 
 /** How many really run: the only part of the header that comes from Meta. */
 async function LiveCount({ workspaceId, period, all }: { workspaceId: string; period: Period; all: boolean }) {
   const data = await load(workspaceId, period, all);
-  return <>{data.campaigns.filter((c) => c.live).length}</>;
+  // When Meta did not answer there is no count to give: a dash, not a false zero.
+  return <>{data.error ? "—" : data.campaigns.filter((c) => c.live).length}</>;
 }
 
 /** The table body: rows from Meta, or what to do when there are none. */
 async function Rows({ workspaceId, period, all }: { workspaceId: string; period: Period; all: boolean }) {
   const data = await load(workspaceId, period, all);
-  if (data.error) return <p className="px-4 py-6 text-[14.5px] text-warn">לא הצלחתי לקרוא את הקמפיינים כרגע. נסי לרענן בעוד רגע.</p>;
+  if (data.error)
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5">
+        <p className="text-[14.5px] text-warn">מטא לא ענתה כרגע, ולכן הקמפיינים לא נטענו. שום דבר לא השתנה בהם.</p>
+        <RetryButton />
+      </div>
+    );
   const list = shown(data, all);
   if (!list.length)
     return (
@@ -124,11 +134,14 @@ async function Rows({ workspaceId, period, all }: { workspaceId: string; period:
       </div>
     );
   return (
-    <ul className="divide-y divide-line">
-      {list.map((c) => (
-        <Row key={`${c.platform}-${c.id}`} c={c} currency={data.currency} />
-      ))}
-    </ul>
+    <>
+      <ul className="divide-y divide-line">
+        {list.map((c) => (
+          <Row key={`${c.platform}-${c.id}`} c={c} currency={data.currency} />
+        ))}
+      </ul>
+      <Freshness ageMs={rememberedAge(key(workspaceId, period, all))} className="border-t border-line px-4 py-2" />
+    </>
   );
 }
 

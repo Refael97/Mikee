@@ -7,6 +7,7 @@ import { getConnection } from "@/lib/connections";
 import { pendingCount } from "@/lib/instagram/inbox";
 import { connectedAssets } from "@/lib/meta/assets";
 import { ConnectedAccount } from "@/components/ConnectedAccount";
+import { NavScroll } from "@/components/NavScroll";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </Link>
       )}
       <div className="flex flex-1 flex-col">{children}</div>
+      {/* After the page, so its scroll rule runs last on every navigation. */}
+      <NavScroll />
       </div>
     </div>
   );
