@@ -1,5 +1,6 @@
 import "server-only";
-import type { CampaignSpec, ChangeSpec, PostSpec } from "../specs";
+import { socialImageUrl, type Target } from "./images";
+import { type CampaignSpec, type ChangeSpec, LEAD_CTAS, type PostSpec } from "../specs";
 import { type MetaContext, requireAdAccount, toMajor, toMinor } from "./context";
 import { MetaError } from "./graph";
 import { bytesFromOwnUrl } from "../media";
@@ -33,6 +34,22 @@ async function uploadImage(ctx: MetaContext, url: string): Promise<string> {
   return first.hash;
 }
 
+/**
+ * A video ad needs a thumbnail hosted by us or by Meta's ad images, not a CDN link (docs: ad-creative-video-
+ * data). We take the frame Meta picked and store it as an ad image.
+ */
+async function videoThumbnailHash(ctx: MetaContext, picture?: string): Promise<string> {
+  if (!picture) throw new Error("Meta returned no thumbnail for the video");
+  const account = requireAdAccount(ctx);
+  const res = await safeFetch(picture, { maxBytes: 10 * 1024 * 1024, timeoutMs: 30_000 });
+  if (!res.ok) throw new Error(`Could not read the video thumbnail (HTTP ${res.status})`);
+  const bytes = Buffer.from(await res.bytes()).toString("base64");
+  const r = await ctx.graph.post<{ images: Record<string, { hash: string }> }>(`/${account}/adimages`, { bytes });
+  const first = Object.values(r.images ?? {})[0];
+  if (!first?.hash) throw new Error("Thumbnail upload returned no hash");
+  return first.hash;
+}
+
 async function uploadVideo(ctx: MetaContext, url: string): Promise<{ id: string; thumbnail?: string }> {
   const account = requireAdAccount(ctx);
   const { id } = await ctx.graph.post<{ id: string }>(`/${account}/advideos`, { file_url: url });
@@ -46,21 +63,43 @@ async function uploadVideo(ctx: MetaContext, url: string): Promise<{ id: string;
   throw new Error("The video is still processing at Meta. Try approving again in a minute.");
 }
 
-function targeting(spec: CampaignSpec) {
+export function targeting(spec: CampaignSpec) {
   const a = spec.audience;
   const t: Record<string, unknown> = {
-    geo_locations: a.cities?.length
-      ? { cities: a.cities.map((c) => ({ key: c.key, radius: c.radiusKm ?? 10, distance_unit: "kilometer" })) }
-      : { countries: a.countries },
-    age_min: a.ageMin ?? 18,
-    age_max: a.ageMax ?? 65,
+    geo_locations: a.cities?.length ? places(a.cities) : { countries: a.countries },
     targeting_automation: { advantage_audience: a.advantage ? 1 : 0 },
   };
+  // With Advantage+ audience, age_min may be 18-25 and age_max is fixed at 65; the wished-for range goes in
+  // age_range as a suggestion (docs: targeting-expansion/advantage-audience).
+  const min = a.ageMin ?? 18;
+  const max = a.ageMax ?? 65;
+  if (a.advantage) {
+    t.age_min = Math.min(min, 25);
+    t.age_max = 65;
+    if (min !== 18 || max !== 65) t.age_range = [min, max];
+  } else {
+    t.age_min = min;
+    t.age_max = max;
+  }
   if (a.genders !== "all") t.genders = [a.genders === "women" ? 2 : 1];
   if (a.interests?.length) t.flexible_spec = [{ interests: a.interests }];
   if (a.customAudienceIds?.length) t.custom_audiences = a.customAudienceIds.map((id) => ({ id }));
   if (a.excludedCustomAudienceIds?.length) t.excluded_custom_audiences = a.excludedCustomAudienceIds.map((id) => ({ id }));
   return t;
+}
+
+/**
+ * Cities take a radius of 17-80 km; with several cities a radius can be refused (code 100/1815946), so it is
+ * sent only for a single city. Regions go under regions, not cities (docs: basic-targeting).
+ */
+function places(list: NonNullable<CampaignSpec["audience"]["cities"]>) {
+  const cities = list.filter((c) => c.type !== "region");
+  const regions = list.filter((c) => c.type === "region");
+  const out: Record<string, unknown> = {};
+  if (cities.length === 1) out.cities = [{ key: cities[0].key, radius: Math.min(80, Math.max(17, cities[0].radiusKm ?? 17)), distance_unit: "kilometer" }];
+  else if (cities.length) out.cities = cities.map((c) => ({ key: c.key }));
+  if (regions.length) out.regions = regions.map((r) => ({ key: r.key }));
+  return out;
 }
 
 function optimization(ctx: MetaContext, spec: CampaignSpec) {
@@ -83,24 +122,28 @@ function optimization(ctx: MetaContext, spec: CampaignSpec) {
     case "traffic":
       return { optimization_goal: ctx.pixelId ? "LANDING_PAGE_VIEWS" : "LINK_CLICKS", destination_type: "WEBSITE" };
     case "engagement":
-      return { optimization_goal: "POST_ENGAGEMENT" };
+      return { optimization_goal: "POST_ENGAGEMENT", destination_type: "ON_POST" };
     case "awareness":
-      return { optimization_goal: "REACH" };
+      return { optimization_goal: "REACH", promoted_object: { page_id: ctx.pageId } };
   }
 }
 
 async function createCreative(ctx: MetaContext, spec: CampaignSpec, ad: CampaignSpec["ads"][number], name: string) {
   const account = requireAdAccount(ctx);
   if (!ctx.pageId) throw new Error("No Facebook page connected");
-  const ctaValue: Record<string, string> = spec.leadFormId ? { lead_gen_form_id: spec.leadFormId } : { link: ad.link };
-  const call_to_action = { type: ad.cta, value: ctaValue };
+  // Instant-form ads: the link must be https://fb.me/ and only a few buttons are allowed (docs: lead-ads/create).
+  const lead = !!spec.leadFormId;
+  const link = lead ? "https://fb.me/" : ad.link;
+  const cta = lead && !(LEAD_CTAS as readonly string[]).includes(ad.cta) ? "LEARN_MORE" : ad.cta;
+  const ctaValue: Record<string, string> = lead ? { link, lead_gen_form_id: spec.leadFormId! } : { link };
+  const call_to_action = { type: cta, value: ctaValue };
   const base: Record<string, unknown> = { page_id: ctx.pageId };
   if (ctx.igUserId) base.instagram_user_id = ctx.igUserId;
 
   if (ad.media.type === "image") {
     const image_hash = await uploadImage(ctx, ad.media.url);
     base.link_data = {
-      link: ad.link,
+      link,
       message: ad.primaryText,
       name: ad.headline,
       description: ad.description,
@@ -114,7 +157,7 @@ async function createCreative(ctx: MetaContext, spec: CampaignSpec, ad: Campaign
       message: ad.primaryText,
       title: ad.headline,
       link_description: ad.description,
-      image_url: video.thumbnail,
+      image_hash: await videoThumbnailHash(ctx, video.thumbnail),
       call_to_action,
     };
   }
@@ -327,31 +370,69 @@ export async function applyChange(ctx: MetaContext, spec: ChangeSpec) {
         }
         return { ok: true };
       }
+      if (target.type === "adset") {
+        // In a campaign-budget campaign the ad set has no budget of its own (1885621): change the campaign's.
+        const set = await ctx.graph.get<{ daily_budget?: string; campaign?: { id: string; daily_budget?: string } }>(`/${target.id}`, { fields: "daily_budget,campaign{id,daily_budget}" });
+        if (!set.daily_budget && set.campaign?.daily_budget) return ctx.graph.post(`/${set.campaign.id}`, { daily_budget: toMinor(change.amount, currency) });
+      }
       return ctx.graph.post(`/${target.id}`, { daily_budget: toMinor(change.amount, currency) });
     }
   }
 }
 
-async function waitForContainer(ctx: MetaContext, id: string) {
-  for (let i = 0; i < 40; i++) {
-    const c = await ctx.graph.get<{ status_code?: string }>(`/${id}`, { fields: "status_code" });
-    if (c.status_code === "FINISHED") return;
-    if (c.status_code === "ERROR" || c.status_code === "EXPIRED") throw new Error("Instagram could not process the media");
-    await sleep(3000);
+/**
+ * Waits for an Instagram container. Meta asks to check about once a minute for no more than five minutes;
+ * we check every 10 seconds within the same five minutes (docs: ig-container). PUBLISHED means an earlier
+ * attempt already published it. On ERROR the status field carries Meta's reason.
+ */
+async function waitForContainer(ctx: MetaContext, id: string): Promise<"FINISHED" | "PUBLISHED"> {
+  const rounds = Number(process.env.MIKEE_IG_POLL_ROUNDS ?? 30);
+  for (let i = 0; i < rounds; i++) {
+    const c = await ctx.graph.get<{ status_code?: string; status?: string }>(`/${id}`, { fields: "status_code,status" });
+    if (c.status_code === "FINISHED" || c.status_code === "PUBLISHED") return c.status_code;
+    if (c.status_code === "ERROR" || c.status_code === "EXPIRED") throw new Error(`Instagram could not process the media (${c.status_code}${c.status ? `: ${c.status}` : ""})`);
+    await sleep(Number(process.env.MIKEE_IG_POLL_MS ?? 10_000));
   }
-  throw new Error("Instagram is still processing the media. Try again in a minute.");
+  throw new Error("Instagram is still processing the media. Retrying will wait for the same upload, not upload again.");
 }
 
 const sameText = (a?: string, b?: string) => !!a && !!b && a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
 
+/** A publishing problem a retry cannot fix (a schedule in the past, say): the client decides again. */
+export class PublishProblem extends Error {}
+
+/** Scheduled Page posts must be 10 minutes to 30 days ahead at the moment they are sent (docs: pages-api/posts). */
+export function scheduleProblem(scheduleAt: string | undefined, now = Date.now()): string | null {
+  if (!scheduleAt) return null;
+  const t = new Date(scheduleAt).getTime();
+  if (!Number.isFinite(t)) return "The scheduled time is not a valid date.";
+  if (t < now + 10 * 60_000) return "The scheduled time has passed or is less than 10 minutes away. Propose a new time, or publish now.";
+  if (t > now + 30 * 86400_000) return "Facebook schedules posts at most 30 days ahead.";
+  return null;
+}
+
 /**
  * Publishes (or schedules) to the Facebook page and/or Instagram. Each channel's post id is saved as soon
  * as it exists; on a retry a channel that already has an id is skipped, and if an earlier attempt may have
- * published without saving, recent posts are checked for the same text before publishing again.
+ * published without saving, recent posts are checked for the same text before publishing again. Photos are
+ * converted to what each network accepts first (see images.ts).
  */
-export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoint, isRetry: boolean) {
+export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoint, isRetry: boolean, workspaceId?: string) {
+  const problem = scheduleProblem(spec.scheduleAt);
+  if (problem) throw new PublishProblem(problem);
   const when = spec.scheduleAt ? Math.floor(new Date(spec.scheduleAt).getTime() / 1000) : undefined;
   const since = Date.now() - 6 * 3600 * 1000;
+
+  /** The photo as this network accepts it, converted once and remembered across retries. */
+  const photo = async (url: string, target: Target) => {
+    if (!workspaceId || process.env.MIKEE_IMAGE_PREP === "off") return url;
+    const key = `img:${target}:${url}`;
+    const done = (cp.data.prepared ?? {}) as Record<string, string>;
+    if (done[key]) return done[key];
+    const prepared = await socialImageUrl(workspaceId, url, target);
+    await cp.save({ prepared: { ...done, [key]: prepared } });
+    return prepared;
+  };
 
   if (spec.channels.includes("facebook") && !cp.data.facebook) {
     if (!ctx.pageId) throw new Error("No Facebook page connected");
@@ -370,11 +451,12 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
       } else if (first.type === "video") {
         id = (await page.post<{ id: string }>(`/${ctx.pageId}/videos`, { file_url: first.url, description: spec.text, ...schedule })).id;
       } else if (spec.media.length === 1) {
-        id = (await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: first.url, message: spec.text, ...schedule })).id;
+        id = (await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: await photo(first.url, "facebook"), message: spec.text, ...schedule })).id;
       } else {
         const ids: string[] = cp.data.fbPhotos ?? [];
-        for (const m of spec.media.filter((m) => m.type === "image").slice(ids.length)) {
-          ids.push((await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: m.url, published: false })).id);
+        for (const m of spec.media.slice(ids.length)) {
+          // Photos of a scheduled post must be uploaded as temporary (docs: page/photos).
+          ids.push((await page.post<{ id: string }>(`/${ctx.pageId}/photos`, { url: await photo(m.url, "facebook"), published: false, ...(when ? { temporary: true } : {}) })).id);
           await cp.save({ fbPhotos: ids });
         }
         id = (
@@ -382,6 +464,7 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
             message: spec.text,
             attached_media: ids.map((media_fbid) => ({ media_fbid })),
             ...schedule,
+            ...(when ? { unpublished_content_type: "SCHEDULED" } : {}),
           })
         ).id;
       }
@@ -407,26 +490,36 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
           creationId = (
             await ctx.graph.post<{ id: string }>(
               `/${ig}/media`,
-              m.type === "image" ? { image_url: m.url, caption: spec.text } : { media_type: "REELS", video_url: m.url, caption: spec.text },
+              m.type === "image" ? { image_url: await photo(m.url, "instagram"), caption: spec.text } : { media_type: "REELS", video_url: m.url, caption: spec.text },
             )
           ).id;
         } else {
-          const children: string[] = [];
-          for (const m of spec.media) {
+          // Children are remembered as they are made: a retry continues instead of making new containers
+          // (an account may create 400 containers a day).
+          const children: string[] = cp.data.igChildren ?? [];
+          for (const m of spec.media.slice(children.length)) {
             const c = await ctx.graph.post<{ id: string }>(
               `/${ig}/media`,
-              m.type === "image" ? { image_url: m.url, is_carousel_item: true } : { media_type: "VIDEO", video_url: m.url, is_carousel_item: true },
+              m.type === "image" ? { image_url: await photo(m.url, "instagram"), is_carousel_item: true } : { media_type: "VIDEO", video_url: m.url, is_carousel_item: true },
             );
-            await waitForContainer(ctx, c.id);
             children.push(c.id);
+            await cp.save({ igChildren: children });
           }
+          for (const c of children) await waitForContainer(ctx, c);
           creationId = (await ctx.graph.post<{ id: string }>(`/${ig}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: spec.text })).id;
         }
         await cp.save({ igContainer: creationId });
       }
-      await waitForContainer(ctx, creationId);
-      const r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
-      await cp.save({ instagram: r.id });
+      const state = await waitForContainer(ctx, creationId);
+      if (state === "PUBLISHED") {
+        // An earlier attempt published it; find the post instead of publishing twice.
+        const recent = await ctx.graph.get<{ data: { id: string; caption?: string }[] }>(`/${ig}/media`, { fields: "id,caption", limit: 15 });
+        const hit = recent.data?.find((p) => sameText(p.caption, spec.text));
+        await cp.save({ instagram: hit?.id ?? creationId });
+      } else {
+        const r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
+        await cp.save({ instagram: r.id });
+      }
     }
   }
   return { facebook: cp.data.facebook, instagram: cp.data.instagram };

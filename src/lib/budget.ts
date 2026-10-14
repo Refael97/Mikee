@@ -233,11 +233,17 @@ export async function syncMetaSpendCap(workspaceId: string, tz: string, ctx: Met
     updateSettings(workspaceId, { metaSpendCapStatus: { ok, at: new Date().toISOString(), detail } });
   try {
     const [acc, spentThisMonth] = await Promise.all([
-      ctx.graph.get<{ amount_spent: string }>(`/${account}`, { fields: "amount_spent,spend_cap" }),
+      ctx.graph.get<{ amount_spent: string; spend_cap?: string }>(`/${account}`, { fields: "amount_spent,spend_cap" }),
       accountSpend(ctx, "this_month"),
     ]);
     const remaining = Math.max(0, Number(row.monthlyLimit) + extensions - spentThisMonth);
-    const targetMajor = Math.round((Number(acc.amount_spent) / factor + remaining) * 100) / 100;
+    // A cap of 0 means "no cap" to Meta, so the smallest cap is one unit. The account limit may be changed only
+    // 10 times a day (17/1885172), so it is written only when it actually differs.
+    const targetMajor = Math.max(1, Math.round((Number(acc.amount_spent) / factor + remaining) * 100) / 100);
+    if (acc.spend_cap && Math.abs(Number(acc.spend_cap) - targetMajor * factor) < 1) {
+      await status(true, `limit already set, ${money(remaining, currency)} left this month`);
+      return { ok: true, targetMajor, remaining, unchanged: true };
+    }
     await ctx.graph.post(`/${account}`, { spend_cap: targetMajor });
     const after = await ctx.graph.get<{ spend_cap: string }>(`/${account}`, { fields: "spend_cap" });
     const readBack = Number(after.spend_cap);

@@ -103,6 +103,30 @@ async function isClientRule(workspaceId: string, factId: string) {
   return !!f && f.source === "client" && f.status === "confirmed";
 }
 
+/**
+ * What Meta would refuse, caught before the client sees a card (docs: instagram-platform content-publishing,
+ * pages-api posts): Instagram captions up to 2200 characters, 30 hashtags and 20 mentions; a Facebook post is
+ * one video, or photos only; schedules 10 minutes to 30 days ahead, Facebook only.
+ */
+export function postProblem(spec: z.infer<typeof PostSpec>): string | null {
+  if (spec.channels.includes("instagram")) {
+    if (spec.text.length > 2200) return "Instagram captions are at most 2200 characters.";
+    if ((spec.text.match(/#[\p{L}\p{N}_]+/gu) ?? []).length > 30) return "Instagram allows at most 30 hashtags.";
+    if ((spec.text.match(/@[A-Za-z0-9._]+/g) ?? []).length > 20) return "Instagram allows at most 20 @mentions.";
+    if (!spec.media.length) return "Instagram posts need an image or a video.";
+    if (spec.scheduleAt) return "Instagram posts cannot be scheduled through Meta; publish on approval, or schedule for Facebook only.";
+  }
+  if (spec.channels.includes("facebook")) {
+    const videos = spec.media.filter((m) => m.type === "video").length;
+    if (videos > 1 || (videos === 1 && spec.media.length > 1)) return "A Facebook post is either one video or photos only. Split it into separate posts.";
+  }
+  if (spec.scheduleAt) {
+    const t = new Date(spec.scheduleAt).getTime();
+    if (!Number.isFinite(t) || t < Date.now() + 15 * 60_000 || t > Date.now() + 30 * 86400_000) return "Schedule between 15 minutes and 30 days from now.";
+  }
+  return null;
+}
+
 const proposalOptions = {
   replaces: z.string().uuid().optional().describe("Id of a waiting card this one replaces (when the client asked for a change)"),
   clientAsked: z.boolean().optional().describe("True only when the client explicitly asked for this in the conversation"),
@@ -317,13 +341,13 @@ export const TOOLS = [
   tool({
     name: "read_insights",
     effect: "read",
-    description: "Detailed performance numbers for deeper analysis: by level, custom date range, breakdowns (age, gender, region, publisher_platform, platform_position, device_platform) or daily trend (timeIncrement '1').",
+    description: "Detailed performance numbers for deeper analysis: by level, custom date range, breakdowns or daily trend (timeIncrement '1'). Valid breakdowns: 'age', 'gender', 'age,gender', 'publisher_platform', 'publisher_platform,platform_position', 'device_platform', 'region' (region hides purchases and pixel leads; use it only for reach and clicks).",
     input: z.object({
       level: z.enum(["account", "campaign", "adset", "ad"]),
       period: Period.optional(),
       since: z.string().optional().describe("YYYY-MM-DD"),
       until: z.string().optional().describe("YYYY-MM-DD"),
-      breakdowns: z.string().optional(),
+      breakdowns: z.enum(["age", "gender", "age,gender", "publisher_platform", "publisher_platform,platform_position", "device_platform", "region"]).optional(),
       timeIncrement: z.string().optional(),
     }),
     run: async (ctx, i) => insights(await metaContext(ctx.workspaceId), i),
@@ -397,7 +421,7 @@ export const TOOLS = [
     run: async (ctx) => {
       const meta = await metaContext(ctx.workspaceId);
       return meta.graph.all(`/${requireAdAccount(meta)}/customaudiences`, {
-        fields: "id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound,time_updated",
+        fields: "id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound,time_updated,delivery_status,operation_status",
       });
     },
   }),
@@ -405,7 +429,9 @@ export const TOOLS = [
   tool({
     name: "meta_read",
     effect: "read",
-    description: "Read anything else from Meta (Graph API GET), e.g. product catalogs and sets, lead forms and leads, pixel stats, ad previews, page info. Path like '/act_123/product_catalogs' or '/{id}'. Use the ids from connections or other results.",
+    description:
+      "Read anything else from Meta (Graph API GET), e.g. product catalogs and sets, lead forms and leads, pixel stats, ad previews, page info. Path like '/{business_id}/owned_product_catalogs', '/{page_id}/leadgen_forms' or '/{id}'. Use the ids from connections or other results. " +
+      "Organic insights: Instagram metrics impressions, plays, video_views, profile_views and clicks are removed; use views, reach, total_interactions, likes, comments, saved, shares. Page metrics page_impressions*/post_impressions* are removed; use page_media_view, page_total_media_view_unique, post_media_view, post_total_media_view_unique.",
     input: z.object({ path: z.string().startsWith("/").max(200), params: z.record(z.string(), z.unknown()).default({}) }),
     untrusted: "meta",
     run: async (ctx, i) => {
@@ -508,6 +534,8 @@ export const TOOLS = [
     description: "Prepare an organic post (Facebook page and/or Instagram, image, video/reel or carousel) and show it to the client before publishing.",
     input: PostSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
+      const problem = postProblem(spec);
+      if (problem) return { error: problem };
       const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
       return { proposalId: p.id, shown: "The post preview is in front of the client." };
     },
@@ -563,7 +591,7 @@ export const TOOLS = [
     input: VideoSpecBase.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
       if (!videoRenderer()) return { error: "Video rendering is not connected on this server yet. Use photos, or propose_media if it is connected." };
-      if (totalSeconds(spec) > 60) return { error: "A video is at most 60 seconds. Shorten the scenes." };
+      if (totalSeconds(spec) > 60 || totalSeconds(spec) < 3) return { error: "A video is 3 to 60 seconds (Instagram and Facebook Reels need at least 3)." };
       try {
         await videoMedia(ctx.workspaceId, spec);
       } catch (e) {

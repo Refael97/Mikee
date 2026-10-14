@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@electric-sql/pglite"],
+  serverExternalPackages: ["@electric-sql/pglite", "sharp"],
   poweredByHeader: false,
   // No image optimizer proxy: images are served as-is (an open optimizer can be abused to fetch anything).
   images: { unoptimized: true },

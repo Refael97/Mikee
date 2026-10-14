@@ -165,63 +165,41 @@ Every turn of Mikee's and every execution is a job in the database with a heartb
 Simple sentences, each with a source (client / website / store / results / Mikee's own inference) and a date. What the client said is confirmed. What Mikee inferred is a suggestion until she approves it. Results become dated "learnings", never permanent rules, and get marked as stale after 60 days. Prices, stock and promotions aren't stored; they're re-checked before use.
 
 ### Meta connection
-- Onboarding finds the business itself (a page whose website or name matches, the matching ad account, the most recently active pixel) and asks "Is this your business?".
-- **Access can be lost at any time**, including with a token that has no planned expiry date (password change, permission removed, removal from the Business). Every Meta access error marks the connection as broken, the screens show "reconnect", and the cron job checks the token and each selected asset.
 
-## Tests
+Checked against Meta's official docs (Graph API v26.0, October 2026). The app is a **Business** app with **Facebook Login for Business**.
 
-```bash
-npm test
-```
+**Setup in the App Dashboard (app `META_APP_ID`):**
+1. Facebook Login for Business ← Configurations ← Create configuration:
+   - Token: **System-user access token**, **60 days**. Mikee renews it automatically about 10 days before it expires, in the hourly job.
+   - Assets: Pages, Ad accounts, Instagram accounts, Catalogs.
+   - Permissions: `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_ads`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `leads_retrieval`, `catalog_management`.
+   - The Configuration ID goes into `META_LOGIN_CONFIG_ID` (required).
+2. Facebook Login for Business ← Settings:
+   - Valid OAuth Redirect URIs: exactly `{APP_URL}/api/meta/callback`.
+   - Strict Mode and Enforce HTTPS on.
+3. App Settings ← Basic ← App Domains: the domain of `APP_URL`.
+4. Optional: Advanced ← Require App Secret. Every call carries `appsecret_proof`.
+5. To serve businesses you don't own: Business Verification, then App Review for Advanced Access on every permission above, plus `public_profile` and the Ads Management Standard Access feature. Until then, add each pilot client to the app as a Tester.
 
-111 tests against a real database (embedded Postgres) and a simulated Meta that records every call:
-- `tests/approvals.test.ts`: tool classification and blocking, the version-bound approval, five simultaneous approvals → one campaign, a failure mid-run and retry without duplicates, adopting an orphaned campaign after a crash, a post retry only on the channel that failed, blocking repeated suggestions.
-- `tests/budget.test.ts`: the projection (scheduled, paused, external changes), the ceiling, reservations for pending cards, the check at execution time, increases, and the hard ceiling at Meta.
-- `tests/team.test.ts`: tool permissions per role (Mikee doesn't build or publish himself; each specialist only gets its own tools; no further delegation), a full delegation flow (brief, tools, card reaches the client, the team stays invisible), parallel tasks, and a specialist failure.
-- `tests/conversations.test.ts`: the quick category guess, filing by Mikee, the lock after a manual move, history isolation between conversations, a card result reported in the right conversation, ordering and removal, and attachments as content blocks.
-- `tests/proactive.test.ts`: quiet hours, the daily limit, no repeats (including two cron runs at once), priorities (a lost connection, a failed card, a waiting card in its own conversation), the weekly summary replacing the morning check, a silent check-in leaving no trace, the new-conversation marking, and parsing quick replies.
-- `tests/security.test.ts`: forged files (HTML/SVG disguised as images), internal addresses, the `meta_write` allowlist against every bypass attempt, tokens, imitating platform events, blocking instruction leaks, protecting client rules, isolation between businesses, a code check that every route verifies the session and the origin, signed links, quota, rate limits, and signing out of all devices.
-- `tests/journey.test.ts` and `tests/library.test.ts`: the marketing path (detection, updates, focus, the next-step nudge), and the library (storage, a single description, search by content, folders, deletion, isolation).
-- `tests/runtime.test.ts`: jobs (one turn at a time, atomic claiming, resuming after a dead worker), a full Mikee turn with a mocked model (no MCP in the request), the AI cap, and gating media generation (no paying twice).
-
-**Not yet tested against the real services:** the actual Meta API, the Claude API, and Higgsfield's real MCP server. That's the first step of the pilot.
-
-## Sign-up
-
-New businesses open an account at `/signup` (business name, their name, email, password). The account starts at the setup steps (`/onboarding`) on the default plan. `MIKEE_SIGNUP` sets who may sign up: `open`, `invite` (needs the code in `MIKEE_INVITE_CODE`) or `closed`. Protection: 3 sign-ups per network per hour and 10 per day, a daily cap for all sign-ups (`MIKEE_SIGNUP_DAILY_CAP`, default 50), a hidden field that catches bots, the same strong-password rule as everywhere else, and one answer whether or not an email is already taken.
-
-## Running locally
-
-```bash
-npm install
-cp .env.example .env.local    # fill in ANTHROPIC_API_KEY, SESSION_SECRET, MIKEE_ENCRYPTION_KEY
-npm run create-user -- "Business name" "Owner name" owner@example.com "password"
-npm run dev
-```
-
-Without `DATABASE_URL`, an embedded Postgres in `./.data` is used, with no extra installation.
-
-## Deploying to Railway
-
-1. **Repo + Postgres:** New project → Deploy from GitHub repo, then Add → Database → PostgreSQL. `railway.json` and `nixpacks.toml` already define Node 22, the build, start and the health check.
-2. **Mikee service variables** (Mikee → Variables):
-   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (a reference to the database)
-   - `SESSION_SECRET`, `MIKEE_ENCRYPTION_KEY`, `CRON_SECRET`: three different random values (`openssl rand -hex 32`)
-   - `APP_URL`: the service's public address (Settings → Networking → Generate Domain), with https
-   - `ANTHROPIC_API_KEY`
-   - The first user: `MIKEE_BUSINESS_NAME`, `MIKEE_OWNER_NAME`, `MIKEE_OWNER_EMAIL`, `MIKEE_OWNER_PASSWORD` (at least 10 characters). On first startup the business and user are created; after you sign in, delete `MIKEE_OWNER_PASSWORD`.
-3. **Health check:** `/api/health` reports exactly which settings are missing (names only) and whether the database responds. If a deploy fails, open this address.
-4. **Cron:** add a Cron service that runs **every hour** (`0 * * * *`) with the command:
-   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/cron/checkin`
-5. **Later:** `META_APP_ID`/`META_APP_SECRET` (plus a redirect address in the Meta app: `{APP_URL}/api/meta/callback`), a file bucket (`S3_*`), Google Drive (`GOOGLE_*`), support (`SUPPORT_*`). The full list is in `.env.example`.
-
-Netlify fits Mikee's public landing page (a separate site). The app itself stays on Railway.
-
-## Meta connection
-
-- `META_APP_ID` + `META_APP_SECRET`: shows a "התחברות עם פייסבוק" (Log in with Facebook) button and gets a long-lived token (about 60 days).
-- For the pilot you can also paste a ready System User access token (under "יש לי מפתח גישה מוכן", "I already have an access key"). This kind of token has no planned expiry date, but it can still be revoked. That's why there's monitoring and a "reconnect" screen.
-- Tokens are stored encrypted (AES-256-GCM) and never reach the model.
+**How it works in the code:**
+- **Login dialog:** sends `config_id` with `response_type=code` and `override_default_response_type=true`, which system-user tokens require. It sends no `scope`.
+- **Callback:** reads Facebook's error parameters, checks the token with `debug_token`, and refuses a token that can't be checked or comes from another app.
+- **Token storage:** tokens are stored encrypted (AES-256-GCM) and never reach the model.
+- **Retries:** reads are retried with backoff on temporary errors and short throttling.
+- **Disconnects:** only a dead token (190/102) disconnects. An object-level permission error doesn't, and the hourly check verifies the token and each asset.
+- **Publishing to Instagram and Facebook:**
+  - Photos are converted to JPEG, sRGB, at most 1440px wide. For Instagram they are also cropped to 4:5–1.91:1 and kept to 8MB or less. Facebook gets them at 10MB or less.
+  - Scheduled posts are 10 minutes to 30 days ahead, Facebook only.
+  - Rendered videos come out the way Reels ask: H.264, AAC at 48kHz stereo, moov first, no edit list.
+- **Campaigns:**
+  - Lead ads: link `https://fb.me/` and only the allowed buttons.
+  - Cities: radius 17–80km.
+  - Advantage+ audience: ages are a suggestion (min ≤ 25, max 65).
+  - Engagement: `ON_POST`. Awareness: `page_id`.
+  - Video thumbnail: uploaded as an ad image.
+  - Budget changes in a campaign-budget (CBO) campaign go to the campaign.
+  - The spending cap is written only when it changes (up to 10 times a day).
+- For the pilot you can also paste a ready System User token (under "יש לי מפתח גישה מוכן", "I already have an access key").
 
 ## Higgsfield (generating images and video)
 

@@ -6,7 +6,7 @@ import { mediaGenerator } from "./higgsfield";
 import { storeBytes, storeFromUrl } from "./media";
 import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
-import { activateCampaign, applyChange, buildCampaign, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild } from "./meta/actions";
+import { activateCampaign, applyChange, buildCampaign, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild } from "./meta/actions";
 import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
@@ -102,7 +102,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
       }
       case "post": {
         const spec = PostSpec.parse(p.action);
-        result = await publishPost(await metaContext(p.workspaceId), spec, cp, p.attempts > 1);
+        result = await publishPost(await metaContext(p.workspaceId), spec, cp, p.attempts > 1, p.workspaceId);
         break;
       }
       case "media": {
@@ -116,7 +116,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
     }
     await finishProposal(p, true, result);
   } catch (err) {
-    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem);
+    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem || err instanceof PublishProblem);
     await finishProposal(p, false, {
       error: friendlyError(err),
       detail: describeError(err),

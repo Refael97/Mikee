@@ -129,8 +129,16 @@ let waiting = 0;
 
 async function render(dir) {
   await prepareClips(dir);
+  const raw = join(dir, "raw.mp4");
+  await exec(process.execPath, [CLI, "render", dir, "-o", raw, "-q", "standard", "--quiet", "--workers", process.env.RENDER_WORKERS ?? "2"]);
+  // Shape the file the way Reels ask for it: moov atom at the front, no edit list, AAC 128k at 48kHz stereo,
+  // video untouched (H.264, 4:2:0, 30fps, closed GOP).
   const out = join(dir, "out.mp4");
-  await exec(process.execPath, [CLI, "render", dir, "-o", out, "-q", "standard", "--quiet", "--workers", process.env.RENDER_WORKERS ?? "2"]);
+  await exec("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-y", "-i", raw,
+    "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
+    "-movflags", "+faststart", "-use_editlist", "0", out,
+  ]);
   return readFile(out);
 }
 

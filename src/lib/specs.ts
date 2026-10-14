@@ -9,12 +9,13 @@ export const CTA = z.enum([
   "GET_OFFER",
   "ORDER_NOW",
   "SUBSCRIBE",
-  "WHATSAPP_MESSAGE",
-  "MESSAGE_PAGE",
-  "CALL_NOW",
   "APPLY_NOW",
   "DOWNLOAD",
+  "GET_QUOTE",
 ]);
+
+/** Instant-form (lead) ads accept only these buttons (docs: marketing-api/guides/lead-ads/create). */
+export const LEAD_CTAS = ["APPLY_NOW", "DOWNLOAD", "GET_QUOTE", "LEARN_MORE", "SIGN_UP", "SUBSCRIBE"] as const;
 
 export const Media = z.object({
   type: z.enum(["image", "video"]),
@@ -41,11 +42,18 @@ export const CampaignSpec = z.object({
     description: z.string().describe("Plain-language summary for the card, e.g. 'קהל חדש בישראל, עם התאמה אוטומטית'"),
     countries: z.array(z.string().length(2)).default(["IL"]),
     cities: z
-      .array(z.object({ key: z.string(), name: z.string(), radiusKm: z.number().optional() }))
+      .array(
+        z.object({
+          key: z.string(),
+          name: z.string(),
+          type: z.enum(["city", "region"]).default("city").describe("As search_targeting returned it"),
+          radiusKm: z.number().min(17).max(80).optional().describe("Cities only: 17-80 km around the city (Meta's limits)"),
+        }),
+      )
       .optional()
-      .describe("City keys from search_targeting (type adgeolocation)"),
-    ageMin: z.number().int().min(18).max(65).optional(),
-    ageMax: z.number().int().min(18).max(65).optional(),
+      .describe("City or region keys from search_targeting (type adgeolocation)"),
+    ageMin: z.number().int().min(18).max(65).optional().describe("With advantage on, Meta treats ages as a suggestion and allows a minimum of at most 25"),
+    ageMax: z.number().int().min(18).max(65).optional().describe("With advantage on, the maximum is always 65 (Meta's rule); set advantage false for strict ages"),
     genders: z.enum(["all", "women", "men"]).default("all"),
     interests: z
       .array(z.object({ id: z.string(), name: z.string() }))
@@ -87,7 +95,7 @@ export const PostSpec = z.object({
   text: z.string().min(1),
   media: z.array(Media).max(10).default([]).describe("Instagram requires at least one image or video"),
   link: z.string().url().optional().describe("Facebook only: a link to attach when there is no media"),
-  scheduleAt: z.string().optional().describe("ISO 8601 time to publish. Omit to publish on approval"),
+  scheduleAt: z.string().datetime({ offset: true }).optional().describe("ISO 8601 time to publish, 10 minutes to 30 days ahead (Facebook only). Omit to publish on approval"),
 });
 export type PostSpec = z.infer<typeof PostSpec>;
 
@@ -97,8 +105,8 @@ export const MediaSpec = z.object({
   type: z.enum(["image", "video"]),
   model: z.string().describe("Higgsfield model id (e.g. marketing_studio_image, gpt_image_2_5, marketing_studio_video, seedance_2_5)"),
   prompt: z.string().min(10),
-  aspectRatio: z.string().default("4:5").describe("4:5 or 1:1 for feed, 9:16 for reels and stories"),
-  duration: z.number().int().min(2).max(20).optional().describe("Video seconds"),
+  aspectRatio: z.string().default("4:5").describe("4:5 or 1:1 for feed photos (Instagram feed photos must be between 4:5 and 1.91:1), 9:16 for reel videos"),
+  duration: z.number().int().min(3).max(20).optional().describe("Video seconds (Instagram and Facebook Reels need at least 3)"),
   count: z.number().int().min(1).max(4).default(1),
   referenceUrls: z.array(z.string().url()).max(4).default([]).describe("Real product photos to base the generation on"),
   referenceRole: z.string().optional().describe("Role for the references as the model defines it (see Higgsfield model info)"),

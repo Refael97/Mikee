@@ -76,7 +76,7 @@ export const VideoSpecBase = z.object({
     .optional()
     .describe("Background music for the whole video; it fades in and out and dips under clips that keep their sound"),
 });
-export const VideoSpec = VideoSpecBase.refine((v) => totalSeconds(v) <= 60, { message: "A video is at most 60 seconds" });
+export const VideoSpec = VideoSpecBase.refine((v) => totalSeconds(v) <= 60 && totalSeconds(v) >= 3, { message: "A video is 3 to 60 seconds (Instagram and Facebook Reels need at least 3)" });
 export type VideoSpec = z.infer<typeof VideoSpec>;
 
 export const totalSeconds = (v: { scenes: { seconds?: number }[] }) => Math.round(v.scenes.reduce((s, x) => s + (x.seconds ?? 3.5), 0) * 10) / 10;

@@ -150,7 +150,7 @@ export async function readCampaigns(ctx: MetaContext, period: Period = "last_7d"
       "adsets.limit(20){id,name,effective_status,daily_budget,lifetime_budget,start_time,end_time,targeting}",
       `ads.limit(30){id,name,effective_status,creative{thumbnail_url,image_url,body,title,object_story_spec},insights.date_preset(${period}){${INSIGHT_FIELDS}}}`,
     ].join(","),
-    ...(includeEnded ? {} : { effective_status: JSON.stringify(["ACTIVE", "PAUSED", "IN_PROCESS", "WITH_ISSUES", "CAMPAIGN_PAUSED", "ADSET_PAUSED"]) }),
+    ...(includeEnded ? {} : { effective_status: JSON.stringify(["ACTIVE", "PAUSED", "IN_PROCESS", "WITH_ISSUES", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "PENDING_REVIEW", "DISAPPROVED", "PENDING_BILLING_INFO"]) }),
   }, 100);
 
   return campaigns.map((c): FriendlyCampaign => {

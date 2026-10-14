@@ -4,7 +4,25 @@ import { createHmac } from "crypto";
 const VERSION = process.env.META_GRAPH_VERSION || "v26.0";
 const BASE = `https://graph.facebook.com/${VERSION}`;
 
+/** Minutes until Meta lifts a business-use-case throttle, from X-Business-Use-Case-Usage (docs: rate-limiting). */
+function regainMinutes(headers: Headers): number | undefined {
+  const raw = headers.get("x-business-use-case-usage");
+  if (!raw) return undefined;
+  try {
+    const all = Object.values(JSON.parse(raw) as Record<string, { estimated_time_to_regain_access?: number }[]>).flat();
+    const max = Math.max(0, ...all.map((u) => Number(u.estimated_time_to_regain_access ?? 0)));
+    return Number.isFinite(max) ? max : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export class MetaError extends Error {
+  /** Meta marked the error as temporary (is_transient, or codes 1/2). */
+  transient = false;
+  /** When throttled: minutes until access returns, if Meta said. */
+  regainMinutes?: number;
+
   constructor(
     message: string,
     public code?: number,
@@ -15,9 +33,19 @@ export class MetaError extends Error {
     super(message);
   }
 
-  /** Token expired or revoked (190), or the app/user lost permission to the object (10, 200-299). */
+  /**
+   * The token itself is dead or revoked (190, 102). A permission error on one object (10, 200-299, e.g.
+   * audience terms not accepted, 200/1870034) is not: the hourly health check probes the token and each
+   * asset and marks the connection when access to an asset is really gone.
+   */
   get isAccessLost(): boolean {
-    return this.code === 190 || this.code === 102 || this.code === 10 || (this.code != null && this.code >= 200 && this.code < 300);
+    return this.code === 190 || this.code === 102;
+  }
+
+  /** Meta asks to slow down (docs: graph-api rate-limiting, marketing-api rate-limiting). */
+  get isThrottled(): boolean {
+    const c = this.code ?? -1;
+    return [4, 17, 32, 341, 613].includes(c) || (c >= 80000 && c <= 80014);
   }
 
   /** Short, model-readable description used in tool results. */
@@ -65,7 +93,25 @@ export class Graph {
     private onAccessLost?: (err: MetaError) => void | Promise<void>,
   ) {}
 
+  /**
+   * Reads are retried a couple of times with backoff when Meta reports a temporary problem or asks to slow
+   * down briefly. Writes are never retried here: execution checkpoints decide that, so nothing is created twice.
+   */
   private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.once<T>(method, path, params);
+      } catch (e) {
+        const err = e as MetaError;
+        const retry = method === "GET" && attempt < 2 && err instanceof MetaError && (err.transient || (err.isThrottled && (err.regainMinutes ?? 0) <= 1) || (err.status ?? 0) >= 500);
+        if (!retry) throw e;
+        const wait = Number(process.env.MIKEE_META_BACKOFF_MS ?? 2000) * 2 ** attempt * (0.75 + Math.random() / 2);
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
+  }
+
+  private async once<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
     const clean = path.startsWith("/") ? path : `/${path}`;
     // Paths are plain segments: a query string or traversal smuggled into the path could change the request.
     if (!/^\/[A-Za-z0-9_./-]*$/.test(clean) || clean.includes("..")) throw new MetaError("Invalid Graph path");
@@ -80,7 +126,7 @@ export class Graph {
       cache: "no-store",
     });
     const json = (await res.json().catch(() => ({}))) as {
-      error?: { message: string; code?: number; error_subcode?: number; error_user_msg?: string; error_user_title?: string };
+      error?: { message: string; code?: number; error_subcode?: number; error_user_msg?: string; error_user_title?: string; is_transient?: boolean; fbtrace_id?: string };
     } & T;
     if (!res.ok || json.error) {
       const e = json.error;
@@ -91,6 +137,9 @@ export class Graph {
         e?.error_user_msg ?? e?.error_user_title,
         res.status,
       );
+      err.transient = !!e?.is_transient || e?.code === 1 || e?.code === 2;
+      err.regainMinutes = regainMinutes(res.headers);
+      if (e?.fbtrace_id) console.warn(`[meta] ${clean} ${e.code ?? ""}/${e.error_subcode ?? ""} trace ${e.fbtrace_id}`);
       if (err.isAccessLost) await this.onAccessLost?.(err);
       throw err;
     }
