@@ -88,11 +88,10 @@ export async function runMikee(opts: {
         : err instanceof Anthropic.RateLimitError
           ? "מייקי עמוס כרגע, נסי שוב בעוד דקה."
           : err instanceof Anthropic.APIError
-            ? `תקלה זמנית בחיבור למייקי (${err.status}). נסי שוב בעוד רגע.`
+            ? `תקלה בחיבור למייקי (${err.status}). נסי שוב בעוד רגע. (${failureNote(err)})`
             : /ANTHROPIC_API_KEY|apiKey|authToken/i.test(String((err as Error)?.message))
               ? "מייקי לא מחובר ל־Claude: חסר בשרת המשתנה ANTHROPIC_API_KEY."
-              : // The kind of failure (never its details) so the owner can tell problems apart in the pilot.
-                `משהו השתבש אצלי (${String((err as Error)?.name ?? "Error").slice(0, 40)}). נסי שוב בעוד רגע.`;
+              : `משהו השתבש אצלי. נסי שוב בעוד רגע. (${failureNote(err)})`;
     await emit({ t: "error", message });
   }
 
@@ -115,3 +114,16 @@ export async function runMikee(opts: {
 }
 
 export type { Kind };
+
+/**
+ * Pilot only: a short note on what failed, so a problem can be fixed without server logs. Anything that looks
+ * like a key or token is blanked out. Before Mikee opens beyond the pilot, show only the kind of failure.
+ */
+function failureNote(err: unknown): string {
+  const e = err as Error;
+  const text = `${e?.name ?? "Error"}: ${e?.message ?? String(err)}`
+    .replace(/[A-Za-z0-9_\-]{24,}/g, "…")
+    .replace(/\s+/g, " ")
+    .slice(0, 160);
+  return text;
+}
