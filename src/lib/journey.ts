@@ -76,7 +76,7 @@ async function relationship(workspaceId: string) {
     d.select({ n: count() }).from(schema.conversations).where(eq(schema.conversations.workspaceId, workspaceId)),
     d.select({ n: count(), last: sql<Date | null>`max(${schema.messages.createdAt})` }).from(schema.messages).where(and(eq(schema.messages.workspaceId, workspaceId), eq(schema.messages.role, "user"), eq(schema.messages.kind, "chat"))),
     d
-      .select({ kind: schema.proposals.kind, n: count(), recent: sql<number>`count(*) filter (where ${schema.proposals.finishedAt} >= ${since})::int` })
+      .select({ kind: schema.proposals.kind, n: count(), recent: sql<number>`count(*) filter (where ${schema.proposals.finishedAt} >= ${since.toISOString()}::timestamptz)::int` })
       .from(schema.proposals)
       .where(and(eq(schema.proposals.workspaceId, workspaceId), eq(schema.proposals.status, "done")))
       .groupBy(schema.proposals.kind),
