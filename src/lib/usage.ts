@@ -1,9 +1,7 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, eq, sql } from "drizzle-orm";
-import { db, schema } from "./db";
-import { monthKey } from "./budget";
-import { assertCredits, CreditsExhausted } from "./credits";
+import { assertCredits, charge, creditsFromHiggsfield, creditsFromUsd, CreditsExhausted } from "./credits";
+import { currentTask } from "./telemetry";
 
 /** USD per million tokens (cache writes at 1.25x input), by model family. Web search is per request. */
 const PRICES: { prefix: string; input: number; output: number; cacheWrite: number; cacheRead: number }[] = [
@@ -32,22 +30,19 @@ export function claudeCostUsd(u: Anthropic.Beta.BetaUsage, model = "claude-fable
   );
 }
 
-export async function recordUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield" | "render", amount: number, detail?: Record<string, unknown>) {
+/**
+ * Records a cost and charges it to the business's quota (src/lib/credits.ts). Claude in dollars, Higgsfield in
+ * its own credits; both become Mikee credits. Inside a task, the charge carries the task's job (so a failed
+ * task can be refunded) and counts against its hold.
+ */
+export async function recordUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield", amount: number, detail: Record<string, unknown> = {}, holdId?: string) {
   if (!amount) return;
-  const d = await db();
-  await d.insert(schema.usage).values({ workspaceId, kind, month: monthKey(tz), amount, detail });
+  const task = currentTask();
+  const credits = kind === "claude" ? creditsFromUsd(amount) : creditsFromHiggsfield(amount);
+  await charge(workspaceId, tz, { kind, amount, credits, detail: { ...detail, ...(task?.jobId ? { jobId: task.jobId } : {}) }, holdId: holdId ?? task?.holdId });
 }
 
-export async function monthUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield" | "render"): Promise<number> {
-  const d = await db();
-  const [r] = await d
-    .select({ total: sql<string>`coalesce(sum(${schema.usage.amount}), 0)` })
-    .from(schema.usage)
-    .where(and(eq(schema.usage.workspaceId, workspaceId), eq(schema.usage.kind, kind), eq(schema.usage.month, monthKey(tz))));
-  return Number(r?.total ?? 0);
-}
-
-/** Thinking costs credits: Mikee does not start (or continue) once the month's credits are used up. */
+/** Thinking costs credits: Mikee does not start (or continue) once nothing is left. */
 export const AiBudgetExceeded = CreditsExhausted;
 export async function assertAiBudget(workspaceId: string, tz: string) {
   return assertCredits(workspaceId, tz);

@@ -196,6 +196,35 @@ CREATE TABLE IF NOT EXISTS usage (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS usage_ws_idx ON usage (workspace_id, kind, month);
+ALTER TABLE usage ADD COLUMN IF NOT EXISTS credits numeric;
+CREATE TABLE IF NOT EXISTS credit_purchases (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  amount numeric NOT NULL,
+  reason text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS credit_purchases_ws ON credit_purchases (workspace_id);
+CREATE TABLE IF NOT EXISTS credit_draws (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  purchase_id uuid NOT NULL,
+  usage_id integer NOT NULL,
+  amount numeric NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS credit_draws_ws ON credit_draws (workspace_id);
+CREATE TABLE IF NOT EXISTS credit_holds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  ref text NOT NULL,
+  amount numeric NOT NULL,
+  consumed numeric NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  released_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS credit_holds_ws ON credit_holds (workspace_id) WHERE released_at IS NULL;
 CREATE TABLE IF NOT EXISTS media (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces(id),

@@ -6,7 +6,8 @@ import { db, schema } from "../db";
 import { appendMany, type Kind, loadHistory } from "../conversation";
 import { recentConversationsText } from "../conversations";
 import { AiBudgetExceeded } from "../usage";
-import { TaskLimit } from "../telemetry";
+import { currentTask, TaskLimit } from "../telemetry";
+import { refundJob } from "../credits";
 import { businessBrief } from "./brief";
 import { playbookStatus } from "../playbooks";
 import { skillsBrief, skillsFor } from "../skills";
@@ -122,6 +123,11 @@ export async function runMikee(opts: {
         await emit({ t: "error", message: LEAK_REPLACEMENT });
       }
     }
+  }
+  // A turn that failed without anything usable (no answer, no card) is not charged to the client.
+  const jobId = currentTask()?.jobId;
+  if (failed && !written.trim() && jobId && !pending.some((r) => r.role === "user" && JSON.stringify(r.content).includes('"proposalId"'))) {
+    await refundJob(workspaceId, jobId).catch((e) => console.warn("[credits] refund failed", e));
   }
   if (!opts.discardIf?.(written) || failed) await appendMany(workspaceId, conversationId, pending);
   await emit({ t: "done" });

@@ -5,7 +5,6 @@ import { assertWithinBudget, BudgetExceeded, dailyCommit, syncMetaSpendCap } fro
 import { mediaGenerator } from "./higgsfield";
 import { storeBytes, storeFromUrl } from "./media";
 import { buildProject, renderVideo, VideoProblem } from "./video/render";
-import { totalSeconds } from "./video/spec";
 import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
 import { resolveIdentity } from "./meta/identities";
@@ -15,7 +14,7 @@ import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, P
 import { friendlyError } from "./errors";
 import { CTA_HE } from "./cards";
 import { recordUsage } from "./usage";
-import { creditBalance, creditsFromHiggsfield, videoEditCredits } from "./credits";
+import { CreditsExhausted, creditsFromHiggsfield, recordLost, release, reserve } from "./credits";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -121,13 +120,13 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         break;
       }
       case "video": {
-        result = await executeVideo(p, cp, tz);
+        result = await executeVideo(p, cp);
         break;
       }
     }
     await finishProposal(p, true, result);
   } catch (err) {
-    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem || err instanceof PublishProblem);
+    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem || err instanceof PublishProblem || err instanceof CreditsExhausted);
     // A failed build may have left paused objects at Meta (or created one whose answer was lost): look.
     const built = p.kind === "campaign" ? await metaContext(p.workspaceId).then((ctx) => whatWasBuilt(ctx, `mk-${p.id.slice(0, 8)}`, cp)).catch((e) => ({ checked: false as const, error: describeError(e), adIds: [] })) : undefined;
     await finishProposal(p, false, {
@@ -185,70 +184,77 @@ async function executeMedia(p: Proposal, cp: Checkpoint, tz: string) {
   const gen = mediaGenerator();
   if (!gen) throw new NotRetryable("Media generation is not connected");
   const spec = MediaSpec.parse(p.action);
+  const hf = Number(p.reserved);
+  // The credits are set aside before anything is sent (the same hold if the request already set it aside).
+  // Once sent, the work is finished and charged whatever else happened to the balance meanwhile.
+  const hold = cp.data.charged ? null : await reserve(p.workspaceId, tz, `proposal:${p.id}`, creditsFromHiggsfield(hf));
+  if (!hold && !cp.data.charged && !cp.data.jobIds) throw new CreditsExhausted();
+  try {
+    if (!cp.data.jobIds) {
+      if (cp.data.submitting) {
+        // An earlier attempt died while submitting: Higgsfield may or may not have started (and charged) it.
+        // Never resubmit blindly; the client decides after checking.
+        throw new NotRetryable("Not sure whether the earlier generation request reached Higgsfield. Check there before trying again.");
+      }
+      const refs: string[] = cp.data.refs ?? [];
+      for (const url of spec.referenceUrls.slice(refs.length)) {
+        refs.push(await gen.importUrl(url));
+        await cp.save({ refs });
+      }
+      await cp.save({ submitting: true });
+      const jobIds = await gen.submit(spec, refs);
+      await cp.save({ jobIds });
+    }
 
-  if (!cp.data.jobIds) {
-    if (cp.data.submitting) {
-      // An earlier attempt died while submitting: Higgsfield may or may not have started (and charged) it.
-      // Never resubmit blindly; the client decides after checking.
-      throw new NotRetryable("Not sure whether the earlier generation request reached Higgsfield. Check there before trying again.");
+    const waitMs = Number(process.env.MIKEE_MEDIA_WAIT_MS ?? 15 * 60_000);
+    const interval = Math.min(3000, waitMs / 5);
+    let urls: string[] = [];
+    // Bounded by rounds rather than wall-clock, so a slow poll cannot stretch the wait indefinitely.
+    for (let round = 0; round < Math.max(1, Math.ceil(waitMs / interval)); round++) {
+      const r = await gen.poll(cp.data.jobIds);
+      if (r.failed.length) {
+        // Nothing usable came out: Higgsfield's charge is our cost, not the client's.
+        if (!cp.data.lost) {
+          await cp.save({ lost: true });
+          await recordLost(p.workspaceId, tz, "higgsfield", hf, { proposalId: p.id, jobIds: cp.data.jobIds });
+        }
+        throw new NotRetryable(`Higgsfield could not finish the generation (${r.failed.join(", ")})`);
+      }
+      if (r.terminal) {
+        urls = r.urls;
+        break;
+      }
+      await sleep(interval);
     }
-    const credits = Number(p.reserved);
-    const balance = await creditBalance(p.workspaceId, tz);
-    if (creditsFromHiggsfield(credits) > balance.remaining) {
-      throw new NotRetryable(`צריך ${creditsFromHiggsfield(credits)} קרדיטים ונשארו ${balance.remaining} החודש. אפשר להוסיף קרדיטים ולנסות שוב.`);
-    }
-    const refs: string[] = cp.data.refs ?? [];
-    for (const url of spec.referenceUrls.slice(refs.length)) {
-      refs.push(await gen.importUrl(url));
-      await cp.save({ refs });
-    }
-    await cp.save({ submitting: true });
-    const jobIds = await gen.submit(spec, refs);
-    await cp.save({ jobIds });
-    await recordUsage(p.workspaceId, tz, "higgsfield", credits, { proposalId: p.id, jobIds });
-  }
+    if (!urls.length) throw new Error("The generation is still running at Higgsfield. Retrying will wait for the same job, not start a new one.");
 
-  const waitMs = Number(process.env.MIKEE_MEDIA_WAIT_MS ?? 15 * 60_000);
-  const interval = Math.min(3000, waitMs / 5);
-  let urls: string[] = [];
-  // Bounded by rounds rather than wall-clock, so a slow poll cannot stretch the wait indefinitely.
-  for (let round = 0; round < Math.max(1, Math.ceil(waitMs / interval)); round++) {
-    const r = await gen.poll(cp.data.jobIds);
-    if (r.failed.length) throw new NotRetryable(`Higgsfield could not finish the generation (${r.failed.join(", ")})`);
-    if (r.terminal) {
-      urls = r.urls;
-      break;
+    const stored: { url: string; type: "image" | "video" }[] = cp.data.stored ?? [];
+    for (const url of urls.slice(stored.length)) {
+      const m = await storeFromUrl(p.workspaceId, url, "higgsfield", cp.data.jobIds.join(","));
+      stored.push({ url: m.url, type: m.type });
+      await cp.save({ stored });
     }
-    await sleep(interval);
+    // Charged once, for a delivered result. A crash between the two writes undercharges, never doubles.
+    if (!cp.data.charged) {
+      await cp.save({ charged: true });
+      await recordUsage(p.workspaceId, tz, "higgsfield", hf, { proposalId: p.id, jobIds: cp.data.jobIds }, hold?.id);
+    }
+    return { media: stored };
+  } finally {
+    // A retry that will wait for the same job sets aside again (by the same ref); anything else is done.
+    await release(hold?.id);
   }
-  if (!urls.length) throw new Error("The generation is still running at Higgsfield. Retrying will wait for the same job, not start a new one.");
-
-  const stored: { url: string; type: "image" | "video" }[] = cp.data.stored ?? [];
-  for (const url of urls.slice(stored.length)) {
-    const m = await storeFromUrl(p.workspaceId, url, "higgsfield", cp.data.jobIds.join(","));
-    stored.push({ url: m.url, type: m.type });
-    await cp.save({ stored });
-  }
-  return { media: stored };
 }
 
-/** Renders an approved video on the HyperFrames worker and keeps the MP4 in the business's library. */
-async function executeVideo(p: Proposal, cp: Checkpoint, tz: string) {
+/** Renders an approved video on the HyperFrames worker and keeps the MP4 in the business's library. Editing is free. */
+async function executeVideo(p: Proposal, cp: Checkpoint) {
+  if (cp.data.stored) return { media: cp.data.stored };
   const spec = VideoSpec.parse(p.action);
-  const credits = videoEditCredits(totalSeconds(spec));
-  if (!cp.data.stored) {
-    const balance = await creditBalance(p.workspaceId, tz);
-    if (credits > balance.remaining) throw new NotRetryable(`עריכת הסרטון צריכה ${credits} קרדיטים ונשארו ${balance.remaining} החודש. אפשר להוסיף קרדיטים ולנסות שוב.`);
-    const mp4 = await renderVideo(await buildProject(p.workspaceId, spec));
-    const m = await storeBytes(p.workspaceId, mp4, { filename: "video.mp4", source: "hyperframes", sourceRef: p.id, inLibrary: true, folder: "סרטונים" });
-    await cp.save({ stored: [{ url: m.url, type: "video" as const, id: m.id }] });
-  }
-  // Charged once, for a finished video only. A crash between the two saves undercharges, never doubles.
-  if (!cp.data.charged) {
-    await cp.save({ charged: true });
-    await recordUsage(p.workspaceId, tz, "render", credits, { proposalId: p.id, seconds: totalSeconds(spec) });
-  }
-  return { media: cp.data.stored };
+  const mp4 = await renderVideo(await buildProject(p.workspaceId, spec));
+  const m = await storeBytes(p.workspaceId, mp4, { filename: "video.mp4", source: "hyperframes", sourceRef: p.id, inLibrary: true, folder: "סרטונים" });
+  const stored = [{ url: m.url, type: "video" as const, id: m.id }];
+  await cp.save({ stored });
+  return { media: stored };
 }
 
 /** The geo_locations a campaign card sends to Meta, or nothing when the card cannot be read. */

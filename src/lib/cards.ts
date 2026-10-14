@@ -154,7 +154,6 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         rows: [
           { label: "מה ניצור", value: `${s.count > 1 ? `${s.count} ` : ""}${s.type === "video" ? "סרטון" : "תמונה"}${s.count > 1 ? "ים" : ""}${s.duration ? ` של ${s.duration} שניות` : ""}` },
           { label: "הרעיון", value: s.prompt.length > 160 ? `${s.prompt.slice(0, 160)}…` : s.prompt },
-          { label: "עלות", value: extra.credits != null ? `${extra.credits} קרדיטים` : "יחושב לפני האישור" },
         ],
         media: s.referenceUrls.map((url) => ({ type: "image" as const, url })),
         generate: { type: s.type, count: s.count, ratio: s.aspectRatio.replace(":", "/") },
@@ -176,7 +175,6 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
           { label: "סגנון", value: VIDEO_STYLES[s.style].label },
           ...(s.scenes.some((x) => x.type === "clip") ? [{ label: "קטעי וידאו", value: `${s.scenes.filter((x) => x.type === "clip").length} מהספרייה${s.scenes.some((x) => x.type === "clip" && x.sound) ? ", עם הקול המקורי" : ""}` }] : []),
           { label: "מוזיקה", value: s.music ? "מוזיקת רקע מהספרייה" : "בלי מוזיקה" },
-          ...(extra.credits != null ? [{ label: "עלות", value: `${extra.credits} קרדיטים` }] : []),
           { label: "מה יקרה באישור", value: "מייקי יערוך את הסרטון וישמור אותו בספרייה. שום דבר לא יעלה לאוויר בלי אישור נפרד." },
         ],
         preview: { ratio: f.ratio, seconds: secs },

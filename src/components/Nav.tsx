@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { UsageMenuItem } from "./Usage";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { BarChart3, Images, Inbox, LifeBuoy, LogOut, Megaphone, Menu, MessagesSquare, Settings, Store, User, X } from "lucide-react";
@@ -111,6 +112,8 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
                   </p>
                 </div>
                 <div className="my-1 border-t border-line" />
+                <UsageMenuItem />
+                <div className="my-1 border-t border-line" />
                 <MenuLink href="/account" icon={User} label="הפרופיל שלי" />
                 <MenuLink href="/settings" icon={Settings} label="הגדרות וחיבורים" />
                 <div className="my-1 border-t border-line" />
@@ -169,6 +172,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
             ))}
           </nav>
           <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-2">
+            <UsageMenuItem />
             <NavLink href="/settings" label="הגדרות וחיבורים" icon={Settings} active={settingsActive} />
             <NavLink href="/account" label="הפרופיל שלי" icon={User} active={path.startsWith("/account")} />
             <form action={logout}>

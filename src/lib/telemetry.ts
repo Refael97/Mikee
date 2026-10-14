@@ -8,6 +8,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
  */
 export type TaskScope = {
   jobId?: string;
+  /** Credits set aside for this task (src/lib/credits.ts); its charges count against them. */
+  holdId?: string;
   kind?: string;
   startedAt: number;
   modelCalls: number;

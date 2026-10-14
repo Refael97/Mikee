@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usageChanged } from "./Usage";
 import { ArrowDown, ArrowLeft, Check, FileText } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
 import { Composer, type Upload } from "./Composer";
@@ -164,6 +165,7 @@ export function Chat({
       setLive(null);
       pinned.current = true;
       refreshConversations(convId.current ?? undefined); // Mikee may have titled or filed the conversation
+      usageChanged(); // the usage meter catches up in the background
     },
     [refresh],
   );

@@ -131,22 +131,22 @@ describe("a Mikee turn", () => {
     await drainJobs();
     expect(claude.requests).toHaveLength(0);
     const errors = (await eventsSince(job.id)).filter((e) => e.event.t === "error");
-    expect(String(errors[0].event.message)).toMatch(/נגמרו הקרדיטים/);
+    expect(String(errors[0].event.message)).toBe("המכסה שלך לא מספיקה לפעולה הזאת. אפשר להוסיף קרדיטים או לשדרג ולהמשיך מאותה נקודה.");
   });
 });
 
-describe("media generation costs credits, so it is gated too", () => {
+describe("media generation uses the quota quietly", () => {
   const mediaInput = { title: "סרטון לקולקציה", why: "צריך סרטון קצר לרילס", type: "video", model: "seedance_2_5", prompt: "A slow pan over the new autumn dresses on a rack", aspectRatio: "9:16" };
 
-  it("without a pre-approved allowance, shows the price and generates nothing", async () => {
-    const ws = await createBusiness({ settings: { autoMediaCredits: 0 } });
+  it("Mikee's own idea comes as a card without a price; nothing is generated before approval", async () => {
+    const ws = await createBusiness();
     const { gen, state } = fakeGenerator({ cost: 12 });
     setMediaGeneratorForTests(gen);
     const r = await runTool({ workspaceId: ws, tz: TZ }, "propose_media", mediaInput);
     const p = await proposal(JSON.parse(r.content).proposalId);
     expect(p.status).toBe("pending");
     expect(state.submits).toBe(0);
-    expect((p.card as any).rows.find((x: any) => x.label === "עלות").value).toBe("84 קרדיטים"); // 12 Higgsfield credits at $0.07, in Mikee credits of a cent
+    expect(JSON.stringify(p.card)).not.toMatch(/עלות|קרדיט/);
 
     await approveProposal(ws, p.id, p.versionHash);
     await drainJobs();
@@ -156,42 +156,42 @@ describe("media generation costs credits, so it is gated too", () => {
     expect((done.result as any).media[0].url).toMatch(/^https:\/\/mikee\.test\/api\/media\//); // stored on our side
   });
 
-  it("within the allowance it runs at once; beyond the monthly limit it is refused", async () => {
-    // 8 Higgsfield credits = 56 Mikee credits; 60 may run without a card, 300 in all this month.
-    const ws = await createBusiness({ settings: { credits: 300, autoMediaCredits: 60 } });
+  it("her explicit request is enough: it runs at once; beyond the quota it is refused with the plain sentence", async () => {
+    // 8 Higgsfield credits = 56 Mikee credits; 300 included.
+    const ws = await createBusiness({ settings: { credits: 300 } });
     const { gen, state } = fakeGenerator({ cost: 8 });
     setMediaGeneratorForTests(gen);
-    const r = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", mediaInput)).content);
-    expect(r.autoApproved).toBe(true);
+    const r = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", { ...mediaInput, clientAsked: true })).content);
+    expect(r.started).toBe(true);
+    expect((await proposal(r.proposalId)).status).not.toBe("pending");
     await drainJobs();
     expect(state.submits).toBe(1);
 
-    // 56 used: 4 auto credits left, so the next one needs a card...
-    const second = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", { ...mediaInput, prompt: "Close-up of fabric texture in morning light" })).content);
-    expect(second.autoApproved).toBeUndefined();
-    // ...and something costing more than what is left this month is refused outright.
-    setMediaGeneratorForTests(fakeGenerator({ cost: 50 }).gen);
-    const third = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", { ...mediaInput, prompt: "A long brand film with many scenes" })).content);
-    expect(third.error).toMatch(/costs 350 credits; 244 are left this month/);
+    setMediaGeneratorForTests(fakeGenerator({ cost: 50 }).gen); // 350 credits: more than what is left
+    const third = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", { ...mediaInput, clientAsked: true, prompt: "A long brand film with many scenes" })).content);
+    expect(third.error).toContain("המכסה שלך לא מספיקה לפעולה הזאת. אפשר להוסיף קרדיטים או לשדרג ולהמשיך מאותה נקודה.");
   });
 
   it("a retry waits for the same Higgsfield job and never pays twice", async () => {
     process.env.MIKEE_MEDIA_WAIT_MS = "50";
     const ws = await createBusiness();
-    const { gen, state } = fakeGenerator({ cost: 10, terminalAfter: 1000 });
+    // The first wait (5 polls) runs out; the job finishes during the retry's wait.
+    const { gen, state } = fakeGenerator({ cost: 10, terminalAfter: 7 });
     setMediaGeneratorForTests(gen);
     const id = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", mediaInput)).content).proposalId;
     const { versionHash } = await proposal(id);
     await approveProposal(ws, id, versionHash);
     await drainJobs();
     expect((await proposal(id)).status).toBe("failed"); // still rendering when the wait ran out
+    const d = await db();
+    expect(await d.select().from(schema.usage).where(eq(schema.usage.workspaceId, ws))).toEqual([]); // nothing delivered, nothing charged
 
     await approveProposal(ws, id, versionHash);
     await drainJobs();
+    expect((await proposal(id)).status).toBe("done");
     expect(state.submits).toBe(1);
-    const d = await db();
     const usage = await d.select().from(schema.usage).where(eq(schema.usage.workspaceId, ws));
-    expect(usage.map((u) => Number(u.amount))).toEqual([10]);
+    expect(usage.map((u) => [u.kind, Number(u.amount), Number(u.credits)])).toEqual([["higgsfield", 10, 70]]);
     delete process.env.MIKEE_MEDIA_WAIT_MS;
   });
 });

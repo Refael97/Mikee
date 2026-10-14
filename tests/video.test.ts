@@ -10,8 +10,7 @@ import { sniff } from "@/lib/filetype";
 import { compose, musicSegments } from "@/lib/video/compose";
 import { VideoSpec } from "@/lib/video/spec";
 import { createBusiness, drainJobs, NOW, proposal, TZ } from "./support/setup";
-import { addCredits, creditBalance } from "@/lib/credits";
-import { recordUsage } from "@/lib/usage";
+import { quota } from "@/lib/credits";
 
 beforeAll(() => vi.useFakeTimers({ toFake: ["Date"], now: NOW }));
 afterAll(() => vi.useRealTimers());
@@ -258,42 +257,18 @@ describe("the render worker", () => {
   });
 });
 
-describe("video editing is a service, priced in credits", () => {
-  it("shows its price on the card and charges it once, for a finished video", async () => {
+describe("video editing is included", () => {
+  it("renders right away when she asked for it, with no card to approve and nothing charged", async () => {
     const ws = await createBusiness();
     const id = await photo(ws);
-    const r = JSON.parse((await runTool(ctx(ws), "propose_video", reel(id))).content);
-    // 10.5 seconds at 2 credits a second (the minimum is 20).
-    expect(r.credits).toBe(21);
-    const p = await proposal(r.proposalId);
-    expect((p.card as any).rows.find((x: any) => x.label === "עלות").value).toBe("21 קרדיטים");
-    expect((await creditBalance(ws, TZ)).byKind.video).toBe(0);
-
-    await approveProposal(ws, p.id, p.versionHash);
+    const r = JSON.parse((await runTool(ctx(ws), "propose_video", { ...reel(id), clientAsked: true })).content);
+    expect(r.started).toBe(true);
+    expect((await proposal(r.proposalId)).status).not.toBe("pending");
     await drainJobs();
-    expect((await proposal(p.id)).status).toBe("done");
-    const b = await creditBalance(ws, TZ);
-    expect(b.byKind.video).toBe(21);
-    expect(b.used).toBe(21);
-    // A failed attempt costs nothing.
-    answer = () => new Response("render failed", { status: 500 });
-    const second = JSON.parse((await runTool(ctx(ws), "propose_video", reel(id, { title: "גרסה נוספת" }))).content);
-    const q = await proposal(second.proposalId);
-    await approveProposal(ws, q.id, q.versionHash);
-    await drainJobs();
-    expect((await creditBalance(ws, TZ)).byKind.video).toBe(21);
-  });
-
-  it("is refused when the month's credits cannot cover it, and runs again once credits are added", async () => {
-    const ws = await createBusiness({ settings: { credits: 100 } });
-    const id = await photo(ws);
-    await recordUsage(ws, TZ, "claude", 0.9); // 90 credits of conversation
-    const r = JSON.parse((await runTool(ctx(ws), "propose_video", reel(id))).content);
-    expect(r.error).toMatch(/costs 21 credits; 10 are left this month/);
-    await addCredits(ws, TZ, 50, "bought more");
-    const b = await creditBalance(ws, TZ);
-    expect([b.total, b.used, b.remaining]).toEqual([150, 90, 60]);
-    expect(JSON.parse((await runTool(ctx(ws), "propose_video", reel(id))).content).credits).toBe(21);
+    expect((await proposal(r.proposalId)).status).toBe("done");
+    expect(sent).toHaveLength(1);
+    const q = await quota(ws, TZ);
+    expect(q.byKind).toEqual({ conversations: 0, media: 0 });
+    expect(JSON.stringify((await proposal(r.proposalId)).card)).not.toMatch(/עלות|קרדיט/);
   });
 });
-

@@ -18,7 +18,6 @@ import { checkMetaHealth } from "./meta/health";
 import { getSettings, updateSettings } from "./settings";
 import { cleanClientText, hit, LIMITS } from "./guard";
 import { checkUrl } from "./net";
-import { planOf } from "./plans";
 import { shopifyDomain } from "./store";
 import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 import { forgetBusiness } from "./ttl";
@@ -139,13 +138,7 @@ export async function saveBudget(form: FormData) {
 export async function saveLimits(form: FormData) {
   const { workspace } = await requireSession();
   forgetBusiness(workspace.id);
-  const num = (k: string) => {
-    const n = Number(str(form, k));
-    return Number.isFinite(n) && n >= 0 ? n : undefined;
-  };
-  // The credits themselves come from the plan; the client only chooses how much media may run without a card.
   await updateSettings(workspace.id, {
-    autoMediaCredits: num("autoMediaCredits"),
     metaSpendCap: form.get("metaSpendCap") === "on",
   });
   if (form.get("metaSpendCap") === "on") {

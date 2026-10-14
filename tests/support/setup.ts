@@ -91,7 +91,7 @@ export function fakeClaude(script: ((req: any) => { content: any[]; stop_reason:
 export const toolUse = (id: string, name: string, input: unknown) => ({ type: "tool_use", id, name, input });
 
 /** Higgsfield stand-in that counts submissions (each one costs real credits). */
-export function fakeGenerator(opts: { cost?: number; terminalAfter?: number } = {}) {
+export function fakeGenerator(opts: { cost?: number; terminalAfter?: number; fail?: boolean } = {}) {
   const state = { submits: 0, polls: 0, quotes: 0 };
   const gen: MediaGenerator = {
     async quote() {
@@ -105,6 +105,7 @@ export function fakeGenerator(opts: { cost?: number; terminalAfter?: number } = 
     async poll() {
       state.polls++;
       const terminal = state.polls >= (opts.terminalAfter ?? 1);
+      if (opts.fail) return { terminal: true, urls: [], failed: ["11111111-1111-4111-8111-111111111111"] };
       return { terminal, urls: terminal ? ["https://cdn.higgsfield.example/out.jpg"] : [], failed: [] };
     },
     async importUrl() {

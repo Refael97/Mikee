@@ -22,7 +22,7 @@ import { totalSeconds, VideoSpecBase } from "../video/spec";
 import { videoMedia, videoRenderer, VideoProblem } from "../video/render";
 import { hit } from "../guard";
 import { addLesson, agentIds, getPlaybook, PLAYBOOK_TEMPLATE, PlaybookProblem, playbookHistory, writePlaybook } from "../playbooks";
-import { creditBalance, creditsFromHiggsfield, videoEditCredits } from "../credits";
+import { creditsFromHiggsfield, NOT_ENOUGH, quota, rebindHold, release, reserve } from "../credits";
 import { skillsFor, skillText } from "../skills";
 import { inventory, salesSummary } from "../store";
 import { publicProducts, scanWebsite } from "../website";
@@ -678,8 +678,9 @@ export const TOOLS = [
     name: "propose_media",
     effect: "proposal",
     description:
-      "Create an image or a short video with Higgsfield (costs the client's Mikee credits). Gets the exact price first. Within the monthly amount the client pre-approved it runs right away; " +
-      "otherwise she sees a card with the price. Models: marketing_studio_image (products/ads), gpt_image_2_5 (general, text in image), " +
+      "Create an image or a short video with Higgsfield. It uses the client's quota, which she never sees per item: no prices, no cost talk. " +
+      "When she explicitly asked for it (clientAsked: true) it is generated right away, no card; your own idea comes to her as a card to approve. " +
+      "Models: marketing_studio_image (products/ads), gpt_image_2_5 (general, text in image), " +
       "marketing_studio_video (product video ads), seedance_2_5 (general video). Use real product photos as referenceUrls when relevant. " +
       "When it is ready you get its URLs in a platform event; use them in propose_post / propose_campaign.",
     input: MediaSpec.extend(proposalOptions),
@@ -689,10 +690,11 @@ export const TOOLS = [
       const refs = await Promise.all(spec.referenceUrls.map((u) => gen.importUrl(u)));
       const hf = await gen.quote(spec, refs);
       const credits = creditsFromHiggsfield(hf);
-      const balance = await creditBalance(ctx.workspaceId, ctx.tz);
-      if (credits > balance.remaining) {
-        return { error: `This costs ${credits} credits; ${balance.remaining} are left this month. Tell the client what it would cost and that she can add credits, or suggest something lighter (a photo from the library, a branded video).` };
-      }
+      const outOfQuota = { status: "error", error: `Not enough quota left for this. Stop and tell the client exactly: "${NOT_ENOUGH}" Nothing was created.` };
+      if (credits > (await quota(ctx.workspaceId, ctx.tz)).available) return outOfQuota;
+      // Her explicit request is enough: the credits are set aside now, so parallel work cannot take them.
+      const hold = clientAsked ? await reserve(ctx.workspaceId, ctx.tz, `pending-media:${crypto.randomUUID()}`, credits) : null;
+      if (clientAsked && !hold) return outOfQuota;
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
         conversationId: ctx.conversationId,
@@ -700,17 +702,22 @@ export const TOOLS = [
         kind: "media",
         action: spec,
         month: monthKey(ctx.tz),
-        // Higgsfield's own price, charged when it runs; the card shows Mikee credits.
+        // Higgsfield's own price, charged only when it delivers.
         reserved: hf,
-        credits,
         replaces,
         clientAsked,
       });
-      if (credits <= balance.autoMediaRemaining) {
-        await approveProposal(ctx.workspaceId, p.id, p.versionHash, { auto: true });
-        return { proposalId: p.id, credits, autoApproved: true, shown: "Within the client's pre-approved media allowance: generating now." };
+      if (hold) {
+        await rebindHold(hold.id, `proposal:${p.id}`);
+        try {
+          await approveProposal(ctx.workspaceId, p.id, p.versionHash, { auto: true });
+        } catch (e) {
+          await release(hold.id);
+          throw e;
+        }
+        return { proposalId: p.id, started: true, shown: "She asked for it: generating now. The result arrives in a platform event." };
       }
-      return { proposalId: p.id, credits, shown: "The client sees the price and approves before anything is generated." };
+      return { proposalId: p.id, shown: "Your idea is in front of the client as a card; nothing is generated before she approves." };
     },
   }),
 
@@ -721,8 +728,8 @@ export const TOOLS = [
       "Make a short branded video (reel, story, feed or wide) from designed templates, using the business's own photos, video clips and music from the library (search_library ids). " +
       "You write the scenes: title (photo or video background), product (photo or video, name, price), clip (a video from the library, trimmed with from/seconds, optional text over it, " +
       "sound: true to keep its own speech or ambience), text lines, gallery (photos or videos), customer quote, call to action. Add music (search_library kind audio) for the whole video; it dips under clips with sound. " +
-      "Hebrew text, short lines, no emoji. Typical: 4-6 scenes, 15-30 seconds; reels open with a strong first scene and end with a cta. The client watches the preview (with sound) in the card and approves; " +
-      "then it is rendered (about a minute; editing costs credits by length, shown on the card) and saved to the library. Publishing it is a separate propose_post / propose_campaign with the video URL from the platform event.",
+      "Hebrew text, short lines, no emoji. Typical: 4-6 scenes, 15-30 seconds; reels open with a strong first scene and end with a cta. For your own idea, the client watches the preview (with sound) in the card and approves; " +
+      "then it is rendered (about a minute) and saved to the library. When she explicitly asked for this video (clientAsked: true) there is no card: it renders right away. Publishing it is a separate propose_post / propose_campaign with the video URL from the platform event.",
     input: VideoSpecBase.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
       if (!videoRenderer()) return { error: "Video rendering is not connected on this server yet. Use photos, or propose_media if it is connected." };
@@ -734,11 +741,13 @@ export const TOOLS = [
         throw e;
       }
       if (!(await hit(`video:${ctx.workspaceId}`, 30, 86400)).ok) return { error: "Enough videos for today (30). Continue tomorrow." };
-      const credits = videoEditCredits(totalSeconds(spec));
-      const balance = await creditBalance(ctx.workspaceId, ctx.tz);
-      if (credits > balance.remaining) return { error: `Editing this video costs ${credits} credits; ${balance.remaining} are left this month. Offer a shorter video, or tell the client she can add credits.` };
-      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "video", action: spec, month: monthKey(ctx.tz), credits, replaces, clientAsked });
-      return { proposalId: p.id, seconds: totalSeconds(spec), credits, shown: "The client sees the video playing in the card and approves before it is rendered." };
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "video", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      // Editing itself costs nothing; when she asked for this video it is made right away.
+      if (clientAsked) {
+        await approveProposal(ctx.workspaceId, p.id, p.versionHash, { auto: true });
+        return { proposalId: p.id, seconds: totalSeconds(spec), started: true, shown: "She asked for it: rendering now (about a minute); it arrives in a platform event and is saved to the library." };
+      }
+      return { proposalId: p.id, seconds: totalSeconds(spec), shown: "The client sees the video playing in the card and approves before it is rendered." };
     },
   }),
 

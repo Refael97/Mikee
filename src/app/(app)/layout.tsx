@@ -8,6 +8,7 @@ import { pendingCount } from "@/lib/instagram/inbox";
 import { connectedAssets } from "@/lib/meta/assets";
 import { ConnectedAccount } from "@/components/ConnectedAccount";
 import { NavScroll } from "@/components/NavScroll";
+import { UsageWatcher } from "@/components/Usage";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <ConnectedAccount initial={assets} />
       </div>
       <MikeeToast />
+      <UsageWatcher />
       <div className="flex min-w-0 flex-1 flex-col">
       {meta?.status === "broken" && (
         <Link href="/settings" className="flex items-center justify-center gap-3 bg-warn-tint px-5 py-2.5 text-[15px] text-warn lg:mb-[10px] lg:rounded-[14px]">

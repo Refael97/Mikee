@@ -4,10 +4,14 @@ const ts = (name: string) => timestamp(name, { withTimezone: true });
 const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 export type WorkspaceSettings = {
-  /** Monthly Mikee credits for this business, set by us for a special deal; otherwise the plan's (src/lib/credits.ts). */
+  /** Credits included each billing cycle for this business, set by us for a special deal; otherwise the plan's (src/lib/credits.ts). */
   credits?: number;
-  /** Mikee credits a month that images and AI videos may use without a card. 0 = every generation needs a card. */
-  autoMediaCredits?: number;
+  /** The day the subscription started (YYYY-MM-DD): the included quota renews on this day of each month. */
+  billingAnchor?: string;
+  /** Human guidance added to the AI plan (src/lib/plans.ts). It does not change the AI quota. */
+  guidance?: "monthly" | "weekly";
+  /** Quota notices already shown in this cycle (80 and 95 percent), once each. */
+  quotaNotices?: { cycle: string; shown: number[] };
   /** Mirror the monthly budget onto the ad account's spending limit at Meta (hard stop on charges). */
   metaSpendCap?: boolean;
   metaSpendCapStatus?: { ok: boolean; at: string; detail: string };
@@ -30,8 +34,7 @@ export type FactTopic = "address" | "hours" | "phone" | "website" | "other";
 export type KpiId = "spend" | "leads" | "cost_per_lead" | "purchases" | "revenue" | "roas" | "cost_per_purchase" | "messages" | "calls" | "link_clicks" | "cost_per_click" | "reach" | "followers" | "store_orders" | "store_revenue";
 export type DashboardSpec = { kpis: KpiId[]; headline?: string; note?: string; updatedAt: string };
 
-export const DEFAULT_SETTINGS: Required<Pick<WorkspaceSettings, "autoMediaCredits" | "metaSpendCap">> = {
-  autoMediaCredits: 0,
+export const DEFAULT_SETTINGS: Required<Pick<WorkspaceSettings, "metaSpendCap">> = {
   metaSpendCap: true,
 };
 
@@ -270,7 +273,7 @@ export const jobEvents = pgTable("job_events", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
-/** Metered costs outside the ad account. kind: claude (USD) | higgsfield (its credits) | render (Mikee credits) | topup (Mikee credits added) */
+/** Metered costs outside the ad account. kind: claude (USD) | higgsfield (its credits) | *_lost (our cost of failed work, not charged). month: the billing cycle. */
 export const usage = pgTable("usage", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
@@ -278,7 +281,44 @@ export const usage = pgTable("usage", {
   month: text("month").notNull(),
   amount: numeric("amount", { mode: "number" }).notNull(),
   detail: jsonb("detail").$type<Record<string, unknown>>(),
+  /** Mikee credits charged for this row (null: our own cost only, not charged to the business). */
+  credits: numeric("credits", { mode: "number" }),
   createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Credits the business bought (or was given), on top of its plan's quota. Used after the included quota. */
+export const creditPurchases = pgTable("credit_purchases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  amount: numeric("amount", { mode: "number" }).notNull(),
+  reason: text("reason"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  /** null: never expires. */
+  expiresAt: ts("expires_at"),
+});
+
+/** The part of a charge paid from bought credits (beyond the cycle's included quota). */
+export const creditDraws = pgTable("credit_draws", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  purchaseId: uuid("purchase_id").notNull(),
+  usageId: integer("usage_id").notNull(),
+  amount: numeric("amount", { mode: "number" }).notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/**
+ * Credits set aside for work in progress, so tasks running at the same time cannot together go past the
+ * quota. Charges made under a hold count against it (consumed); it is released when the work ends.
+ */
+export const creditHolds = pgTable("credit_holds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  ref: text("ref").notNull(),
+  amount: numeric("amount", { mode: "number" }).notNull(),
+  consumed: numeric("consumed", { mode: "number" }).notNull().default(0),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  releasedAt: ts("released_at"),
 });
 
 /** Generated media, served from our own public URL so the server and Meta can always fetch it. */

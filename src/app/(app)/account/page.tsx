@@ -6,9 +6,10 @@ import { signOutEverywhere } from "@/lib/actions";
 import { logout } from "@/app/login/actions";
 import { CONNECTORS } from "@/lib/connectors";
 import { storageUsage } from "@/lib/media";
-import { planOf } from "@/lib/plans";
+import { GUIDANCE, GUIDANCE_INCLUDES, planOf } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
-import { creditBalance } from "@/lib/credits";
+import { quota } from "@/lib/credits";
+import { UsageBar, UsageRequests } from "@/components/Usage";
 import { Section } from "@/components/ConnectionForms";
 import { PasswordForm, ProfileForm } from "@/components/AccountForms";
 import { Page, PageHeader } from "@/components/Page";
@@ -35,10 +36,10 @@ function Meter({ label, used, limit, show }: { label: string; used: number; limi
 export default async function AccountPage() {
   const { user, workspace } = await requireSession();
   const d = await db();
-  const [settings, storage, credits, conns, security] = await Promise.all([
+  const [settings, storage, q, conns, security] = await Promise.all([
     getSettings(workspace.id),
     storageUsage(workspace.id),
-    creditBalance(workspace.id, workspace.timezone),
+    quota(workspace.id, workspace.timezone),
     d.select().from(schema.connections).where(eq(schema.connections.workspaceId, workspace.id)),
     d
       .select()
@@ -48,6 +49,9 @@ export default async function AccountPage() {
       .limit(8),
   ]);
   const plan = planOf(settings);
+  const guidance = settings.guidance ? GUIDANCE[settings.guidance] : null;
+  const n = (v: number) => Math.round(v).toLocaleString("he-IL");
+  const renews = new Date(`${q.renewsOn}T12:00:00`).toLocaleDateString("he-IL", { day: "numeric", month: "long" });
   const byId = new Map(conns.map((c) => [c.provider, c]));
   const when = (d: Date) => new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: workspace.timezone }).format(d);
 
@@ -67,14 +71,60 @@ export default async function AccountPage() {
         <ProfileForm name={user.name} email={user.email} username={user.username} />
       </Section>
 
-      <Section title="המנוי והשימוש" hint="מה כלול במנוי ומה כבר נוצל החודש. תקציב הפרסום עצמו משולם ישירות למטא ולא נספר כאן.">
-        <div className="max-w-xl">
+      <Section id="usage" title="המנוי והשימוש" hint="המכסה החודשית לכל מה שמייקי והצוות שלו עושים. תקציב הפרסום משולם ישירות למטא ולא נספר כאן.">
+        <div className="max-w-xl space-y-5">
+          <div>
+            <p className="font-medium">{plan.name}</p>
+            {guidance && (
+              <div className="mt-2 text-[15px] text-ink-2">
+                <p>
+                  בתוספת {guidance.name}: {guidance.callsPerMonth === 1 ? "שיחה אחת בחודש" : `${guidance.callsPerMonth} שיחות בחודש`}, {guidance.callMinutes} דקות כל אחת.
+                </p>
+                <ul className="mt-1 list-disc space-y-0.5 ps-5 text-[14px] text-ink-3">
+                  {GUIDANCE_INCLUDES.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-[15px] font-medium">ניצול המכסה החודשית</span>
+              <span className="num text-[15px]">{q.percent}%</span>
+            </div>
+            <div className="mt-2">
+              <UsageBar percent={q.percent} />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[14px] text-ink-2">
+              <span>
+                נשארו <span className="num">{n(q.includedLeft)}</span> מתוך <span className="num">{n(q.included)}</span> קרדיטים
+              </span>
+              <span>מתחדשת ב־{renews}</span>
+              {q.purchasedLeft > 0 && (
+                <span>
+                  קרדיטים נוספים שרכשת: <span className="num">{n(q.purchasedLeft)}</span>
+                </span>
+              )}
+            </div>
+          </div>
+          <dl className="divide-y divide-line border-y border-line text-[15px]">
+            <div className="flex justify-between gap-4 py-2.5">
+              <dt className="text-ink-2">שיחות ועבודה של הצוות</dt>
+              <dd className="num">{n(q.byKind.conversations)} קרדיטים</dd>
+            </div>
+            <div className="flex justify-between gap-4 py-2.5">
+              <dt className="text-ink-2">תמונות וסרטונים שנוצרו</dt>
+              <dd className="num">{n(q.byKind.media)} קרדיטים</dd>
+            </div>
+            <div className="flex justify-between gap-4 py-2.5">
+              <dt className="text-ink-2">עריכת סרטונים</dt>
+              <dd className="text-ink-3">כלולה</dd>
+            </div>
+          </dl>
           <Meter label="אחסון בספרייה" used={storage.used} limit={storage.limit} show={size} />
-          <Meter label="קרדיטים החודש" used={credits.used} limit={credits.total} show={(n) => Math.round(n).toLocaleString("he-IL")} />
+          <UsageRequests />
         </div>
-        <p className="mt-4 text-[15px] text-ink-2">
-          צריך יותר? <Link href="/settings#limits" className="link">פירוט הקרדיטים בהגדרות</Link>, או פנייה דרך העזרה להוספת קרדיטים או לשדרוג.
-        </p>
       </Section>
 
       <Section title="נכסים מחוברים" hint="כל חיבור אפשר לנתק או לחבר מחדש בהגדרות.">

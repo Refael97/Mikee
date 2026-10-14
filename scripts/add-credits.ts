@@ -1,7 +1,8 @@
 /**
- * Adds Mikee credits to a business for the current month (a purchase, or a goodwill gesture).
+ * Adds credits a business bought (or was given), after it asked. Nothing is ever bought automatically.
  * Usage: npm run add-credits -- owner@example.com 500 "קנתה חבילת תוספת"
- * The business is found by its owner's email; the credits are recorded in `usage` with the reason.
+ * They are used after the cycle's included quota and stay valid MIKEE_PURCHASED_CREDITS_MONTHS months
+ * (default 12; 0 = no expiry), across cycles.
  */
 import { INIT_SQL } from "../src/lib/db/init-sql";
 
@@ -13,12 +14,12 @@ async function main() {
     process.exit(1);
   }
   const run = async (q: (sql: string, params: unknown[]) => Promise<Record<string, string>[]>) => {
-    const [ws] = await q("SELECT w.id, w.name, w.timezone FROM workspaces w JOIN users u ON u.workspace_id = w.id WHERE lower(u.email) = $1 LIMIT 1", [email.toLowerCase()]);
+    const [ws] = await q("SELECT w.id, w.name FROM workspaces w JOIN users u ON u.workspace_id = w.id WHERE lower(u.email) = $1 LIMIT 1", [email.toLowerCase()]);
     if (!ws) throw new Error(`No business with a user ${email}`);
-    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: ws.timezone || "Asia/Jerusalem", year: "numeric", month: "2-digit" }).formatToParts(new Date());
-    const month = `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}`;
-    await q("INSERT INTO usage (workspace_id, kind, month, amount, detail) VALUES ($1, 'topup', $2, $3, $4) RETURNING id", [ws.id, month, amount, JSON.stringify({ reason })]);
-    console.log(`Added ${amount} credits to "${ws.name}" for ${month}`);
+    const months = Number(process.env.MIKEE_PURCHASED_CREDITS_MONTHS ?? 12);
+    const expires = months > 0 ? new Date(Date.now() + months * 30.44 * 86_400_000).toISOString() : null;
+    await q("INSERT INTO credit_purchases (workspace_id, amount, reason, expires_at) VALUES ($1, $2, $3, $4) RETURNING id", [ws.id, amount, reason, expires]);
+    console.log(`Added ${amount} credits to "${ws.name}"${expires ? `, valid until ${expires.slice(0, 10)}` : ""}`);
   };
 
   if (process.env.DATABASE_URL) {

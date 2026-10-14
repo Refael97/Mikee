@@ -3,7 +3,7 @@ import { brainAsText, listFacts } from "../brain";
 import { getConnection, type MetaConfig, type StoreConfig, type WebsiteConfig } from "../connections";
 import { openAndRecent } from "../proposals";
 import { journeyAsText } from "../journey";
-import { creditBalance } from "../credits";
+import { quota } from "../credits";
 
 /**
  * The business brief every agent on the team receives: today, what is connected, what is waiting for
@@ -17,7 +17,7 @@ export async function businessBrief(workspaceId: string, tz: string): Promise<st
     getConnection<StoreConfig>(workspaceId, "store"),
     openAndRecent(workspaceId),
     journeyAsText(workspaceId),
-    creditBalance(workspaceId, tz).catch(() => null),
+    quota(workspaceId, tz).catch(() => null),
   ]);
   const m = meta?.config;
   const today = new Intl.DateTimeFormat("he-IL", { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(new Date());
@@ -42,7 +42,7 @@ export async function businessBrief(workspaceId: string, tz: string): Promise<st
     ...(recent.length ? ["Recently decided:", ...recent.map((c) => `- [${c.kind}] "${c.card.title}": ${c.status} ${c.decidedAt?.toISOString().slice(0, 10) ?? ""}${by(c.agent)}`)] : []),
   ].join("\n");
   const creditLine = credits
-    ? `${credits.used} of ${credits.total} used this month, ${credits.remaining} left${credits.remaining < credits.total * 0.1 ? " (LOW)" : ""}. Images and AI videos run without a card up to ${credits.autoMedia} a month.`
+    ? `${credits.percent}% of this cycle's included quota used${credits.percent >= 80 ? " (LOW)" : ""}; enough left for ${credits.available > 0 ? "more work" : "nothing more: stop and tell her she can add credits or upgrade"}. Renews on ${credits.renewsOn}.`
     : "unknown";
-  return `# Now\n${today} (${tz})\n\n# Mikee credits (the client's monthly balance for everything Mikee does)\n${creditLine}\n\n# Connections (internal; never show ids to the client)\n${connections}\n\n# Cards\n${cardLines}\n\n# Where the business stands on its marketing path\n${journey}\n\n# What we know about the business\n${brainAsText(facts)}`;
+  return `# Now\n${today} (${tz})\n\n# Usage quota (internal: never quote numbers, prices or costs to the client)\n${creditLine}\n\n# Connections (internal; never show ids to the client)\n${connections}\n\n# Cards\n${cardLines}\n\n# Where the business stands on its marketing path\n${journey}\n\n# What we know about the business\n${brainAsText(facts)}`;
 }

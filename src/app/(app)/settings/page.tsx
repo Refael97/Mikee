@@ -8,7 +8,6 @@ import { CONNECTORS } from "@/lib/connectors";
 import { driveConfigured } from "@/lib/google";
 import { Page, PageHeader } from "@/components/Page";
 import { getSettings } from "@/lib/settings";
-import { creditBalance, creditsFromHiggsfield, videoEditCredits } from "@/lib/credits";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
 import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
 import { remember } from "@/lib/ttl";
@@ -49,62 +48,11 @@ async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: strin
   }
 }
 
-async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) {
-  const [settings, b] = await Promise.all([getSettings(workspaceId), creditBalance(workspaceId, tz)]);
+async function Limits({ workspaceId }: { workspaceId: string }) {
+  const settings = await getSettings(workspaceId);
   const cap = settings.metaSpendCapStatus;
-  const n = (v: number) => Math.round(v).toLocaleString("he-IL");
-  const pct = (v: number) => `${Math.min(100, (Math.max(0, v) / Math.max(1, b.total)) * 100)}%`;
-  // What things cost, so the client can plan. Images and AI videos show their exact price on the card.
-  const prices: [string, string][] = [
-    ["הודעה למייקי", "בערך קרדיט אחד"],
-    ["ניתוח תוצאות", "בערך 20 קרדיטים"],
-    ["בניית קמפיין", "בערך 80 קרדיטים"],
-    ["תמונה", `בערך ${creditsFromHiggsfield(2)} קרדיטים`],
-    ["סרטון AI קצר", `בערך ${creditsFromHiggsfield(7)} קרדיטים`],
-    ["עריכת סרטון של 15 שניות", `${videoEditCredits(15)} קרדיטים`],
-  ];
   return (
-    <form action={saveLimits} className="space-y-6">
-      <div>
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="text-[15px] text-ink-2">נוצלו החודש</span>
-          <span className="num">
-            <span className="text-[20px]">{n(b.used)}</span>
-            <span className="text-ink-3"> מתוך {n(b.total)}</span>
-          </span>
-        </div>
-        <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-surface-2">
-          <div className="bg-brand" style={{ width: pct(b.byKind.conversations) }} />
-          <div className="bg-brand/55" style={{ width: pct(b.byKind.media) }} />
-          <div className="bg-brand/25" style={{ width: pct(b.byKind.video) }} />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[14px] text-ink-2">
-          <span>שיחות, ניתוחים וקמפיינים {n(b.byKind.conversations)}</span>
-          <span>תמונות וסרטונים מ־AI {n(b.byKind.media)}</span>
-          <span>עריכת סרטונים {n(b.byKind.video)}</span>
-          <span className="font-semibold text-ink">נשארו {n(b.remaining)}</span>
-        </div>
-        <p className="mt-2 text-[13px] text-ink-3">כל פעולה של מייקי יורדת מאותה יתרה, לפי מה שהיא באמת עולה. כשהיתרה נגמרת מייקי עוצר, ואפשר להוסיף קרדיטים דרך העזרה.</p>
-      </div>
-
-      <details className="group">
-        <summary className="cursor-pointer list-none text-[14px] text-ink-2 hover:text-ink">כמה עולה כל דבר</summary>
-        <dl className="mt-2 divide-y divide-line border-y border-line text-[14px]">
-          {prices.map(([k, v]) => (
-            <div key={k} className="flex justify-between gap-4 py-2">
-              <dt className="text-ink-2">{k}</dt>
-              <dd className="num">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
-
-      <label className="block space-y-1.5">
-        <span className="text-[15px] text-ink-2">תמונות וסרטונים בלי לשאול אותי, עד</span>
-        <span className="block text-[13px] text-ink-3">קרדיטים בחודש. 0 אומר שכל תמונה וסרטון מגיעים קודם לאישור שלך עם המחיר</span>
-        <input name="autoMediaCredits" inputMode="numeric" defaultValue={settings.autoMediaCredits} className="field max-w-40" />
-      </label>
-
+    <form action={saveLimits} className="space-y-5">
       <label className="flex items-center justify-between gap-4">
         <span className="min-w-0 flex-1">
           <span className="block">תקרה קשיחה גם בחשבון המודעות</span>
@@ -224,8 +172,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </Suspense>
       </Section>
 
-      <Section id="limits" title="קרדיטים" hint="היתרה החודשית לכל מה שמייקי עושה: שיחות, קמפיינים, תמונות, סרטונים ועריכה. בנפרד מתקציב הפרסום, שמשולם ישירות למטא.">
-        <Limits workspaceId={workspace.id} tz={workspace.timezone} />
+      <Section id="limits" title="מגבלה במטא" hint="שכבת הגנה נוספת על תקציב הפרסום, ישירות בחשבון המודעות.">
+        <Limits workspaceId={workspace.id} />
       </Section>
 
       <Section id="skills" title="סקילים" hint="דרכי עבודה שלך שמייקי והצוות פועלים לפיהן כשהמשימה מתאימה. כותבים כאן או מעלים קובץ SKILL.md.">

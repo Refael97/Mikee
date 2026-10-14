@@ -10,6 +10,7 @@ import { handleInstagramMessage } from "./instagram/autoreply";
 import { ensureTitle } from "./titles";
 import { claimNext, finishJob, heartbeat, type Job, type JobKind, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 import { newTask, runInTask, TaskLimit, type TaskScope, taskMetrics } from "./telemetry";
+import { CREDIT_CONFIG, NOT_ENOUGH, release, reserve } from "./credits";
 
 /** Runs one job to completion. Exported for tests; the worker loop below calls it. */
 export async function runJob(job: Job) {
@@ -60,6 +61,18 @@ async function runJobIn(job: Job, task: TaskScope) {
       const conversationId = String(job.input.conversationId);
       const silent = (t: string) => !t.trim() || t.trim() === "NOTHING";
       const discard = job.kind === "checkin" && job.input.mayStaySilent !== false ? silent : undefined;
+      // The turn's credits are set aside first, so turns running at the same time cannot pass the quota.
+      const tz = (await (await db()).query.workspaces.findFirst({ where: eq(schema.workspaces.id, job.workspaceId) }))?.timezone ?? "Asia/Jerusalem";
+      const hold = await reserve(job.workspaceId, tz, `job:${job.id}`, CREDIT_CONFIG.turnHold(), { min: 1 });
+      if (!hold) {
+        // A check-in Mikee starts on his own just waits; a request from the client gets the plain answer.
+        if (job.kind !== "checkin") await pushEvent(job.id, { t: "error", message: NOT_ENOUGH });
+        await pushEvent(job.id, { t: "done" });
+        if (job.kind === "checkin") await deleteIfEmpty(conversationId);
+        await finishJob(job.id, "done", "quota used up", taskMetrics(task));
+        return;
+      }
+      task.holdId = hold.id;
       const written = await runMikee({
         workspaceId: job.workspaceId,
         conversationId,
@@ -76,7 +89,7 @@ async function runJobIn(job: Job, task: TaskScope) {
           await pushEvent(job.id, e);
         },
         discardIf: discard,
-      });
+      }).finally(() => release(hold.id));
       if (job.kind === "turn") {
         const ws = await (await db()).query.workspaces.findFirst({ where: eq(schema.workspaces.id, job.workspaceId) });
         await ensureTitle(job.workspaceId, conversationId, ws?.timezone ?? "Asia/Jerusalem").catch((e) => console.warn("[titles]", (e as Error).message));
