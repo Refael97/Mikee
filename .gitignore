@@ -14,3 +14,8 @@ public/demo
 .impeccable/questions/
 .impeccable/mocks/
 .claude/skills/huashu-design/assets/*.mp3
+
+# Variables for Railway (contain secrets)
+railway-*.env
+.env.*
+!.env.example
