@@ -33,7 +33,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         </p>
       </header>
 
-      {error && <p className="note note-warn mb-6">{({ meta_cancelled: "החיבור לפייסבוק בוטל או פג. נסי שוב.", meta_failed: "החיבור לפייסבוק נכשל. נסי שוב." } as Record<string, string>)[error] ?? "משהו השתבש. נסי שוב."}</p>}
+      {error && <p className="note note-warn mb-6">{({ meta_cancelled: "החיבור לפייסבוק בוטל או פג. נסי שוב.", meta_failed: "החיבור לפייסבוק נכשל. נסי שוב.", meta_not_configured: "ההתחברות לפייסבוק עוד לא מוגדרת בשרת. אפשר לפנות לתמיכה." } as Record<string, string>)[error] ?? "משהו השתבש. נסי שוב."}</p>}
 
       <div>
         <Section step={1} title="האתר" hint="אקרא אותו כמו לקוחה חדשה, ואם זו חנות גם את המוצרים וההזמנות." done={!!site?.config.url}>

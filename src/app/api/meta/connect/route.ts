@@ -4,7 +4,13 @@ import { getSession } from "@/lib/auth";
 import { oauthDialogUrl } from "@/lib/meta/graph";
 
 export async function GET() {
-  if (!(await getSession())) return NextResponse.redirect(new URL("/login", process.env.APP_URL));
+  const session = await getSession();
+  if (!session) return NextResponse.redirect(new URL("/login", process.env.APP_URL));
+  // Without the app's id and public address Facebook shows its own error page; say what is missing instead.
+  if (!/^\d+$/.test(process.env.META_APP_ID ?? "") || !/^https:\/\//.test(process.env.APP_URL ?? "")) {
+    const back = session.workspace.stage === "connect" ? "/onboarding" : "/settings";
+    return NextResponse.redirect(new URL(`${back}?error=meta_not_configured`, process.env.APP_URL || "http://localhost:3000"));
+  }
   const state = randomBytes(16).toString("hex");
   const res = NextResponse.redirect(oauthDialogUrl(state));
   res.cookies.set("meta_oauth_state", state, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/api/meta" });

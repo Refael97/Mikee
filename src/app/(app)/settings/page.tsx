@@ -81,6 +81,7 @@ async function Limits({ workspaceId, tz }: { workspaceId: string; tz: string }) 
 
 const ERRORS: Record<string, string> = {
   meta_cancelled: "החיבור לפייסבוק בוטל או פג. נסי שוב.",
+  meta_not_configured: "ההתחברות לפייסבוק עוד לא מוגדרת בשרת (חסרים META_APP_ID או APP_URL). אפשר לפנות לתמיכה.",
   meta_failed: "החיבור לפייסבוק נכשל. נסי שוב, ואם זה חוזר כתבי לנו בעזרה.",
   meta_token: "מפתח הגישה לא עבד. בדקי שהעתקת אותו במלואו.",
   meta_wrong_app: "המפתח שייך לאפליקציית מטא אחרת (למשל אפליקציה ישנה), או שהוא כבר לא תקף. צריך מפתח שהונפק דרך אפליקציית MIKEE.",
