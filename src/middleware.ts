@@ -6,6 +6,12 @@ import { NextResponse, type NextRequest } from "next/server";
  * matched here; they set their own headers.
  */
 export function middleware(req: NextRequest) {
+  // One address only: the sign-in cookie belongs to one host, and Facebook and Google return to APP_URL.
+  // Browsing on another address (the Railway one, or the custom domain before APP_URL points to it) would
+  // lose the session on the way back from a connection.
+  const canonical = canonicalRedirect(req);
+  if (canonical) return canonical;
+
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const dev = process.env.NODE_ENV !== "production";
   const csp = [
@@ -30,6 +36,21 @@ export function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("Content-Security-Policy", csp);
   return res;
+}
+
+function canonicalRedirect(req: NextRequest): NextResponse | null {
+  if (req.method !== "GET" && req.method !== "HEAD") return null;
+  let app: URL;
+  try {
+    app = new URL(process.env.APP_URL ?? "");
+  } catch {
+    return null;
+  }
+  if (app.protocol !== "https:") return null;
+  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(",")[0].trim().toLowerCase();
+  if (!host || host === app.host || host.startsWith("localhost") || host.startsWith("127.0.0.1")) return null;
+  const to = new URL(req.nextUrl.pathname + req.nextUrl.search, app);
+  return NextResponse.redirect(to, 308);
 }
 
 export const config = {
