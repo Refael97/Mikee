@@ -7,9 +7,9 @@ export type Autonomy = "every_step" | "important" | "final";
 export const DEFAULT_AUTONOMY: Autonomy = "important";
 
 export const AUTONOMY: { id: Autonomy; label: string; short: string; description: string }[] = [
-  { id: "every_step", label: "אישור בכל שלב", short: "בכל שלב", description: "מייקי עוצר ושואל לפני כל צעד" },
-  { id: "important", label: "אישור במקומות חשובים", short: "במקומות חשובים", description: "מייקי מתקדם לבד ושואל על החלטות שחשובות לעסק" },
-  { id: "final", label: "אישור סופי בלבד", short: "סופי בלבד", description: "מייקי מכין הכול ומביא לך אישור אחד בסוף" },
+  { id: "every_step", label: "אישור בכל שלב", short: "בכל שלב", description: "שואל לפני כל צעד" },
+  { id: "important", label: "אישור במקומות חשובים", short: "במקומות חשובים", description: "שואל רק על החלטות חשובות" },
+  { id: "final", label: "אישור סופי בלבד", short: "סופי בלבד", description: "מכין הכול ומביא אישור אחד" },
 ];
 
 /** What Mikee is told, per level, at the start of every turn. */
