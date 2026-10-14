@@ -89,7 +89,10 @@ export async function runMikee(opts: {
           ? "מייקי עמוס כרגע, נסי שוב בעוד דקה."
           : err instanceof Anthropic.APIError
             ? `תקלה זמנית בחיבור למייקי (${err.status}). נסי שוב בעוד רגע.`
-            : "משהו השתבש אצלי. נסי שוב בעוד רגע.";
+            : /ANTHROPIC_API_KEY|apiKey|authToken/i.test(String((err as Error)?.message))
+              ? "מייקי לא מחובר ל־Claude: חסר בשרת המשתנה ANTHROPIC_API_KEY."
+              : // The kind of failure (never its details) so the owner can tell problems apart in the pilot.
+                `משהו השתבש אצלי (${String((err as Error)?.name ?? "Error").slice(0, 40)}). נסי שוב בעוד רגע.`;
     await emit({ t: "error", message });
   }
 
