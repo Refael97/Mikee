@@ -17,7 +17,7 @@ import { campaignContext } from "../meta/campaignContext";
 import { fileConversation, isGenericTitle } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict, withdrawProposal } from "../proposals";
-import { AdsetAddSpec, AdsetCopySpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, totalDaily } from "../specs";
+import { AdsetAddSpec, AdsetCopySpec, CampaignSpec, ChangeSpec, Media, MediaSpec, PostSpec, totalDaily } from "../specs";
 import { totalSeconds, VideoSpecBase } from "../video/spec";
 import { videoMedia, videoRenderer, VideoProblem } from "../video/render";
 import { hit } from "../guard";
@@ -764,6 +764,22 @@ export const TOOLS = [
         clientAsked,
       });
       return { proposalId: p.id, shown: "The card is in front of the client." };
+    },
+  }),
+
+  tool({
+    name: "propose_story",
+    effect: "proposal",
+    description:
+      "Publish a ready image or video as an Instagram Story, as a card she approves: the direct way when the file already exists (the library, Meta media, a generated or edited video), with no need to delegate. " +
+      "One file, no caption, Instagram only. It goes through the same publishing path as propose_post with format=story. Published means the card reports a media id, not before.",
+    input: z.object({ title: z.string().describe("Friendly card headline, e.g. 'סטורי לסרטון החדש'"), media: Media }).extend(proposalOptions),
+    run: async (ctx, { replaces, clientAsked, title, media }) => {
+      const spec = PostSpec.parse({ title, channels: ["instagram"], format: "story", text: "", media: [media] });
+      const problem = postProblem(spec);
+      if (problem) return { status: "error", error: problem };
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      return { proposalId: p.id, shown: "The Story card is in front of the client; it is published when she approves." };
     },
   }),
 

@@ -35,7 +35,7 @@ describe("who can do what", () => {
   it("Mikee manages: light tools plus delegation; the only cards he makes himself are a simple campaign and ad sets in it", () => {
     const names = MIKEE_TOOLS.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(SPECIALISTS.map((s) => s.tool)));
-    for (const t of MIKEE_TOOLS) expect(["read", "memory", "delegate"].includes(t.effect) || ["request_budget_increase", "propose_campaign", "propose_adset", "propose_adset_copy"].includes(t.name)).toBe(true);
+    for (const t of MIKEE_TOOLS) expect(["read", "memory", "delegate"].includes(t.effect) || ["request_budget_increase", "propose_campaign", "propose_adset", "propose_adset_copy", "propose_story"].includes(t.name)).toBe(true);
     expect(names).toContain("get_campaign_context");
     for (const n of ["meta_write", "propose_post", "propose_change", "propose_media", "propose_video"]) expect(names).not.toContain(n);
   });

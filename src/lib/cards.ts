@@ -191,6 +191,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
       const s = action as PostSpec;
       return {
         kind,
+        ...(s.format === "story" ? { label: "סטורי" } : {}),
         title: s.title,
         why: "",
         rows: [

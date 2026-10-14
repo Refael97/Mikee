@@ -53,6 +53,7 @@ const ACTIONS: Record<string, string> = {
   request_budget_increase: "מכין בקשה להגדלת התקציב",
   propose_campaign: "מכין לך את הקמפיין לאישור",
   propose_change: "מכין לך שינוי לאישור",
+  propose_story: "מכין לך את הסטורי לאישור",
   propose_adset: "מכין לך סדרה חדשה בקמפיין הקיים",
   propose_adset_copy: "מכין לך שכפול של הסדרה",
   withdraw_card: "מבטל הצעה שלא הייתה נכונה",
