@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Check } from "lucide-react";
 
 type Who = { id: string; name: string };
 type Saved = { id: string; scope: "ad_account" | "workspace" | "proposal"; adAccountId: string | null; proposalId: string | null; beneficiary: Who; payer: Who; nameSource: string; confirmedAt: string };
@@ -99,30 +100,39 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
   }
 
   const options = (selected: string, pick: (id: string) => void, group: string) => (
-    <div className="space-y-2">
-      {discovery.candidates.map((c) => (
-        <label key={c.id} className="flex items-start gap-2.5 rounded-[6px] border border-line px-3 py-2.5">
-          <input type="radio" name={group} className="mt-1" checked={selected === c.id} onChange={() => pick(c.id)} />
-          <span className="min-w-0 flex-1 space-y-1">
-            {c.name ? (
-              <span className="block font-medium">{c.name}</span>
-            ) : (
-              <input
-                className="field h-9 text-[14.5px]"
-                placeholder="השם כפי שהוא מופיע במטא"
-                maxLength={120}
-                value={typed[c.id] ?? ""}
-                onChange={(e) => setTyped((t) => ({ ...t, [c.id]: e.target.value }))}
-                onFocus={() => pick(c.id)}
-              />
+    <div role="radiogroup" className="space-y-2">
+      {discovery.candidates.map((c) => {
+        const on = selected === c.id;
+        return (
+          <div key={c.id} className={`rounded-[6px] border transition-colors ${on ? "border-brand bg-brand/5" : "border-line hover:border-ink-3"}`}>
+            <button type="button" role="radio" aria-checked={on} name={group} onClick={() => pick(c.id)} className="flex w-full items-start gap-3 px-3 py-3 text-start">
+              <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-brand bg-brand text-on-brand" : "border-ink-3"}`}>
+                {on && <Check className="h-3 w-3" strokeWidth={3} />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{c.name ?? "זהות בלי שם במטא"}</span>
+                <span className="block text-[13px] text-ink-3">
+                  מזהה <span className="num">{c.id}</span> · כבר בשימוש ב־{c.adsets} קבוצות מודעות בחשבון
+                </span>
+              </span>
+              <span className={`shrink-0 text-[13px] font-medium ${on ? "text-brand" : "text-ink-3"}`}>{on ? "נבחר" : "לבחירה"}</span>
+            </button>
+            {on && !c.name && (
+              <label className="block space-y-1.5 border-t border-line px-3 pb-3 pt-2.5">
+                <span className="block text-[13.5px] text-ink-2">מטא לא מחזירה את השם של הזהות הזאת. כתבו אותו כפי שהוא מופיע ב־Ads Manager, בשדה המפרסם והמשלם:</span>
+                <input
+                  className="field h-9 text-[14.5px]"
+                  placeholder="למשל: אדרט גרופ בע״מ"
+                  maxLength={120}
+                  value={typed[c.id] ?? ""}
+                  onChange={(e) => setTyped((t) => ({ ...t, [c.id]: e.target.value }))}
+                  autoFocus
+                />
+              </label>
             )}
-            <span className="block text-[13px] text-ink-3">
-              מזהה <span className="num">{c.id}</span> · מופיע ב־{c.adsets} קבוצות מודעות
-              {!c.name && " · מטא לא מחזירה את השם, אז צריך לאשר אותו כפי שהוא מופיע ב־Ads Manager"}
-            </span>
-          </span>
-        </label>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 
@@ -130,6 +140,7 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
     <div className="space-y-4 text-[15px]">
       <div className="space-y-2">
         <p className="font-medium">מי המפרסם?</p>
+        <p className="text-[13.5px] text-ink-2">אלה הזהויות שכבר מופיעות בקבוצות המודעות בחשבון שלך. בוחרים אחת בלחיצה.</p>
         {options(beneficiary, setBeneficiary, "beneficiary")}
       </div>
       <label className="flex items-center gap-2">
@@ -156,6 +167,11 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
         </fieldset>
       )}
       {error && <p className="note note-bad text-[14px]">{error}</p>}
+      {!ready && (
+        <p className="text-[13.5px] text-ink-3">
+          {!beneficiary ? "כדי לשמור, בוחרים מפרסם מהרשימה." : !nameOf(beneficiary) ? "כדי לשמור, כותבים את שם המפרסם כפי שהוא מופיע במטא." : separatePayer && !payer ? "כדי לשמור, בוחרים גם משלם." : "כדי לשמור, כותבים את שם המשלם כפי שהוא מופיע במטא."}
+        </p>
+      )}
       <button type="button" className="btn btn-primary" disabled={!ready || busy} onClick={() => void save()}>
         {busy ? "שומרים…" : "שמירה"}
       </button>

@@ -149,7 +149,15 @@ async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId
     startTime: spec.startTime,
     endTime: spec.endTime,
     review,
-    media: spec.ads.map((a) => ({ type: a.media.type, url: a.media.url, text: a.primaryText, headline: a.headline, cta: CTA_HE[a.cta] })),
+    media: spec.ads.map((a) => ({
+      type: a.media.type,
+      url: a.media.url,
+      metaImageHash: a.media.metaImageHash,
+      metaVideoId: a.media.metaVideoId,
+      text: a.primaryText,
+      headline: a.headline,
+      cta: CTA_HE[a.cta],
+    })),
   };
   const d = await db();
   const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, p.workspaceId) });

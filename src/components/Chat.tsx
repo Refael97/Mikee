@@ -107,14 +107,25 @@ export function Chat({
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  /** Whether the view follows the conversation's end; scrolling up to read stops that until she comes back down. */
+  const pinned = useRef(true);
   const started = useRef(false);
   // A new conversation gets its id from the server with the first message.
   const convId = useRef<string | null>(conversationId);
 
   const refresh = useCallback(async () => {
     if (!convId.current) return;
-    const res = await fetch(`/api/timeline?conversationId=${convId.current}`, { cache: "no-store" });
-    if (res.ok) setItems((await res.json()).items);
+    // A failed read is tried again once; it never throws, so whatever follows it (clearing the live
+    // block) always runs.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(`/api/timeline?conversationId=${convId.current}`, { cache: "no-store" }).catch(() => null);
+      if (res?.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.items) return setItems(data.items);
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   }, []);
 
   /** Follows a background job by polling its events; survives refreshes, drops and server restarts. */
@@ -122,6 +133,7 @@ export function Chat({
     async (jobId: string) => {
       setLive((l) => l ?? EMPTY);
       let cursor = 0;
+      let finished = false;
       for (;;) {
         const res = await fetch(`/api/jobs/${jobId}?after=${cursor}`, { cache: "no-store" }).catch(() => null);
         if (res?.ok) {
@@ -140,13 +152,16 @@ export function Chat({
                 );
             }
             if (e.t === "error") setError(e.message);
+            if (e.t === "done") finished = true;
           }
-          if (data.status === "done" || data.status === "failed") break;
+          if (finished || data.status === "done" || data.status === "failed") break;
         }
         await new Promise((r) => setTimeout(r, 700));
       }
+      // The saved timeline replaces the live block in one go: no gap, no stale "working" line.
       await refresh();
       setLive(null);
+      pinned.current = true;
       refreshConversations(convId.current ?? undefined); // Mikee may have titled or filed the conversation
     },
     [refresh],
@@ -228,12 +243,34 @@ export function Chat({
     return () => clearInterval(t);
   }, [conversationId, follow]);
 
+  // Stay at the end while it grows: new words, a card, an image that finishes loading. Nothing jumps
+  // while she reads further up.
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const onScroll = () => {
+      const fromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+      pinned.current = fromBottom < 200;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const el = list.current;
+    const observer = el
+      ? new ResizeObserver(() => {
+          if (pinned.current) bottom.current?.scrollIntoView({ block: "end" });
+        })
+      : null;
+    if (el) observer!.observe(el);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      observer?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pinned.current) bottom.current?.scrollIntoView({ block: "end" });
   }, [items, live]);
 
   function submit(text: string, attachments: string[] = [], uploads: Upload[] = []) {
     if ((!text.trim() && !attachments.length) || live) return;
+    pinned.current = true;
     void send({ text: text.trim(), attachments }, uploads);
   }
 
@@ -248,7 +285,7 @@ export function Chat({
 
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-5">
-      <div className="flex-1 pb-10 pt-8 sm:pt-12">
+      <div ref={list} className="flex-1 pb-10 pt-8 sm:pt-12">
         {empty ? (
           <div className="mx-auto max-w-[640px] pt-[6vh]">
             <MikeeAvatar size={40} state={typing ? "listening" : "idle"} cues />

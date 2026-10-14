@@ -57,6 +57,12 @@ function Avatar({ brand }: { brand: Brand }) {
 function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsored: boolean }) {
   const [ratio, setRatio] = useState<number | null>(null);
   const [more, setMore] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // Media already in the ad account is shown through a fresh link (Meta's own links expire).
+  const src = m.metaVideoId ? `/api/meta/media?video=${m.metaVideoId}` : m.metaImageHash ? `/api/meta/media?image=${m.metaImageHash}` : m.url;
+  const poster = m.metaVideoId ? `/api/meta/media?video=${m.metaVideoId}&poster=1` : undefined;
+  // A "video" whose address is a picture (a thumbnail) is shown as the picture.
+  const isVideo = m.type === "video" && !(!m.metaVideoId && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(m.url));
   const name = brand.handle ?? brand.name;
   const icon = "h-[22px] w-[22px]";
   return (
@@ -70,26 +76,35 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
         <MoreHorizontal className="ms-auto h-5 w-5 text-ink-2" />
       </div>
       <div className="relative w-full overflow-hidden bg-surface-2" style={{ aspectRatio: String(ratio ?? 0.8) }}>
-        {m.url &&
-          (m.type === "video" ? (
+        {src &&
+          !failed &&
+          (isVideo ? (
             <video
-              src={m.url}
+              src={src}
+              poster={poster}
               className="absolute inset-0 h-full w-full object-cover"
               autoPlay
               muted
               loop
               playsInline
+              onError={() => setFailed(true)}
               onLoadedMetadata={(e) => e.currentTarget.videoWidth && setRatio(clampRatio(e.currentTarget.videoWidth / e.currentTarget.videoHeight))}
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={m.url}
+              src={src}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
+              onError={() => setFailed(true)}
               onLoad={(e) => e.currentTarget.naturalWidth && setRatio(clampRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight))}
             />
           ))}
+        {(failed || !src) && (
+          <span className="absolute inset-0 flex items-center justify-center px-6 text-center text-[13px] text-ink-3" dir="rtl">
+            {m.type === "video" ? "לא הצלחנו לטעון את התצוגה של הסרטון. הוא עדיין ישמש במודעה." : "לא הצלחנו לטעון את התמונה."}
+          </span>
+        )}
       </div>
       {sponsored && (m.cta || m.headline) && (
         <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2.5" dir="rtl">

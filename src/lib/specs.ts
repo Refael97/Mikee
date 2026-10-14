@@ -66,6 +66,7 @@ export const CampaignSpec = z.object({
     advantage: z.boolean().default(true).describe("Let Meta expand beyond the suggested audience when it helps"),
   }),
   leadFormId: z.string().optional().describe("For goal=leads with an instant form instead of the website"),
+  leadFormName: z.string().max(200).optional().describe("Filled in by the platform from Meta; not needed in the request"),
   conversionEvent: z
     .enum(["PURCHASE", "LEAD", "COMPLETE_REGISTRATION", "ADD_TO_CART", "INITIATED_CHECKOUT", "CONTACT", "SCHEDULE"])
     .optional()
@@ -132,7 +133,19 @@ export const ActivateSpec = z.object({
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   review: z.string().describe("Plain-language state of Meta's ad review at build time"),
-  media: z.array(z.object({ type: z.enum(["image", "video"]), url: z.string(), text: z.string().optional(), headline: z.string().optional(), cta: z.string().optional() })).default([]),
+  media: z
+    .array(
+      z.object({
+        type: z.enum(["image", "video"]),
+        url: z.string(),
+        text: z.string().optional(),
+        headline: z.string().optional(),
+        cta: z.string().optional(),
+        metaImageHash: z.string().optional(),
+        metaVideoId: z.string().optional(),
+      }),
+    )
+    .default([]),
 });
 export type ActivateSpec = z.infer<typeof ActivateSpec>;
 
@@ -146,7 +159,8 @@ export type ProposalCard = {
   title: string;
   why: string;
   rows: { label: string; value: string }[];
-  media?: { type: "image" | "video"; url: string; text?: string; headline?: string; cta?: string }[];
+  /** metaImageHash / metaVideoId: media already in the ad account, previewed through /api/meta/media. */
+  media?: { type: "image" | "video"; url: string; text?: string; headline?: string; cta?: string; metaImageHash?: string; metaVideoId?: string }[];
   /** For media cards: what is being created, so the screen can show it forming. */
   generate?: { type: "image" | "video"; count: number; ratio: string };
   /** For video cards: the composition plays in the card before approval. */

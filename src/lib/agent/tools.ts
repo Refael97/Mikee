@@ -544,6 +544,14 @@ export const TOOLS = [
     input: CampaignSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
       const meta = await metaContext(ctx.workspaceId);
+      // The form must be one of this page's forms; the card shows it by its name in Meta.
+      if (spec.leadFormId) {
+        const forms = await metaMedia(ctx.workspaceId, "lead_forms", 50);
+        if (forms.status === "error") return { error: `Could not read the page's lead forms: ${forms.error}` };
+        const form = (forms.items as { id: string; name?: string }[] | undefined)?.find((f) => f.id === spec.leadFormId);
+        if (!form) return { error: "That lead form is not one of this page's forms. Use an id from get_campaign_context (leadForms)." };
+        spec.leadFormName = form.name ?? spec.leadFormId;
+      }
       const reserved = dailyCommit(spec.dailyBudget, ctx.tz, spec.endTime, spec.startTime);
       await assertWithinBudget(ctx.workspaceId, ctx.tz, meta, reserved, { excludeProposalId: replaces });
       const p = await createProposal({

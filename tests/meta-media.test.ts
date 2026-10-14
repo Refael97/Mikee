@@ -102,3 +102,16 @@ describe("tool answers stay usable", () => {
     expect(out.body).toMatch(/^<untrusted source="meta">/);
   });
 });
+
+describe("a lead campaign names its form", () => {
+  it("refuses a form that is not on the page, and the card shows the chosen form by its Meta name", async () => {
+    const ws = await createBusiness({ budget: 5000 });
+    const form = meta.add("leadform", { name: "מעסיקים - טופס מקוצר", status: "ACTIVE" });
+    const wrong = await runTool({ workspaceId: ws, tz: TZ }, "propose_campaign", campaignSpec({ goal: "leads", leadFormId: "999999" }));
+    expect(wrong.isError).toBe(true);
+    expect(wrong.content).toMatch(/not one of this page's forms/);
+    const ok = await runTool({ workspaceId: ws, tz: TZ }, "propose_campaign", campaignSpec({ goal: "leads", leadFormId: form.id }));
+    const card = (await proposal(JSON.parse(ok.content).proposalId)).card as any;
+    expect(card.rows).toContainEqual({ label: "טופס הלידים", value: `מעסיקים - טופס מקוצר (מזהה ${form.id})` });
+  });
+});
