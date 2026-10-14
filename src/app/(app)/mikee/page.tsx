@@ -9,7 +9,7 @@ export default async function NewConversationPage({ searchParams }: { searchPara
   const { user, workspace } = await requireSession();
   const { q } = await searchParams;
   const [meta, existing, journey] = await Promise.all([getConnection<MetaConfig>(workspace.id, "meta"), listConversations(workspace.id, 1), journeyStatus(workspace.id).catch(() => null)]);
-  const brand = { name: meta?.config.pageName ?? workspace.name, handle: meta?.config.igUsername };
+  const brand = { name: meta?.config.pageName ?? workspace.name, handle: meta?.config.igUsername, avatar: meta?.config.igUserId || meta?.config.pageId ? "/api/meta/avatar" : undefined };
   return (
     <Chat
       key="new"

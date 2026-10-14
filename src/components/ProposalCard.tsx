@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, Clapperboard, ImageIcon, Megaphone, PenLine, Power, RotateCcw, SlidersHorizontal, Wallet } from "lucide-react";
+import { Bookmark, Check, ChevronLeft, Clapperboard, Heart, ImageIcon, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
 import { plainTitle } from "@/lib/text";
 import { cueMikee } from "./MikeeAvatar";
 
-export type Brand = { name: string; handle?: string };
+export type Brand = { name: string; handle?: string; /** The profile picture (Instagram, else the page). */ avatar?: string };
 
 const KIND: Record<Card["kind"], { label: string; done: string; icon: typeof Megaphone }> = {
   campaign: { label: "קמפיין חדש", done: "נבנה, מושהה", icon: Megaphone },
@@ -32,31 +32,66 @@ const STATUS: Record<string, { label: string; tag: string }> = {
 
 type Media = NonNullable<Card["media"]>[number];
 
+/** Instagram shows a feed photo at its own shape between 4:5 (tall) and 1.91:1 (wide); beyond that it crops. */
+const clampRatio = (r: number) => Math.min(1.91, Math.max(0.8, r));
+
+/** The business's picture, or its initial while there is none. */
+function Avatar({ brand }: { brand: Brand }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] p-[2px]">
+      <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-surface bg-surface text-xs font-semibold">
+        {brand.avatar && !failed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={brand.avatar} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
+        ) : (
+          brand.name.slice(0, 1)
+        )}
+      </span>
+    </span>
+  );
+}
+
 /** How the ad or post will look in the feed: the client approves what her customers will see. */
 function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsored: boolean }) {
+  const [ratio, setRatio] = useState<number | null>(null);
+  const [more, setMore] = useState(false);
+  const name = brand.handle ?? brand.name;
+  const icon = "h-[22px] w-[22px]";
   return (
-    <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
+    <div className="overflow-hidden rounded-[8px] border border-line bg-surface text-ink" dir="ltr">
       <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#feda75] via-[#d62976] to-[#4f5bd5] p-[1.5px]">
-          <span className="flex h-full w-full items-center justify-center rounded-full bg-surface text-xs font-semibold">{brand.name.slice(0, 1)}</span>
-        </span>
+        <Avatar brand={brand} />
         <span className="min-w-0 leading-tight">
-          <span className="block truncate text-[0.85rem] font-semibold">{brand.handle ?? brand.name}</span>
+          <span className="block truncate text-[0.85rem] font-semibold">{name}</span>
           {sponsored && <span className="block text-[0.72rem] text-ink-3">ממומן</span>}
         </span>
-        <span className="ms-auto text-ink-3">•••</span>
+        <MoreHorizontal className="ms-auto h-5 w-5 text-ink-2" />
       </div>
-      <div className="relative aspect-[4/5] w-full bg-surface-2">
+      <div className="relative w-full overflow-hidden bg-surface-2" style={{ aspectRatio: String(ratio ?? 0.8) }}>
         {m.url &&
           (m.type === "video" ? (
-            <video src={m.url} className="absolute inset-0 h-full w-full object-cover" autoPlay muted loop playsInline />
+            <video
+              src={m.url}
+              className="absolute inset-0 h-full w-full object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              onLoadedMetadata={(e) => e.currentTarget.videoWidth && setRatio(clampRatio(e.currentTarget.videoWidth / e.currentTarget.videoHeight))}
+            />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={m.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              src={m.url}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              onLoad={(e) => e.currentTarget.naturalWidth && setRatio(clampRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight))}
+            />
           ))}
       </div>
       {sponsored && (m.cta || m.headline) && (
-        <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2.5" dir="rtl">
           <span className="truncate text-[0.85rem] font-semibold">{m.headline}</span>
           {m.cta && (
             <span className="flex shrink-0 items-center gap-0.5 text-[0.82rem] font-semibold text-[#0095f6]">
@@ -66,10 +101,26 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
           )}
         </div>
       )}
+      <div className="flex items-center gap-3.5 px-3 pt-2.5 text-ink">
+        <Heart className={icon} strokeWidth={1.8} />
+        <MessageCircle className={`${icon} -scale-x-100`} strokeWidth={1.8} />
+        <Send className={icon} strokeWidth={1.8} />
+        <Bookmark className={`${icon} ms-auto`} strokeWidth={1.8} />
+      </div>
       {m.text && (
-        <p className="line-clamp-4 whitespace-pre-line px-3 py-2.5 text-[0.85rem] leading-relaxed">
-          <span className="font-semibold">{brand.handle ?? brand.name}</span> {m.text}
-        </p>
+        <div className="px-3 pb-3 pt-2 text-[0.85rem] leading-[1.45]" dir="rtl">
+          <p className={`whitespace-pre-line ${more ? "" : "line-clamp-3"}`}>
+            <span className="font-semibold" dir="ltr">
+              {name}
+            </span>{" "}
+            {m.text}
+          </p>
+          {!more && m.text.length > 120 && (
+            <button type="button" onClick={() => setMore(true)} className="mt-0.5 text-ink-3">
+              עוד
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -168,10 +219,10 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
           const el = e.currentTarget;
           setIndex(Math.round(Math.abs(el.scrollLeft) / (el.firstElementChild as HTMLElement).offsetWidth));
         }}
-        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4"
+        className={`no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 ${media.length === 1 ? "justify-center" : ""}`}
       >
         {media.map((m, i) => (
-          <div key={i} className="w-[min(78%,300px)] shrink-0 snap-center">
+          <div key={i} className={`shrink-0 snap-center ${media.length === 1 ? "w-full max-w-[360px]" : "w-[min(80%,320px)]"}`}>
             <FeedPreview m={m} brand={brand} sponsored={card.kind === "campaign"} />
           </div>
         ))}

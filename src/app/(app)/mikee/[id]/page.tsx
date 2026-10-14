@@ -12,6 +12,6 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   if (!conv) notFound();
   if (conv.unread) await markRead(workspace.id, id);
   const [items, meta] = await Promise.all([timeline(workspace.id, id), getConnection<MetaConfig>(workspace.id, "meta")]);
-  const brand = { name: meta?.config.pageName ?? workspace.name, handle: meta?.config.igUsername };
+  const brand = { name: meta?.config.pageName ?? workspace.name, handle: meta?.config.igUsername, avatar: meta?.config.igUserId || meta?.config.pageId ? "/api/meta/avatar" : undefined };
   return <Chat key={id} conversationId={id} initialItems={items} autoScan={false} firstName={user.name.split(" ")[0]} brand={brand} />;
 }
