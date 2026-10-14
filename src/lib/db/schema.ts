@@ -233,8 +233,32 @@ export const jobs = pgTable("jobs", {
   error: text("error"),
   attempts: integer("attempts").notNull().default(0),
   heartbeatAt: ts("heartbeat_at"),
+  /** Set on every claim; only the worker holding it may keep running the job (see heartbeat). */
+  lease: text("lease"),
+  /** Totals for the task: model calls, Meta requests, cost and time (see src/lib/telemetry.ts). */
+  metrics: jsonb("metrics").$type<Record<string, unknown>>(),
   createdAt: ts("created_at").notNull().defaultNow(),
   finishedAt: ts("finished_at"),
+});
+
+/** One row per model call: tokens as the API reports them, cache use, time and cost, tied to its task. */
+export const modelCalls = pgTable("model_calls", {
+  id: serial("id").primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  jobId: uuid("job_id"),
+  agent: text("agent").notNull(),
+  model: text("model").notNull(),
+  step: integer("step").notNull(),
+  inputTokens: integer("input_tokens").notNull(),
+  cacheReadTokens: integer("cache_read_tokens").notNull(),
+  cacheWriteTokens: integer("cache_write_tokens").notNull(),
+  /** Includes thinking: the API reports thinking inside output tokens. */
+  outputTokens: integer("output_tokens").notNull(),
+  ms: integer("ms").notNull(),
+  costUsd: numeric("cost_usd", { mode: "number" }).notNull(),
+  stopReason: text("stop_reason"),
+  tools: jsonb("tools").$type<string[]>(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 export const jobEvents = pgTable("job_events", {

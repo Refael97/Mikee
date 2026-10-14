@@ -84,15 +84,14 @@ describe("Mikee manages the video editor through its playbook", () => {
       mikee: [
         // Turn 1: prepare the editor's file, then hand over the work.
         () => ({ stop_reason: "tool_use", content: [toolUse("m1", "update_playbook", { agent: "video_editor", action: "write", text: PLAYBOOK, reason: "הכנה לפני העבודה הראשונה" })] }),
+        // The editor's card ends the turn: no extra call just to announce it.
         () => ({ stop_reason: "tool_use", content: [toolUse("m2", "ask_video_editor", { task: "Reel for the new Shabbat collection, Instagram reels" })] }),
-        () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "הכנתי ריל, הוא מחכה לך." }] }),
         // Turn 2: she did not like it. The lesson goes to the editor's file first, then a new version.
         (req) => {
           expect(sysOf(req)).toMatch(/"ריל לקולקציה" id [0-9a-f-]{36}, since [^\n]+, made by video_editor/);
           return { stop_reason: "tool_use", content: [toolUse("m3", "update_playbook", { agent: "video_editor", action: "add_lesson", text: "פחות טקסט על המסך, שהשמלה תדבר", reason: "הלקוחה לא אהבה את כמות הטקסט" })] };
         },
         () => ({ stop_reason: "tool_use", content: [toolUse("m4", "ask_video_editor", { task: `New version with less text; replaces card ${firstCard}` })] }),
-        () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "רשמתי. הכנתי גרסה עם פחות טקסט." }] }),
       ],
       video_editor: [
         (req) => {
@@ -101,24 +100,20 @@ describe("Mikee manages the video editor through its playbook", () => {
           return { stop_reason: "tool_use", content: [toolUse("v1", "propose_video", video(["בדים שנושמים", "גזרות שמחמיאות", "מחיר שמשמח"]))] };
         },
         (req) => {
-          firstCard = JSON.parse(req.messages.at(-1).content[0].content).proposalId;
-          return { stop_reason: "end_turn", content: [{ type: "text", text: `Card ${firstCard}, 7 seconds.` }] };
-        },
-        (req) => {
           expect(sysOf(req)).toContain("(version 2");
           expect(sysOf(req)).toContain("פחות טקסט על המסך, שהשמלה תדבר");
           return { stop_reason: "tool_use", content: [toolUse("v2", "propose_video", video(["חדש לשבת"], firstCard))] };
         },
-        () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "New card, one line of text." }] }),
       ],
     });
     setAnthropicForTests(team);
 
     const conv = (await createConversation(ws, { firstText: "תכין לי ריל" })).id;
     await says(ws, conv, "תכין לי ריל לקולקציה החדשה");
+    const d = await db();
+    firstCard = (await d.select().from(schema.proposals).where(eq(schema.proposals.workspaceId, ws)))[0].id;
     await says(ws, conv, "לא אהבתי, יותר מדי טקסט");
 
-    const d = await db();
     const cards = await d.select().from(schema.proposals).where(eq(schema.proposals.workspaceId, ws));
     expect(cards.map((c) => [c.agent, c.status]).sort()).toEqual([
       ["video_editor", "pending"],

@@ -5,6 +5,7 @@ import { db, schema } from "../db";
 import { appendMany, type Kind, loadHistory } from "../conversation";
 import { recentConversationsText } from "../conversations";
 import { AiBudgetExceeded } from "../usage";
+import { TaskLimit } from "../telemetry";
 import { businessBrief } from "./brief";
 import { playbookStatus } from "../playbooks";
 import { agentLoop, type LoopEvent, type Row } from "./loop";
@@ -22,7 +23,7 @@ export type AgentEvent = LoopEvent | { t: "done" } | { t: "error"; message: stri
  * specialist. He runs at medium effort; the specialists think hard about their narrow tasks.
  */
 export const MIKEE_TOOLS: ToolDef[] = [
-  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "meta_media", "advertiser_identity", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
+  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "get_campaign_context", "meta_media", "advertiser_identity", "budget_status", "propose_campaign", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
   ...TEAM_TOOLS,
 ];
 
@@ -76,6 +77,8 @@ export async function runMikee(opts: {
       // Mikee talks and delegates; the specialists do the heavy thinking.
       effort: "low",
       web: true,
+      // Once a card is in front of the client the turn is over: no extra model call to announce it.
+      stopAfterCard: true,
       compaction: true,
       emit,
       onStep: (p) => opts.saveState?.(p) ?? Promise.resolve(),
@@ -90,7 +93,9 @@ export async function runMikee(opts: {
         ? err.message
         : err instanceof Anthropic.RateLimitError
           ? "מייקי עמוס כרגע, נסי שוב בעוד דקה."
-          : err instanceof Anthropic.APIError && /credit balance/i.test(err.message)
+          : err instanceof TaskLimit
+            ? `עצרתי את המשימה כדי לא לבזבז: ${err.message}`
+            : err instanceof Anthropic.APIError && /credit balance/i.test(err.message)
             ? "נגמר הקרדיט בחשבון Anthropic שמפעיל את מייקי. צריך להטעין אותו ב־console.anthropic.com, בעמוד Plans & Billing."
             : err instanceof Anthropic.APIError
             ? `תקלה בחיבור למייקי (${err.status}). נסי שוב בעוד רגע. (${failureNote(err)})`

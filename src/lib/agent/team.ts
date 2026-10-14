@@ -37,8 +37,10 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       tier: spec.tier,
       web: spec.web,
       maxSteps: 20,
+      // After its card is created the specialist is done; the report is the card itself.
+      stopAfterCard: true,
     });
-    output = r.refused ? "The specialist could not help with this request." : r.lastText || r.text;
+    output = r.refused ? "The specialist could not help with this request." : r.endedOnCard ? `${r.lastText ? `${r.lastText}\n` : ""}Card created and shown to the client.` : r.lastText || r.text;
   } catch (e) {
     error = (e as Error).message;
     output = `The specialist stopped with an error: ${error}`;

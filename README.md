@@ -146,6 +146,16 @@ The model has no tool to create or approve an activation. Errors are shown to th
 
 **Verifying the Meta token:** with `META_APP_ID` and `META_APP_SECRET`, every token (whether from login or pasted in) is checked with `debug_token`. It must come from the MIKEE app, not from an old app such as simpleAd, and it must be valid. The permissions it carries and its expiry are stored, and settings shows any missing permissions. Instant forms are created with the page's own token.
 
+### Cost and measurement (`src/lib/telemetry.ts`, `src/lib/agent/loop.ts`, `src/lib/meta/campaignContext.ts`)
+- Every job runs in a task scope: model calls, Meta GETs and POSTs, cost and time are counted, saved on `jobs.metrics`, and each model call gets a `model_calls` row (input, cache read, cache write and output tokens as the API reports them, thinking included in output; time; cost; tools called).
+- A task stops at `MIKEE_TASK_MAX_MS` (default 10 min) or `MIKEE_TASK_MAX_USD` (default $2) of AI cost.
+- Identical Meta reads within one preparation task are made once (any write clears them). Executions never reuse reads, so the budget check at approval is always fresh.
+- `get_campaign_context` returns assets, budget room, lead forms, ad-account media, library items and the chosen advertiser in one short answer. For a simple campaign Mikee calls it and `propose_campaign` himself; specialists are for judgment, copy or media.
+- A loop ends as soon as every tool call of a step produced a card: no extra model call to announce it.
+- Old tool results are cleared server-side (`clear_tool_uses_20250919`, cards and reports kept), and stale thinking blocks are dropped (`block_binding: drop_block`) instead of failing; history is never edited client-side. If the API refuses either control, it is turned off and the call retried.
+- Jobs carry a lease renewed by a 20 s heartbeat timer (independent of slow calls); a copy that lost its lease stops before its next model call or Meta write.
+- A trace for one task: `select agent, model, step, input_tokens, cache_read_tokens, cache_write_tokens, output_tokens, ms, cost_usd, tools from model_calls where job_id = '<job id>' order by id;` and `select kind, status, metrics from jobs where id = '<job id>';`
+
 ### Advertiser and payer (`src/lib/meta/identities.ts`, `src/components/AdvertiserIdentity.tsx`)
 Some accounts and locations make Meta refuse an ad set without a verified advertiser (100/3858634). The identities come only from the account's own existing ad sets (`regional_regulation_identities`); a name is Meta's when `GET /{id}?fields=name` returns it, otherwise the client confirms it as Ads Manager shows it. The client chooses once, in the failed campaign card or in Settings, for this ad account, the whole business (used in another account only if that account already uses it) or one campaign; card beats account beats business. The choice is stored per workspace and sent as `regional_regulation_identities: { universal_beneficiary, universal_payer }` at the top level of the ad set (never a regulated category copied from other ad sets), then read back. A retry continues from the paused campaign already built. Meta reviewing the identity does not mean ads can run yet.
 

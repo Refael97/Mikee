@@ -159,6 +159,26 @@ CREATE TABLE IF NOT EXISTS jobs (
   finished_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status, created_at);
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS lease text;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS metrics jsonb;
+CREATE TABLE IF NOT EXISTS model_calls (
+  id serial PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id),
+  job_id uuid,
+  agent text NOT NULL,
+  model text NOT NULL,
+  step integer NOT NULL,
+  input_tokens integer NOT NULL,
+  cache_read_tokens integer NOT NULL,
+  cache_write_tokens integer NOT NULL,
+  output_tokens integer NOT NULL,
+  ms integer NOT NULL,
+  cost_usd numeric(12,6) NOT NULL,
+  stop_reason text,
+  tools jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS model_calls_job ON model_calls (job_id, id);
 CREATE TABLE IF NOT EXISTS job_events (
   id serial PRIMARY KEY,
   job_id uuid NOT NULL REFERENCES jobs(id),

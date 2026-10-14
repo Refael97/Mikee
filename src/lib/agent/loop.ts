@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Kind } from "../conversation";
 import { AiBudgetExceeded, assertAiBudget, claudeCostUsd, recordUsage } from "../usage";
 import { runToolIn, toolDefinitions, type ToolContext, type ToolDef } from "./tools";
+import { db, schema } from "../db";
+import { assertTaskWithinLimits, currentTask } from "../telemetry";
 
 /**
  * Two tiers, chosen per role for cost. "main" (Claude Sonnet 5.5) for Mikee and the specialists that decide
@@ -52,9 +54,11 @@ export async function agentLoop(opts: {
   web?: boolean;
   compaction?: boolean;
   maxSteps?: number;
+  /** End the loop once every tool call of a step produced a card, instead of asking the model to comment. */
+  stopAfterCard?: boolean;
   emit?: (e: LoopEvent) => void | Promise<void>;
   onStep?: (pending: Row[]) => Promise<void>;
-}): Promise<{ text: string; lastText: string; refused: boolean }> {
+}): Promise<{ text: string; lastText: string; refused: boolean; endedOnCard: boolean }> {
   const { ctx, pending } = opts;
   const emit = async (e: LoopEvent) => {
     await opts.emit?.(e);
@@ -63,41 +67,86 @@ export async function agentLoop(opts: {
   let lastText = "";
   const definitions = toolDefinitions(opts.tools);
 
+  // Tool results the model must keep seeing: cards and the specialists' reports (decisions, card ids).
+  const keepTools = opts.tools.filter((t) => t.effect === "proposal" || t.name.startsWith("ask_")).map((t) => t.name);
+
   for (let step = 0; step < (opts.maxSteps ?? 40); step++) {
+    assertTaskWithinLimits();
     await assertAiBudget(ctx.workspaceId, ctx.tz);
     const system = typeof opts.system === "function" ? await opts.system() : opts.system;
     const model = MODELS[opts.tier ?? "main"];
     const haiku = isHaiku(model);
-    const stream = anthropic().beta.messages.stream({
-      model,
-      max_tokens: 64000,
-      // Caches everything up to the newest block: each step of a turn rereads the conversation and tool
-      // results at about a tenth of the price instead of paying for them again.
-      cache_control: { type: "ephemeral" },
-      thinking: { type: "adaptive" },
-      output_config: { effort: opts.effort },
-      system,
-      messages: [...opts.history, ...pending.map((r) => ({ role: r.role, content: r.content as Anthropic.Beta.BetaContentBlockParam[] }))],
-      tools: [
-        ...definitions,
-        ...(opts.web && !haiku
-          ? ([
-              { type: "web_search_20260209", name: "web_search", max_uses: 5 },
-              { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
-            ] as const)
+    const request = (features: typeof FEATURES) => {
+      const edits = [
+        // Old tool results are cleared on the server once the context grows: no client-side history edits
+        // (which would invalidate thinking blocks), and cards and reports are always kept.
+        ...(features.clearToolUses
+          ? [
+              {
+                type: "clear_tool_uses_20250919" as const,
+                trigger: { type: "input_tokens" as const, value: 40_000 },
+                keep: { type: "tool_uses" as const, value: 4 },
+                clear_at_least: { type: "input_tokens" as const, value: 10_000 },
+                exclude_tools: keepTools,
+              },
+            ]
           : []),
-      ],
-      ...(opts.compaction ? { context_management: { edits: [{ type: "compact_20260112" as const }] } } : {}),
-      ...(haiku ? {} : { fallbacks: "default" as const }),
-      betas: [...(haiku ? [] : (["server-side-fallback-2026-07-01"] as const)), ...(opts.compaction ? (["compact-2026-01-12"] as const) : [])],
-    });
-    stream.on("text", (delta) => {
-      text += delta;
-      void emit({ t: "text", v: delta });
-    });
+        ...(opts.compaction ? [{ type: "compact_20260112" as const }] : []),
+      ];
+      return anthropic().beta.messages.stream({
+        model,
+        max_tokens: 64000,
+        // Caches everything up to the newest block: each step of a turn rereads the conversation and tool
+        // results at about a tenth of the price instead of paying for them again.
+        cache_control: { type: "ephemeral" },
+        // The brief in the system prompt changes between turns; a thinking block from before such a change is
+        // dropped by the API instead of failing the request.
+        thinking: features.blockBinding ? { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } } : { type: "adaptive" },
+        output_config: { effort: opts.effort },
+        system,
+        messages: [...opts.history, ...pending.map((r) => ({ role: r.role, content: r.content as Anthropic.Beta.BetaContentBlockParam[] }))],
+        tools: [
+          ...definitions,
+          ...(opts.web && !haiku
+            ? ([
+                { type: "web_search_20260209", name: "web_search", max_uses: 5 },
+                { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
+              ] as const)
+            : []),
+        ],
+        ...(edits.length ? { context_management: { edits } } : {}),
+        ...(haiku ? {} : { fallbacks: "default" as const }),
+        betas: [
+          ...(haiku ? [] : (["server-side-fallback-2026-07-01"] as const)),
+          ...(opts.compaction ? (["compact-2026-01-12"] as const) : []),
+          ...(features.clearToolUses ? (["context-management-2025-06-27"] as const) : []),
+          ...(features.blockBinding ? (["thinking-binding-controls-2026-08-01"] as const) : []),
+        ],
+      } as never) as ReturnType<ReturnType<typeof anthropic>["beta"]["messages"]["stream"]>;
+    };
 
-    const message = await stream.finalMessage();
-    await recordUsage(ctx.workspaceId, ctx.tz, "claude", claudeCostUsd(message.usage, message.model), { agent: opts.agent, model: message.model, step });
+    const started = Date.now();
+    let message: Anthropic.Beta.BetaMessage;
+    try {
+      message = await streamOnce(request(FEATURES), (delta) => {
+        text += delta;
+        void emit({ t: "text", v: delta });
+      });
+    } catch (err) {
+      // If the API refuses one of the optional controls, run without it from now on rather than failing.
+      const off = unsupportedFeature(err);
+      if (!off) throw err;
+      FEATURES[off] = false;
+      console.warn(`[agent] ${off} turned off: ${(err as Error).message.slice(0, 200)}`);
+      message = await streamOnce(request(FEATURES), (delta) => {
+        text += delta;
+        void emit({ t: "text", v: delta });
+      });
+    }
+    const cost = claudeCostUsd(message.usage, message.model);
+    await recordUsage(ctx.workspaceId, ctx.tz, "claude", cost, { agent: opts.agent, model: message.model, step });
+    const toolUses = message.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
+    await recordModelCall(ctx.workspaceId, opts.agent, step, message, cost, Date.now() - started, toolUses.map((t) => t.name));
     pending.push({ role: "assistant", kind: "chat", content: message.content });
     lastText = message.content
       .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
@@ -105,8 +154,7 @@ export async function agentLoop(opts: {
       .join("\n");
 
     if (message.stop_reason === "pause_turn") continue;
-    if (message.stop_reason === "refusal") return { text, lastText, refused: true };
-    const toolUses = message.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
+    if (message.stop_reason === "refusal") return { text, lastText, refused: true, endedOnCard: false };
     if (!toolUses.length) break;
     if (message.stop_reason === "max_tokens") {
       pending.pop(); // never run tools from a cut-off answer
@@ -124,8 +172,64 @@ export async function agentLoop(opts: {
     );
     pending.push({ role: "user", kind: "chat", content: results });
     await opts.onStep?.(pending);
+
+    // A card is in front of the client and nothing else was asked: the turn ends here, without another
+    // model call just to say so. The card speaks for itself.
+    if (opts.stopAfterCard && results.every((r, i) => !r.is_error && producedCard(opts.tools, toolUses[i].name, r.content))) {
+      return { text, lastText, refused: false, endedOnCard: true };
+    }
   }
-  return { text, lastText, refused: false };
+  return { text, lastText, refused: false, endedOnCard: false };
+}
+
+/** Optional request controls; one the API refuses is turned off for the rest of the process. */
+const FEATURES = { clearToolUses: true, blockBinding: true };
+
+function unsupportedFeature(err: unknown): keyof typeof FEATURES | null {
+  if (!(err instanceof Anthropic.BadRequestError)) return null;
+  const m = err.message;
+  if (FEATURES.clearToolUses && /clear_tool_uses|context_management|context-management/i.test(m)) return "clearToolUses";
+  if (FEATURES.blockBinding && /block_binding|thinking-binding/i.test(m)) return "blockBinding";
+  return null;
+}
+
+async function streamOnce(stream: ReturnType<ReturnType<typeof anthropic>["beta"]["messages"]["stream"]>, onText: (t: string) => void) {
+  stream.on("text", onText);
+  return stream.finalMessage();
+}
+
+/** A proposal tool that created a card, or a delegation whose specialist created one. */
+function producedCard(tools: ToolDef[], name: string, content: string): boolean {
+  const def = tools.find((t) => t.name === name);
+  if (!def) return false;
+  if (def.effect !== "proposal" && !name.startsWith("ask_")) return false;
+  return proposalIdsIn(content).length > 0;
+}
+
+/** Every model call, measured: tokens as reported (thinking is inside output), cache use, time, cost, task. */
+async function recordModelCall(workspaceId: string, agent: string, step: number, message: Anthropic.Beta.BetaMessage, cost: number, ms: number, tools: string[]) {
+  const task = currentTask();
+  if (task) {
+    task.modelCalls++;
+    task.costUsd += cost;
+  }
+  const u = message.usage;
+  const d = await db();
+  await d.insert(schema.modelCalls).values({
+    workspaceId,
+    jobId: task?.jobId ?? null,
+    agent,
+    model: message.model,
+    step,
+    inputTokens: u.input_tokens ?? 0,
+    cacheReadTokens: u.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+    outputTokens: u.output_tokens ?? 0,
+    ms,
+    costUsd: cost,
+    stopReason: message.stop_reason ?? null,
+    tools,
+  });
 }
 
 export { AiBudgetExceeded };

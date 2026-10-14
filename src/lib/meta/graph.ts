@@ -1,5 +1,6 @@
 import "server-only";
-import { createHmac } from "crypto";
+import { createHash, createHmac } from "crypto";
+import { currentTask } from "../telemetry";
 
 const VERSION = process.env.META_GRAPH_VERSION || "v26.0";
 const BASE = `https://graph.facebook.com/${VERSION}`;
@@ -146,6 +147,28 @@ export class Graph {
    * down briefly. Writes are never retried here: execution checkpoints decide that, so nothing is created twice.
    */
   private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
+    const task = currentTask();
+    if (method !== "GET") {
+      // A copy of the task that lost its lease must not write; the worker holding the lease does.
+      if (task?.leaseLost) throw new MetaError("This task was taken over by another worker; nothing was sent to Meta.");
+      task?.memo?.clear(); // after a write, earlier reads may be stale
+    } else if (task?.memo) {
+      // The same read twice in one preparation task is answered once (budget, forms, media).
+      const key = `${createHash("sha256").update(this.token).digest("hex").slice(0, 12)} ${path} ${JSON.stringify(Object.entries(params).sort())}`;
+      const hit = task.memo.get(key);
+      if (hit) {
+        task.metaMemoHits++;
+        return hit as Promise<T>;
+      }
+      const pending = this.callUncached<T>(method, path, params);
+      task.memo.set(key, pending);
+      pending.catch(() => task.memo?.delete(key));
+      return pending;
+    }
+    return this.callUncached<T>(method, path, params);
+  }
+
+  private async callUncached<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await this.once<T>(method, path, params);
@@ -167,6 +190,11 @@ export class Graph {
     const query = encode({ ...rest, appsecret_proof: appSecretProof(this.token) });
     const url = method === "GET" || method === "DELETE" ? `${BASE}${clean}?${query}` : `${BASE}${clean}`;
     const operation = `${method} ${clean}`;
+    const task = currentTask();
+    if (task) {
+      if (method === "GET") task.metaGets++;
+      else task.metaPosts++;
+    }
     // The token travels in a header, never in a URL that could end up in logs.
     let res: Response;
     try {

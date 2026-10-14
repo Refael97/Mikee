@@ -7,10 +7,25 @@ import { deleteIfEmpty, markUnread } from "./conversations";
 import { executeProposal } from "./executor";
 import { describeMedia } from "./library";
 import { claimNext, finishJob, heartbeat, type Job, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
+import { newTask, runInTask, TaskLimit, type TaskScope, taskMetrics } from "./telemetry";
 
 /** Runs one job to completion. Exported for tests; the worker loop below calls it. */
 export async function runJob(job: Job) {
-  const beat = setInterval(() => void heartbeat(job.id).catch(() => undefined), 20_000);
+  // Preparation tasks reuse identical Meta reads within the task; executions always read fresh.
+  const task = newTask({ jobId: job.id, kind: job.kind, memo: job.kind !== "execute" });
+  return runInTask(task, () => runJobIn(job, task));
+}
+
+async function runJobIn(job: Job, task: TaskScope) {
+  const beat = setInterval(
+    () =>
+      void heartbeat(job.id, job.lease)
+        .then((ok) => {
+          if (!ok) task.leaseLost = true;
+        })
+        .catch(() => undefined),
+    20_000,
+  );
   try {
     if (job.attempts > MAX_ATTEMPTS) {
       await pushEvent(job.id, { t: "error", message: "המשימה נכשלה כמה פעמים ונעצרה." });
@@ -69,12 +84,14 @@ export async function runJob(job: Job) {
         }
       }
     }
-    await finishJob(job.id, "done");
+    if (!task.leaseLost) await finishJob(job.id, "done", undefined, taskMetrics(task));
   } catch (e) {
     console.error("[worker] job failed", job.id, e);
-    await pushEvent(job.id, { t: "error", message: "משהו השתבש. נסי שוב בעוד רגע." }).catch(() => undefined);
+    // A copy that lost its lease leaves the job to the worker that now holds it.
+    if (task.leaseLost) return;
+    await pushEvent(job.id, { t: "error", message: e instanceof TaskLimit ? `עצרתי את המשימה: ${e.message}` : "משהו השתבש. נסי שוב בעוד רגע." }).catch(() => undefined);
     await pushEvent(job.id, { t: "done" }).catch(() => undefined);
-    await finishJob(job.id, "failed", (e as Error).message);
+    await finishJob(job.id, "failed", (e as Error).message, taskMetrics(task));
   } finally {
     clearInterval(beat);
   }

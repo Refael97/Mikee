@@ -73,7 +73,7 @@ export async function claimNext(kinds?: JobKind[]): Promise<Job | null> {
   const d = await db();
   const kindFilter = kinds?.length ? sql`AND kind IN (${sql.join(kinds.map((k) => sql`${k}`), sql`, `)})` : sql``;
   const res = await d.execute(sql`
-    UPDATE jobs SET status = 'running', heartbeat_at = now(), attempts = attempts + 1
+    UPDATE jobs SET status = 'running', heartbeat_at = now(), attempts = attempts + 1, lease = gen_random_uuid()::text
     WHERE id = (
       SELECT id FROM jobs
       WHERE (status = 'queued' OR (status = 'running' AND heartbeat_at < now() - make_interval(secs => ${STALE_AFTER_MS / 1000})))
@@ -88,9 +88,19 @@ export async function claimNext(kinds?: JobKind[]): Promise<Job | null> {
   return (await d.query.jobs.findFirst({ where: eq(schema.jobs.id, rows[0].id) })) ?? null;
 }
 
-export async function heartbeat(jobId: string) {
+/**
+ * Keeps the job ours. The heartbeat runs on a timer, so a single slow call (a Meta request may take up to
+ * 90 s) does not stop it. If another worker reclaimed the job (its lease changed), this returns false and
+ * the caller stops before its next model call or Meta write.
+ */
+export async function heartbeat(jobId: string, lease?: string | null): Promise<boolean> {
   const d = await db();
-  await d.update(schema.jobs).set({ heartbeatAt: new Date() }).where(eq(schema.jobs.id, jobId));
+  const rows = await d
+    .update(schema.jobs)
+    .set({ heartbeatAt: new Date() })
+    .where(and(eq(schema.jobs.id, jobId), eq(schema.jobs.status, "running"), lease ? eq(schema.jobs.lease, lease) : sql`true`))
+    .returning({ id: schema.jobs.id });
+  return rows.length > 0;
 }
 
 export async function saveState(jobId: string, state: Record<string, unknown>) {
@@ -98,9 +108,12 @@ export async function saveState(jobId: string, state: Record<string, unknown>) {
   await d.update(schema.jobs).set({ state, heartbeatAt: new Date() }).where(eq(schema.jobs.id, jobId));
 }
 
-export async function finishJob(jobId: string, status: "done" | "failed", error?: string) {
+export async function finishJob(jobId: string, status: "done" | "failed", error?: string, metrics?: Record<string, unknown>) {
   const d = await db();
-  await d.update(schema.jobs).set({ status, error: error ?? null, finishedAt: new Date() }).where(eq(schema.jobs.id, jobId));
+  await d
+    .update(schema.jobs)
+    .set({ status, error: error ?? null, finishedAt: new Date(), ...(metrics ? { metrics } : {}) })
+    .where(eq(schema.jobs.id, jobId));
 }
 
 export async function pushEvent(jobId: string, event: Record<string, unknown>) {

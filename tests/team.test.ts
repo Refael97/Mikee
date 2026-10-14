@@ -32,12 +32,12 @@ const userSays = async (ws: string, text: string, conversationId?: string) => {
 const effectOf = (name: string) => BASE_TOOLS.get(name)?.effect;
 
 describe("who can do what", () => {
-  it("Mikee manages: light tools plus delegation, and cannot build or publish himself", () => {
+  it("Mikee manages: light tools plus delegation; the only card he makes himself is a simple campaign", () => {
     const names = MIKEE_TOOLS.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(SPECIALISTS.map((s) => s.tool)));
-    for (const t of MIKEE_TOOLS) expect(["read", "memory", "delegate"].includes(t.effect) || t.name === "request_budget_increase").toBe(true);
-    expect(names).not.toContain("propose_campaign");
-    expect(names).not.toContain("meta_write");
+    for (const t of MIKEE_TOOLS) expect(["read", "memory", "delegate"].includes(t.effect) || ["request_budget_increase", "propose_campaign"].includes(t.name)).toBe(true);
+    expect(names).toContain("get_campaign_context");
+    for (const n of ["meta_write", "propose_post", "propose_change", "propose_media", "propose_video"]) expect(names).not.toContain(n);
   });
 
   it("each specialist gets only the tools of its craft, and none can delegate further", () => {
@@ -71,12 +71,11 @@ describe("delegation", () => {
           stop_reason: "tool_use",
           content: [toolUse("m1", "ask_media_buyer", { task: "Build a traffic campaign for the new autumn collection, ₪50/day", materials: "Use the two approved ads: ..." })],
         }),
-        () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "הכנתי לך קמפיין, הוא מחכה לאישור שלך." }] }),
       ],
+      // The buyer reads its context once, makes the card, and is done: no report call, no Mikee wrap-up call.
       media_buyer: [
-        () => ({ stop_reason: "tool_use", content: [toolUse("b1", "budget_status", {})] }),
+        () => ({ stop_reason: "tool_use", content: [toolUse("b1", "get_campaign_context", {})] }),
         () => ({ stop_reason: "tool_use", content: [toolUse("b2", "propose_campaign", campaignSpec())] }),
-        () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "Built a ₪50/day traffic campaign; card created." }] }),
       ],
     });
     setAnthropicForTests(team);
@@ -86,7 +85,8 @@ describe("delegation", () => {
     const mikeeReq = team.requests.find((r) => r.agent === "mikee")!.req;
     expect(mikeeReq.output_config.effort).toBe("low");
     const buyer = team.requests.filter((r) => r.agent === "media_buyer").map((r) => r.req);
-    expect(buyer).toHaveLength(3);
+    expect(buyer).toHaveLength(2);
+    expect(team.requests.filter((r) => r.agent === "mikee")).toHaveLength(1);
     // The specialist got the business brief, its own instructions, Mikee's task, and only its tools.
     const sys = buyer[0].system.map((b: any) => b.text).join("\n");
     expect(sys).toContain("# Your role: media buyer");
@@ -104,13 +104,23 @@ describe("delegation", () => {
 
     // The client sees Mikee's words, a neutral activity line and the card: never the team.
     const items = await timeline(ws, job.conversationId);
-    expect(items.map((i) => i.type)).toEqual(["user", "activity", "card", "mikee"]);
+    expect(items.map((i) => i.type)).toEqual(["user", "activity", "card"]);
     expect(JSON.stringify(items)).not.toMatch(/media buyer|media_buyer|specialist/i);
 
     const runs = await d.select().from(schema.agentRuns).where(eq(schema.agentRuns.workspaceId, ws));
-    expect(runs.map((r) => [r.agent, r.proposalIds.length, r.steps])).toEqual([["media_buyer", 1, 3]]);
+    expect(runs.map((r) => [r.agent, r.proposalIds.length, r.steps])).toEqual([["media_buyer", 1, 2]]);
     const usage = await d.select().from(schema.usage).where(eq(schema.usage.workspaceId, ws)).orderBy(asc(schema.usage.id));
-    expect(usage.map((u) => (u.detail as any).agent)).toEqual(["mikee", "media_buyer", "media_buyer", "media_buyer", "mikee"]);
+    expect(usage.map((u) => (u.detail as any).agent)).toEqual(["mikee", "media_buyer", "media_buyer"]);
+    // Every model call is measured, tied to its task, and the task keeps its totals.
+    const calls = await d.select().from(schema.modelCalls).where(eq(schema.modelCalls.workspaceId, ws)).orderBy(asc(schema.modelCalls.id));
+    expect(calls.map((c) => [c.agent, c.inputTokens, c.outputTokens])).toEqual([
+      ["mikee", 1000, 200],
+      ["media_buyer", 1000, 200],
+      ["media_buyer", 1000, 200],
+    ]);
+    expect(new Set(calls.map((c) => c.jobId))).toEqual(new Set([job.id]));
+    const done = await d.query.jobs.findFirst({ where: eq(schema.jobs.id, job.id) });
+    expect(done?.metrics).toMatchObject({ modelCalls: 3 });
   });
 
   it("parallel tasks: copy and visuals at the same time", async () => {

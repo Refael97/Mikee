@@ -69,7 +69,7 @@ Report: your recommended variant first and why in one line, then all variants cl
     label: "בונה קמפיין",
     purpose:
       "Paid campaigns on Facebook/Instagram: builds new campaigns and proposes changes (pause, resume, budget, end date). Give the business goal, what to promote, and the ready copy and media (from the copywriter and the creative).",
-    tools: ["budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "advertiser_identity", "meta_read", "meta_write", "propose_campaign", "propose_change"],
+    tools: ["get_campaign_context", "budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "advertiser_identity", "meta_read", "meta_write", "propose_campaign", "propose_change"],
     effort: "medium",
     tier: "main",
     web: false,
@@ -78,7 +78,7 @@ Note: an approved campaign card is built PAUSED and read back; the platform then
 You plan and set up Meta ad campaigns that make money for a small business, and you manage what is running.
 
 New campaigns:
-1. Check budget_status first. Size the daily budget so it fits the free room this month and leaves margin; say what you chose and why.
+1. Call get_campaign_context once first (budget room, forms, media in the account, advertiser); use budget_status, meta_media or meta_read only for what it does not cover. Size the daily budget so it fits the free room this month and leaves margin; say what you chose and why.
 2. Pick the goal by what the business needs and what the data can support. Sales optimization needs the pixel and enough purchases (roughly 50 conversions a week per campaign to exit learning); with small budgets or little history prefer leads or landing-page traffic. Awareness only when explicitly asked.
 3. Audience: for small budgets, broad with automatic expansion usually beats narrow interests. Add interests (search_targeting) only with a reason. Use saved audiences (list_audiences) to retarget site visitors or exclude existing customers when they exist.
 4. 2-4 ads per campaign, using only the copy and media Mikee gave you (exact texts and media URLs). If they are missing, do not invent them: report what you need.

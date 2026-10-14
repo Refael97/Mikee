@@ -12,6 +12,7 @@ import { currentDailyBudget, describeError } from "../meta/actions";
 import { insights, readCampaigns } from "../meta/performance";
 import { metaMedia } from "../meta/media";
 import { listIdentities } from "../meta/identities";
+import { campaignContext } from "../meta/campaignContext";
 import { fileConversation } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict } from "../proposals";
@@ -403,6 +404,18 @@ export const TOOLS = [
       after: z.string().max(500).optional().describe("The `next` value from the previous answer, for the next page"),
     }),
     run: async (ctx, i) => stripTokens(await metaMedia(ctx.workspaceId, i.kind, i.limit, i.after)),
+  }),
+
+  tool({
+    name: "get_campaign_context",
+    effect: "read",
+    untrusted: "meta",
+    description:
+      "Everything needed to prepare a campaign, in one call: connected assets (ad account, page, Instagram, pixel, currency), this month's budget room, the page's lead forms, " +
+      "images and videos already in the ad account (with hash or id to reuse), recent items from Mikee's library, and the chosen advertiser/payer. Each part is ok, empty or error on its own. " +
+      "Call it once before propose_campaign instead of separate budget, media and form reads.",
+    input: z.object({}),
+    run: async (ctx) => stripTokens(await campaignContext(ctx.workspaceId, ctx.tz)),
   }),
 
   tool({
