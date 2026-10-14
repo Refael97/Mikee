@@ -745,6 +745,28 @@ async function waitForContainer(ctx: MetaContext, id: string): Promise<"FINISHED
   throw new Error("Instagram is still processing the media. Retrying will wait for the same upload, not upload again.");
 }
 
+/** Meta's "the media is not ready for publishing yet" (code 9007, subcode 2207027): an answer that says wait. */
+const notReady = (e: unknown) => e instanceof MetaError && e.code === 9007 && (e.subcode === 2207027 || e.subcode == null);
+
+/**
+ * media_publish, patiently. A container can report FINISHED a little before Meta lets it be published, most
+ * often for videos and Stories; Meta then refuses with 9007/2207027 and publishes nothing. That refusal is
+ * safe to retry with the same container: wait, check the container again and ask again, a few times, before
+ * giving up with Meta's own error.
+ */
+async function publishWhenReady(ctx: MetaContext, ig: string, creationId: string): Promise<{ id: string }> {
+  const tries = Number(process.env.MIKEE_IG_PUBLISH_TRIES ?? 6);
+  for (let i = 1; ; i++) {
+    try {
+      return await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
+    } catch (e) {
+      if (!notReady(e) || i >= tries) throw e;
+      await sleep(Number(process.env.MIKEE_IG_POLL_MS ?? 10_000));
+      await waitForContainer(ctx, creationId);
+    }
+  }
+}
+
 const sameText = (a?: string, b?: string) => !!a && !!b && a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
 
 /** A publishing problem a retry cannot fix (a schedule in the past, say): the client decides again. */
@@ -883,7 +905,7 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
         await cp.save({ igPublishAttempted: true });
         let r: { id: string };
         try {
-          r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
+          r = await publishWhenReady(ctx, ig, creationId);
         } catch (err) {
           // An explicit API rejection is different from a transport timeout with unknown outcome.
           if (err instanceof MetaError && err.status != null && err.status < 500) await cp.save({ igPublishAttempted: false });
