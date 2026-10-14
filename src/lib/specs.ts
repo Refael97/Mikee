@@ -33,14 +33,8 @@ export const AdSpec = z.object({
   media: Media,
 });
 
-export const CampaignSpec = z.object({
-  title: z.string().describe("Friendly card headline for the client, plain words without emoji, e.g. 'נותנים לקולקציה החדשה את הבמה'"),
-  why: z.string().describe("One or two sentences: what this is for and why it is good for the business"),
-  goal: z.enum(["sales", "leads", "traffic", "engagement", "awareness"]),
-  dailyBudget: z.number().positive().describe("Daily budget in the ad account currency (major units, e.g. 50 = ₪50)"),
-  startTime: z.string().optional().describe("ISO 8601. Omit to start right after approval"),
-  endTime: z.string().optional().describe("ISO 8601. Omit to run until stopped"),
-  audience: z.object({
+/** Who an ad set reaches. */
+export const Audience = z.object({
     description: z.string().describe("Plain-language summary for the card, e.g. 'קהל חדש בישראל, עם התאמה אוטומטית'"),
     countries: z.array(z.string().length(2)).default(["IL"]),
     cities: z
@@ -64,7 +58,26 @@ export const CampaignSpec = z.object({
     customAudienceIds: z.array(z.string()).optional(),
     excludedCustomAudienceIds: z.array(z.string()).optional(),
     advantage: z.boolean().default(true).describe("Let Meta expand beyond the suggested audience when it helps"),
-  }),
+  });
+export type Audience = z.infer<typeof Audience>;
+
+/** One more ad set in a new campaign: its own audience, budget and ads. */
+export const AdsetPlan = z.object({
+  name: z.string().min(1).max(80).describe("Short plain name for this ad set, e.g. 'נשים 25-45 בתל אביב'"),
+  dailyBudget: z.number().positive().describe("This ad set's daily budget in the account currency (major units)"),
+  audience: Audience,
+  ads: z.array(AdSpec).min(1).max(6),
+});
+export type AdsetPlan = z.infer<typeof AdsetPlan>;
+
+export const CampaignSpec = z.object({
+  title: z.string().describe("Friendly card headline for the client, plain words without emoji, e.g. 'נותנים לקולקציה החדשה את הבמה'"),
+  why: z.string().describe("One or two sentences: what this is for and why it is good for the business"),
+  goal: z.enum(["sales", "leads", "traffic", "engagement", "awareness"]),
+  dailyBudget: z.number().positive().describe("Daily budget in the ad account currency (major units, e.g. 50 = ₪50)"),
+  startTime: z.string().optional().describe("ISO 8601. Omit to start right after approval"),
+  endTime: z.string().optional().describe("ISO 8601. Omit to run until stopped"),
+  audience: Audience,
   leadFormId: z.string().optional().describe("For goal=leads with an instant form instead of the website"),
   leadFormName: z.string().max(200).optional().describe("Filled in by the platform from Meta; not needed in the request"),
   conversionEvent: z
@@ -72,8 +85,64 @@ export const CampaignSpec = z.object({
     .optional()
     .describe("Website event to optimize for (sales defaults to PURCHASE, website leads to LEAD)"),
   ads: z.array(AdSpec).min(1).max(6),
+  moreAdsets: z
+    .array(AdsetPlan)
+    .max(4)
+    .optional()
+    .describe("More ad sets in the same new campaign (the top-level audience, dailyBudget and ads are the first ad set). Each has its own budget."),
 });
 export type CampaignSpec = z.infer<typeof CampaignSpec>;
+
+/** Every ad set of a new campaign, the first one from the top-level fields. */
+export function adsetsOf(spec: CampaignSpec): { name?: string; dailyBudget: number; audience: Audience; ads: CampaignSpec["ads"] }[] {
+  return [{ dailyBudget: spec.dailyBudget, audience: spec.audience, ads: spec.ads }, ...(spec.moreAdsets ?? [])];
+}
+
+/** The whole campaign's daily budget: every ad set together. */
+export const totalDaily = (spec: CampaignSpec) => adsetsOf(spec).reduce((s, a) => s + a.dailyBudget, 0);
+
+/** Copying an existing ad set (with or without its ads), paused, into its own campaign or a matching one. */
+export const AdsetCopySpec = z.object({
+  title: z.string().describe("Friendly card headline, e.g. 'עוד סדרה לקהל חדש באותו קמפיין'"),
+  why: z.string().describe("What the copy is for, in plain words"),
+  sourceAdsetId: z.string().regex(/^\d+$/).describe("The ad set to copy (an id from read_results)"),
+  includeAds: z.boolean().default(true).describe("Copy its ads too"),
+  targetCampaignId: z
+    .string()
+    .regex(/^\d+$/)
+    .optional()
+    .describe("Only when she asked for a different existing campaign; omit to copy into the source's own campaign (the server reads it)"),
+  changes: z
+    .object({
+      name: z.string().min(1).max(120).optional(),
+      audience: Audience.optional().describe("A different audience for the copy"),
+      dailyBudget: z.number().positive().optional(),
+    })
+    .optional()
+    .describe("Applied to the paused copy right after it is made"),
+  // Filled in by the server from Meta, never by the model.
+  sourceName: z.string().optional(),
+  sourceCampaignId: z.string().optional(),
+  targetCampaignName: z.string().optional(),
+  sourceAdCount: z.number().int().optional(),
+  copyDailyBudget: z.number().optional(),
+});
+export type AdsetCopySpec = z.infer<typeof AdsetCopySpec>;
+
+/** A new ad set inside an existing campaign of this business. */
+export const AdsetAddSpec = z.object({
+  title: z.string().describe("Friendly card headline, e.g. 'סדרה חדשה לגברים בקמפיין הקיים'"),
+  why: z.string(),
+  campaignId: z.string().regex(/^\d+$/).describe("The existing campaign it goes into (an id from read_results)"),
+  adset: AdsetPlan.extend({ dailyBudget: z.number().positive().optional().describe("Leave out when the campaign holds the budget itself") }),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  leadFormId: z.string().optional().describe("Needed when the campaign's ad sets use an instant form"),
+  // Filled in by the server from Meta.
+  campaignName: z.string().optional(),
+  campaignBudget: z.boolean().optional(),
+});
+export type AdsetAddSpec = z.infer<typeof AdsetAddSpec>;
 
 export const ChangeSpec = z.object({
   title: z.string().describe("Friendly card headline, e.g. 'נותנים לסרטון החדש עוד במה'"),
@@ -129,7 +198,11 @@ export const ActivateSpec = z.object({
   campaignId: z.string(),
   adsetId: z.string(),
   adIds: z.array(z.string()),
-  dailyBudget: z.number().positive(),
+  /** Every ad set to switch on (a new campaign can have several). */
+  adsetIds: z.array(z.string()).optional(),
+  /** "adsets": only the new ad sets and their ads go live, inside a campaign that already exists. */
+  scope: z.enum(["campaign", "adsets"]).default("campaign"),
+  dailyBudget: z.number().min(0),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   review: z.string().describe("Plain-language state of Meta's ad review at build time"),
@@ -151,11 +224,13 @@ export type ActivateSpec = z.infer<typeof ActivateSpec>;
 
 export { VideoSpec } from "./video/spec";
 
-export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media" | "activate" | "video";
+export type ProposalKind = "campaign" | "change" | "post" | "budget" | "media" | "activate" | "video" | "adset" | "adset_copy";
 
 /** What the chat UI renders for a proposal. Built server-side from the specs above. */
 export type ProposalCard = {
   kind: ProposalKind;
+  /** The card's label when it differs from its kind's (e.g. switching on an ad set, not a whole campaign). */
+  label?: string;
   title: string;
   why: string;
   rows: { label: string; value: string }[];

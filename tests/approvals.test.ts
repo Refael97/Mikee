@@ -32,7 +32,7 @@ describe("every tool is either read-only or produces a card", () => {
     expect(Object.values(effects).every((e) => ["read", "memory", "setup", "proposal"].includes(e))).toBe(true);
     expect(TOOLS.filter((t) => t.effect === "setup").map((t) => t.name)).toEqual(["meta_write"]);
     expect(TOOLS.filter((t) => t.effect === "proposal").map((t) => t.name).sort()).toEqual(
-      ["propose_campaign", "propose_change", "propose_media", "propose_post", "propose_video", "request_budget_increase"].sort(),
+      ["propose_adset", "propose_adset_copy", "propose_campaign", "propose_change", "propose_media", "propose_post", "propose_video", "request_budget_increase"].sort(),
     );
   });
 

@@ -47,6 +47,8 @@ export function friendlyError(err: unknown): string {
       ? "יצירת הסרטונים עוד לא מחוברת בשרת. אפשר לפנות לתמיכה."
       : "אחת התמונות של הסרטון לא זמינה בספרייה. מייקי יכול להכין גרסה עם תמונות אחרות.";
   }
+  if ((err as Error)?.name === "OwnershipProblem") return "הסדרה או הקמפיין לא מתאימים לפעולה הזאת, או שהם לא בחשבון המודעות של העסק. שום דבר לא נוצר; הסיבה המדויקת מופיעה בפרטים למטה.";
+  if ((err as Error)?.name === "CopyUncertain") return "לא ברור אם בקשת השכפול הקודמת הגיעה למטא, ולכן לא שלחתי אותה שוב. כדאי לבדוק במנהל המודעות; הפרטים למטה.";
   const m = err instanceof Error ? err.message : String(err);
   // Messages written for the client (credits running out) are shown as they are.
   if (/קרדיטים/.test(m)) return m;

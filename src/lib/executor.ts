@@ -8,9 +8,9 @@ import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
 import { resolveIdentity } from "./meta/identities";
-import { activateCampaign, applyChange, buildCampaign, describeBuild, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
+import { activateCampaign, addAdset, applyChange, buildCampaign, cleanupAdset, copyAdset, CopyUncertain, describeBuild, OwnershipProblem, reviewAds, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
 import { approveProposal, createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
-import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
+import { ActivateSpec, adsetsOf, AdsetAddSpec, AdsetCopySpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, totalDaily, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
 import { CTA_HE } from "./cards";
 import { recordUsage } from "./usage";
@@ -45,6 +45,8 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
 
   if (opts.cleanup) {
     if (p.kind === "campaign" && p.status === "cancelled") await cleanupLaunch(await metaContext(p.workspaceId), cp).catch(() => undefined);
+    // An ad set added to or copied into an existing campaign: only that ad set goes, never the campaign.
+    if ((p.kind === "adset" || p.kind === "adset_copy") && p.status === "cancelled") await cleanupAdset(await metaContext(p.workspaceId), cp).catch(() => undefined);
     return;
   }
   if (p.status !== "executing") return; // already finished by an earlier run of this job
@@ -67,7 +69,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         // the client. Nothing spends money here.
         const spec = CampaignSpec.parse(p.action);
         const ctx = await metaContext(p.workspaceId);
-        await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
+        await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(totalDaily(spec), tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
         // The advertiser and payer the client chose for this card, account or business (null if none fits).
         const identity = await resolveIdentity(ctx, p.workspaceId, p.id);
         const ids = await buildCampaign(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp, identity?.regional_regulation_identities);
@@ -86,12 +88,62 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         // Step two: the client approved going live. The budget is checked again against live numbers.
         const spec = ActivateSpec.parse(p.action);
         const ctx = await metaContext(p.workspaceId);
-        const live = await ctx.graph.get<{ effective_status?: string }>(`/${spec.campaignId}`, { fields: "effective_status" });
-        if (live.effective_status !== "ACTIVE") {
-          await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
+        if (spec.scope === "adsets") {
+          // New ad sets inside an existing campaign: their own budget is what starts to spend.
+          const first = await ctx.graph.get<{ effective_status?: string }>(`/${spec.adsetIds?.[0] ?? spec.adsetId}`, { fields: "effective_status" });
+          if (first.effective_status !== "ACTIVE" && spec.dailyBudget > 0) {
+            await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
+          }
+        } else {
+          const live = await ctx.graph.get<{ effective_status?: string }>(`/${spec.campaignId}`, { fields: "effective_status" });
+          if (live.effective_status !== "ACTIVE") {
+            await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
+          }
         }
         result = await activateCampaign(ctx, spec);
         await syncMetaSpendCap(p.workspaceId, tz, ctx).catch(() => undefined);
+        break;
+      }
+      case "adset": {
+        // A new ad set inside an existing campaign, built paused and read back. Never a new campaign.
+        const spec = AdsetAddSpec.parse(p.action);
+        const ctx = await metaContext(p.workspaceId);
+        const daily = spec.campaignBudget ? 0 : (spec.adset.dailyBudget ?? 0);
+        if (daily > 0) await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(daily, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
+        const identity = await resolveIdentity(ctx, p.workspaceId, p.id);
+        const r = await addAdset(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp, identity?.regional_regulation_identities);
+        if (r.mismatches.length) throw new NotRetryable(`The new ad set does not match the approved card (${r.mismatches.join("; ")}). It stays paused.`);
+        result = await afterAdsetBuild(p, ws?.settings?.autonomy, tz, ctx.currency, {
+          campaignId: r.campaignId,
+          campaignName: spec.campaignName,
+          adsetId: r.adsetId,
+          adIds: r.adIds,
+          dailyBudget: daily,
+          startTime: spec.startTime,
+          endTime: spec.endTime,
+          review: await reviewAds(ctx, r.adIds),
+          media: spec.adset.ads.map((a) => ({ type: a.media.type, url: a.media.url, metaImageHash: a.media.metaImageHash, metaVideoId: a.media.metaVideoId, text: a.primaryText, headline: a.headline, cta: CTA_HE[a.cta] })),
+        });
+        break;
+      }
+      case "adset_copy": {
+        // Meta's /copies, paused, into the source's campaign or a matching one; then the requested changes.
+        const spec = AdsetCopySpec.parse(p.action);
+        const ctx = await metaContext(p.workspaceId);
+        const daily = spec.changes?.dailyBudget ?? spec.copyDailyBudget ?? 0;
+        if (daily > 0 && !cp.data.copiedAdsetId) await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(daily, tz), { excludeProposalId: p.id });
+        const r = await copyAdset(ctx, spec, cp);
+        if (r.mismatches.length) throw new NotRetryable(`The copy does not match the approved card (${r.mismatches.join("; ")}). It stays paused.`);
+        result = await afterAdsetBuild(p, ws?.settings?.autonomy, tz, ctx.currency, {
+          campaignId: r.campaignId,
+          campaignName: spec.targetCampaignName,
+          adsetId: r.adsetId,
+          adIds: r.adIds,
+          dailyBudget: daily,
+          review: await reviewAds(ctx, r.adIds),
+          media: [],
+        });
+        result = { ...result, copiedAdsetId: r.adsetId, adMap: r.adMap };
         break;
       }
       case "change": {
@@ -126,7 +178,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
     }
     await finishProposal(p, true, result);
   } catch (err) {
-    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem || err instanceof PublishProblem || err instanceof CreditsExhausted);
+    const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem || err instanceof PublishProblem || err instanceof CreditsExhausted || err instanceof OwnershipProblem || err instanceof CopyUncertain);
     // A failed build may have left paused objects at Meta (or created one whose answer was lost): look.
     const built = p.kind === "campaign" ? await metaContext(p.workspaceId).then((ctx) => whatWasBuilt(ctx, `mk-${p.id.slice(0, 8)}`, cp)).catch((e) => ({ checked: false as const, error: describeError(e), adIds: [] })) : undefined;
     await finishProposal(p, false, {
@@ -143,7 +195,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
 }
 
 /** The second card of a campaign: the built, paused campaign, ready to go live with one more approval. */
-async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId: string; adsetId: string; adIds: string[] }, review: string, tz: string, currency?: string) {
+async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId: string; adsetId: string; adIds: string[]; adsets?: { adsetId: string }[] }, review: string, tz: string, currency?: string) {
   const card = p.card as unknown as ProposalCard;
   const action: ActivateSpec = {
     fromProposal: p.id,
@@ -151,20 +203,28 @@ async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId
     campaignId: ids.campaignId,
     adsetId: ids.adsetId,
     adIds: ids.adIds,
-    dailyBudget: spec.dailyBudget,
+    adsetIds: ids.adsets?.map((a) => a.adsetId),
+    scope: "campaign",
+    dailyBudget: totalDaily(spec),
     startTime: spec.startTime,
     endTime: spec.endTime,
     review,
-    media: spec.ads.map((a) => ({
-      type: a.media.type,
-      url: a.media.url,
-      metaImageHash: a.media.metaImageHash,
-      metaVideoId: a.media.metaVideoId,
-      text: a.primaryText,
-      headline: a.headline,
-      cta: CTA_HE[a.cta],
-    })),
+    media: adsetsOf(spec)
+      .flatMap((x) => x.ads)
+      .map((a) => ({
+        type: a.media.type,
+        url: a.media.url,
+        metaImageHash: a.media.metaImageHash,
+        metaVideoId: a.media.metaVideoId,
+        text: a.primaryText,
+        headline: a.headline,
+        cta: CTA_HE[a.cta],
+      })),
   };
+  return openActivationCard(p, action, tz, currency);
+}
+
+async function openActivationCard(p: Proposal, action: ActivateSpec, tz: string, currency?: string) {
   const d = await db();
   const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, p.workspaceId) });
   return createProposal({
@@ -175,9 +235,52 @@ async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId
     action: action as unknown as Record<string, unknown>,
     month: p.month,
     currency,
-    reserved: dailyCommit(spec.dailyBudget, ws?.timezone ?? tz, spec.endTime, spec.startTime),
+    reserved: action.dailyBudget > 0 ? dailyCommit(action.dailyBudget, ws?.timezone ?? tz, action.endTime, action.startTime) : 0,
     clientAsked: true,
   });
+}
+
+/**
+ * After an ad set was added to or copied into an existing campaign (paused, read back): the card to switch
+ * on just that ad set. At "final approval only" a clean build goes live right away, like a new campaign.
+ */
+async function afterAdsetBuild(
+  p: Proposal,
+  autonomy: string | undefined,
+  tz: string,
+  currency: string | undefined,
+  b: { campaignId: string; campaignName?: string; adsetId: string; adIds: string[]; dailyBudget: number; startTime?: string; endTime?: string; review: { review: string; blockers: string[] }; media: ActivateSpec["media"] },
+) {
+  const card = p.card as unknown as ProposalCard;
+  const action: ActivateSpec = {
+    fromProposal: p.id,
+    title: card.title,
+    campaignId: b.campaignId,
+    adsetId: b.adsetId,
+    adIds: b.adIds,
+    adsetIds: [b.adsetId],
+    scope: "adsets",
+    dailyBudget: b.dailyBudget,
+    startTime: b.startTime,
+    endTime: b.endTime,
+    review: b.review.review,
+    media: b.media,
+  };
+  const activation = await openActivationCard(p, action, tz, currency).catch((e) => (e instanceof ProposalConflict ? null : Promise.reject(e)));
+  const autoActivated = autonomy === "final" && !!activation && b.review.blockers.length === 0;
+  if (autoActivated) await approveProposal(p.workspaceId, activation.id, activation.versionHash, { auto: true });
+  return {
+    campaignId: b.campaignId,
+    adsetId: b.adsetId,
+    adIds: b.adIds,
+    newCampaign: false,
+    built: true,
+    paused: !autoActivated,
+    review: b.review.review,
+    blockers: b.review.blockers,
+    activationProposalId: activation?.id,
+    autoActivated: autoActivated || undefined,
+  };
 }
 
 async function executeMedia(p: Proposal, cp: Checkpoint, tz: string) {

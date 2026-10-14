@@ -2,7 +2,7 @@
 
 import type { Autonomy } from "@/lib/autonomy";
 import { useEffect, useRef, useState } from "react";
-import { Bookmark, Check, ChevronLeft, ChevronRight, Clapperboard, Heart, ImageIcon, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
+import { Bookmark, Check, ChevronLeft, ChevronRight, Clapperboard, Copy, Heart, ImageIcon, Layers, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
@@ -20,6 +20,8 @@ const KIND: Record<Card["kind"], { label: string; done: string; icon: typeof Meg
   budget: { label: "תוספת תקציב", done: "אושר", icon: Wallet },
   media: { label: "תמונות וסרטונים", done: "מוכן", icon: ImageIcon },
   video: { label: "סרטון", done: "מוכן", icon: Clapperboard },
+  adset: { label: "הוספת סדרה", done: "נבנתה, מושהית", icon: Layers },
+  adset_copy: { label: "שכפול סדרה", done: "שוכפלה, מושהית", icon: Copy },
 };
 
 const STATUS: Record<string, { label: string; tag: string }> = {
@@ -30,6 +32,7 @@ const STATUS: Record<string, { label: string; tag: string }> = {
   declined: { label: "לא הפעם", tag: "tag tag-quiet" },
   cancelled: { label: "בוטל", tag: "tag tag-quiet" },
   superseded: { label: "הוחלף בגרסה חדשה", tag: "tag tag-quiet" },
+  withdrawn: { label: "בוטל, לא יבוצע", tag: "tag tag-quiet" },
 };
 
 type Media = NonNullable<Card["media"]>[number];
@@ -396,7 +399,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
       <header className="relative flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-4 py-2">
         <span className="flex items-center gap-2 text-[13.5px] font-medium text-ink-2">
           <kind.icon className="h-4 w-4" strokeWidth={1.75} />
-          {kind.label}
+          {card.label ?? kind.label}
         </span>
         {status && <span className={status.tag}>{view.status === "done" ? kind.done : status.label}</span>}
         {view.status === "executing" && (
@@ -439,7 +442,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
         )}
         {view.status === "executing" && (
           <p className="text-[14.5px] text-ink-2">
-            <span className="shimmer font-medium">{({ media: "יוצר", video: "מרנדר את הסרטון", campaign: finalOnly ? "בונה את הקמפיין ובודק אותו לפני העלייה לאוויר" : "בונה את הקמפיין במצב מושהה", activate: "מפעיל" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
+            <span className="shimmer font-medium">{({ media: "יוצר", video: "מרנדר את הסרטון", campaign: finalOnly ? "בונה את הקמפיין ובודק אותו לפני העלייה לאוויר" : "בונה את הקמפיין במצב מושהה", activate: "מפעיל", adset: "בונה את הסדרה בתוך הקמפיין, במצב מושהה", adset_copy: "משכפל את הסדרה במצב מושהה" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
           </p>
         )}
         {view.status === "done" && (
@@ -453,6 +456,10 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
                 ? view.autoActivated
                   ? "נבנה, נבדק ועלה לאוויר לפי האישור שלך"
                   : "נבנה במצב מושהה ונבדק. כרטיס ההפעלה מחכה לך למטה"
+              : card.kind === "adset" || card.kind === "adset_copy"
+                ? view.autoActivated
+                  ? "הסדרה מוכנה, נבדקה ועלתה לאוויר לפי האישור שלך"
+                  : `${card.kind === "adset" ? "הסדרה נבנתה" : "הסדרה שוכפלה"} בתוך הקמפיין הקיים, מושהית ונבדקה. כרטיס ההפעלה מחכה לך למטה`
                 : `${kind.done}. מייקי עוקב אחרי זה מעכשיו`}
           </p>
         )}

@@ -1,5 +1,5 @@
 import { totalSeconds, VIDEO_FORMATS, VIDEO_STYLES, type VideoSpec } from "./video/spec";
-import type { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, ProposalCard, ProposalKind } from "./specs";
+import { type ActivateSpec, type AdsetAddSpec, type AdsetCopySpec, adsetsOf, type BudgetRequestSpec, type CampaignSpec, type ChangeSpec, type MediaSpec, type PostSpec, type ProposalCard, type ProposalKind, totalDaily } from "./specs";
 
 const money = (amount: number, currency = "ILS") =>
   new Intl.NumberFormat("he-IL", { style: "currency", currency, maximumFractionDigits: amount >= 100 ? 0 : 2 }).format(amount);
@@ -48,20 +48,28 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
     case "campaign": {
       const s = action as CampaignSpec;
       const when = [s.startTime ? `מ־${dateHe(s.startTime)}` : "מיד באישור", s.endTime ? `עד ${dateHe(s.endTime)}` : "עד שנעצור"].join(" ");
-      const links = [...new Set(s.ads.map((a) => host(a.link)))].join(", ");
+      const sets = adsetsOf(s);
+      const allAds = sets.flatMap((x) => x.ads);
+      const links = [...new Set(allAds.map((a) => host(a.link)))].join(", ");
+      const several = sets.length > 1;
       return {
         kind,
         title: s.title,
         why: s.why,
         rows: [
           { label: "המטרה", value: GOAL_HE[s.goal] },
-          { label: "תקציב", value: `${money(s.dailyBudget, currency)} ביום בממוצע` },
-          { label: "למי נגיע", value: s.audience.description },
+          { label: "תקציב", value: `${money(totalDaily(s), currency)} ביום בממוצע${several ? `, לכל הסדרות יחד` : ""}` },
+          ...(several
+            ? sets.map((x, i) => ({
+                label: `סדרה ${i + 1}`,
+                value: `${x.name ?? x.audience.description}: ${x.audience.description}, ${money(x.dailyBudget, currency)} ביום, ${x.ads.length === 1 ? "מודעה אחת" : `${x.ads.length} מודעות`}`,
+              }))
+            : [{ label: "למי נגיע", value: s.audience.description }]),
           { label: "מתי", value: when },
           s.leadFormId ? { label: "טופס הלידים", value: `${s.leadFormName ?? "טופס"} (מזהה ${s.leadFormId})` } : { label: "לאן מגיעים", value: links },
           { label: "מה יקרה באישור", value: "מייקי בונה את הקמפיין במצב מושהה ובודק אותו. הוא יעלה לאוויר רק אחרי אישור נוסף שלך." },
         ],
-        media: s.ads.map((a) => ({
+        media: allAds.map((a) => ({
           type: a.media.type,
           url: a.media.url,
           metaImageHash: a.media.metaImageHash,
@@ -77,18 +85,81 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
     case "activate": {
       const s = action as ActivateSpec;
       const when = [s.startTime ? `מ־${dateHe(s.startTime)}` : "מרגע האישור", s.endTime ? `עד ${dateHe(s.endTime)}` : "עד שנעצור"].join(" ");
+      const adsets = s.scope === "adsets";
       return {
         kind,
+        ...(adsets ? { label: "הפעלת סדרה" } : {}),
         title: s.title,
-        why: "הקמפיין בנוי, מושהה, ובדקתי מול מטא שהוא תואם בדיוק למה שאישרת. הוא יתחיל להוציא כסף רק אחרי האישור הזה.",
+        why: adsets
+          ? "הסדרה בנויה בתוך הקמפיין הקיים, מושהית, ובדקתי מול מטא שהיא תואמת בדיוק למה שאישרת. היא תתחיל לרוץ רק אחרי האישור הזה; שאר הקמפיין נשאר כמו שהוא."
+          : "הקמפיין בנוי, מושהה, ובדקתי מול מטא שהוא תואם בדיוק למה שאישרת. הוא יתחיל להוציא כסף רק אחרי האישור הזה.",
         rows: [
-          { label: "תקציב", value: `${money(s.dailyBudget, currency)} ביום בממוצע. ביום מסוים מטא יכולה להוציא קצת יותר, והתקרה החודשית נשמרת` },
+          {
+            label: "תקציב",
+            value:
+              s.dailyBudget > 0
+                ? `${money(s.dailyBudget, currency)} ביום בממוצע. ביום מסוים מטא יכולה להוציא קצת יותר, והתקרה החודשית נשמרת`
+                : "מתקציב הקמפיין הקיים, בלי תוספת",
+          },
           { label: "מתי", value: when },
           { label: "בדיקת מטא", value: s.review },
         ],
         media: s.media,
-        approveLabel: "להפעיל עכשיו",
+        approveLabel: adsets ? "להפעיל את הסדרה" : "להפעיל עכשיו",
         changeLabel: "עוד לא",
+      };
+    }
+    case "adset": {
+      const s = action as AdsetAddSpec;
+      const b = s.adset.dailyBudget;
+      return {
+        kind,
+        title: s.title,
+        why: s.why,
+        rows: [
+          { label: "בתוך הקמפיין", value: `${s.campaignName ?? s.campaignId} (קמפיין קיים, לא נוצר קמפיין חדש)` },
+          { label: "הסדרה החדשה", value: s.adset.name },
+          { label: "למי נגיע", value: s.adset.audience.description },
+          { label: "תקציב", value: s.campaignBudget || b == null ? "מתקציב הקמפיין הקיים" : `${money(b, currency)} ביום בממוצע` },
+          { label: "מודעות", value: s.adset.ads.length === 1 ? "מודעה אחת" : `${s.adset.ads.length} מודעות` },
+          { label: "מה יקרה באישור", value: "מייקי בונה את הסדרה בתוך הקמפיין, מושהית, ובודק אותה. היא תעלה לאוויר רק אחרי אישור נוסף שלך." },
+        ],
+        media: s.adset.ads.map((a) => ({
+          type: a.media.type,
+          url: a.media.url,
+          metaImageHash: a.media.metaImageHash,
+          metaVideoId: a.media.metaVideoId,
+          text: a.primaryText,
+          headline: a.headline,
+          cta: CTA_HE[a.cta],
+        })),
+        approveLabel: "נראה טוב, לבנות",
+        changeLabel: "בוא נשנה משהו",
+      };
+    }
+    case "adset_copy": {
+      const s = action as AdsetCopySpec;
+      const same = !s.targetCampaignId || s.targetCampaignId === s.sourceCampaignId;
+      const c = s.changes;
+      const changes = [c?.audience && `קהל חדש: ${c.audience.description}`, c?.dailyBudget != null && `תקציב ${money(c.dailyBudget, currency)} ביום`, c?.name && `שם: ${c.name}`].filter(Boolean).join("; ");
+      const n = s.sourceAdCount ?? 0;
+      return {
+        kind,
+        title: s.title,
+        why: s.why,
+        rows: [
+          { label: "הסדרה המקורית", value: s.sourceName ?? s.sourceAdsetId },
+          { label: "לאן", value: same ? `אותו קמפיין${s.targetCampaignName ? ` (${s.targetCampaignName})` : ""}, לא נוצר קמפיין חדש` : `הקמפיין הקיים ${s.targetCampaignName ?? s.targetCampaignId}` },
+          { label: "מודעות", value: s.includeAds ? (n === 1 ? "המודעה מועתקת" : `${n} המודעות מועתקות`) : "בלי מודעות" },
+          { label: "מה משתנה בעותק", value: changes || "שום דבר, עותק זהה" },
+          {
+            label: "תקציב",
+            value: c?.dailyBudget != null ? `${money(c.dailyBudget, currency)} ביום` : s.copyDailyBudget ? `${money(s.copyDailyBudget, currency)} ביום, כמו המקור` : "מתקציב הקמפיין",
+          },
+          { label: "מה יקרה באישור", value: "מייקי משכפל את הסדרה במצב מושהה ובודק את העותק. הוא יעלה לאוויר רק אחרי אישור נוסף שלך." },
+        ],
+        approveLabel: "נראה טוב, לשכפל",
+        changeLabel: "בוא נשנה משהו",
       };
     }
     case "change": {

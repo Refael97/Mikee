@@ -223,6 +223,13 @@ Checked against Meta's official docs (Graph API v26.0, October 2026). The app is
   - Video thumbnail: uploaded as an ad image.
   - Budget changes in a campaign-budget (CBO) campaign go to the campaign.
   - The spending cap is written only when it changes (up to 10 times a day).
+  - Three campaign cards, all through the same approval path, built PAUSED and read back before a separate activation card:
+    - **קמפיין חדש** (`propose_campaign`): one or more ad sets (`moreAdsets`), each with its own audience, budget and ads; one activation for all of them.
+    - **הוספת סדרה** (`propose_adset`): a new ad set and its ads inside an existing campaign (`campaignId`), optimized like that campaign's other ad sets, without a budget of its own when the campaign holds the budget.
+    - **שכפול סדרה** (`propose_adset_copy`): `POST /{adset_id}/copies` with `campaign_id`, `deep_copy` (with or without its ads) and `status_option: PAUSED`. Only `sourceAdsetId` is needed: the server reads the source's campaign; another campaign only when asked, and only a matching one (same objective and budget setup). A new audience, name or budget is an update on the paused copy, after the copy.
+  - For ad sets in an existing campaign, the campaign is the target that exists: no new campaign is ever created for it, and its activation card switches on only the new ad set and its ads.
+  - The server checks that every campaign and ad set belongs to the business's ad account (`account_id`), checks the monthly budget, and saves progress: `copied_adset_id` and the ad mapping are saved the moment Meta answers. If the answer of a `/copies` request is lost, the retry looks for the copy in the target campaign and adopts it; if anything new there cannot be identified for sure, it stops instead of copying again, and it sends the request again only when nothing appeared.
+  - Mikee withdraws a wrong card with `withdraw_card` (it can no longer be approved), and says what was wrong in plain words. A capability he lacks is "היכולת עדיין לא מחוברת אצלי", never "Meta does not allow it".
 - For the pilot you can also paste a ready System User token (under "יש לי מפתח גישה מוכן", "I already have an access key").
 
 ## Client skills

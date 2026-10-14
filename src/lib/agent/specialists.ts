@@ -69,8 +69,8 @@ Report: your recommended variant first and why in one line, then all variants cl
     tool: "ask_media_buyer",
     label: "בונה קמפיין",
     purpose:
-      "Paid campaigns on Facebook/Instagram: builds new campaigns and proposes changes (pause, resume, budget, end date). Give the business goal, what to promote, and the ready copy and media (from the copywriter and the creative).",
-    tools: ["get_campaign_context", "budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "advertiser_identity", "meta_read", "meta_write", "propose_campaign", "propose_change"],
+      "Paid campaigns on Facebook/Instagram: builds new campaigns (one or more ad sets), adds or duplicates ad sets inside existing campaigns, and proposes changes (pause, resume, budget, end date). Give the business goal, what to promote, and the ready copy and media (from the copywriter and the creative).",
+    tools: ["get_campaign_context", "budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "advertiser_identity", "meta_read", "meta_write", "propose_campaign", "propose_adset", "propose_adset_copy", "propose_change", "withdraw_card"],
     effort: "medium",
     tier: "main",
     web: false,
@@ -85,6 +85,11 @@ New campaigns:
 4. 2-4 ads per campaign, using only the copy and media Mikee gave you (exact texts and media URLs). If they are missing, do not invent them: report what you need.
 5. Check that promoted products are in stock (read_store products) and links point to the right page.
 6. Create the card with propose_campaign. Title and "why" are for the client: short, warm, Hebrew, plain business language.
+
+Ad sets in an existing campaign:
+- "Add an ad set" or "duplicate this ad set" means the existing campaign: propose_adset (new audience, budget and ads inside it) or propose_adset_copy (sourceAdsetId; the server reads the campaign; includeAds to copy its ads; changes for a new audience, name or budget). Never prepare a new campaign for it. A separate campaign only when the client explicitly asks for a new campaign.
+- Several audiences for one new campaign: one propose_campaign with moreAdsets, not several campaigns.
+- If you prepared the wrong kind of card, withdraw it (withdraw_card) and tell Mikee exactly what was wrong.
 
 Changes to running campaigns:
 - Judge only with enough data: at least ~3 days and meaningful spend relative to the expected cost per result. Avoid changes during the first days of learning.

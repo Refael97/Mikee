@@ -113,14 +113,17 @@ export class FakeMeta {
       }
       switch (edge) {
         case "campaigns":
-          return { id: this.add("campaign", { name: params.name, status: params.status, objective: params.objective }).id };
+          return { id: this.add("campaign", { name: params.name, status: params.status, objective: params.objective, account_id: "1" }).id };
         case "adsets":
           return {
             id: this.add("adset", {
               name: params.name,
+              account_id: "1",
               campaign_id: params.campaign_id,
               status: params.status,
               daily_budget: params.daily_budget,
+              optimization_goal: params.optimization_goal,
+              destination_type: params.destination_type,
               start_time: params.start_time,
               end_time: params.end_time,
               targeting: params.targeting ? JSON.parse(params.targeting) : undefined,
@@ -130,7 +133,7 @@ export class FakeMeta {
         case "adcreatives":
           return { id: this.add("creative", { name: params.name }).id };
         case "ads":
-          return { id: this.add("ad", { name: params.name, adset_id: params.adset_id, status: params.status }).id };
+          return { id: this.add("ad", { name: params.name, adset_id: params.adset_id, status: params.status, account_id: "1" }).id };
         case "adimages":
           return { images: { img: { hash: `hash_${this.seq++}` } } };
         case "customaudiences":
@@ -170,6 +173,22 @@ export class FakeMeta {
     }
 
     const node = this.nodes.get(root);
+    // Ad set copies, answered like Meta's real /copies (copied_adset_id, then ad_object_ids with the ad set and each ad).
+    if (node && node.type === "adset" && edge === "copies" && method === "POST") {
+      const deep = params.deep_copy === "true";
+      const status = params.status_option === "PAUSED" ? "PAUSED" : params.status_option === "ACTIVE" ? "ACTIVE" : node.status;
+      const { id: _id, created_time: _t, ...rest } = node;
+      const copy = this.add("adset", { ...rest, name: `${node.name} - Copy`, campaign_id: params.campaign_id ?? node.campaign_id, status });
+      const objects = [{ ad_object_type: "ad_set", source_id: node.id, copied_id: copy.id }];
+      if (deep) {
+        for (const ad of this.list("ad").filter((a) => a.adset_id === node.id)) {
+          const { id: _a, created_time: _c, ...adRest } = ad;
+          const c = this.add("ad", { ...adRest, name: `${ad.name} - Copy`, adset_id: copy.id, status });
+          objects.push({ ad_object_type: "ad", source_id: ad.id, copied_id: c.id });
+        }
+      }
+      return { copied_adset_id: copy.id, ad_object_ids: objects };
+    }
     if (node && !edge) {
       if (method === "DELETE") {
         node.deleted = true;

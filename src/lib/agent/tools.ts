@@ -8,7 +8,7 @@ import { assertWithinBudget, budgetStatus, BudgetExceeded, dailyCommit, monthKey
 import { getConnection, type WebsiteConfig } from "../connections";
 import { logActivity } from "../activity";
 import { metaContext, money, requireAdAccount } from "../meta/context";
-import { currentDailyBudget, describeError } from "../meta/actions";
+import { copyPlan, currentDailyBudget, describeError, ownedCampaign, OwnershipProblem } from "../meta/actions";
 import { insights, readCampaigns } from "../meta/performance";
 import { metaMedia } from "../meta/media";
 import { instagramConversation, instagramConversations } from "../meta/messages";
@@ -16,8 +16,8 @@ import { listIdentities } from "../meta/identities";
 import { campaignContext } from "../meta/campaignContext";
 import { fileConversation, isGenericTitle } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
-import { approveProposal, createProposal, ProposalConflict } from "../proposals";
-import { CampaignSpec, ChangeSpec, MediaSpec, PostSpec } from "../specs";
+import { approveProposal, createProposal, ProposalConflict, withdrawProposal } from "../proposals";
+import { AdsetAddSpec, AdsetCopySpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, totalDaily } from "../specs";
 import { totalSeconds, VideoSpecBase } from "../video/spec";
 import { videoMedia, videoRenderer, VideoProblem } from "../video/render";
 import { hit } from "../guard";
@@ -594,7 +594,8 @@ export const TOOLS = [
     name: "propose_campaign",
     effect: "proposal",
     description:
-      "Prepare a new campaign and show the client a card. Nothing runs until she approves that exact card; the platform then builds it exactly as specified. " +
+      "Prepare a NEW campaign (one or more ad sets: moreAdsets adds ad sets with their own audience, budget and ads) and show the client a card. Only for a new campaign: an ad set in an existing campaign is propose_adset or propose_adset_copy. " +
+      "Nothing runs until she approves that exact card; the platform then builds it exactly as specified. " +
       "Checks the monthly budget (including other waiting cards) first. If she asks for a change, send a new card with replaces.",
     input: CampaignSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
@@ -607,7 +608,7 @@ export const TOOLS = [
         if (!form) return { error: "That lead form is not one of this page's forms. Use an id from get_campaign_context (leadForms)." };
         spec.leadFormName = form.name ?? spec.leadFormId;
       }
-      const reserved = dailyCommit(spec.dailyBudget, ctx.tz, spec.endTime, spec.startTime);
+      const reserved = dailyCommit(totalDaily(spec), ctx.tz, spec.endTime, spec.startTime);
       await assertWithinBudget(ctx.workspaceId, ctx.tz, meta, reserved, { excludeProposalId: replaces });
       const p = await createProposal({
         workspaceId: ctx.workspaceId,
@@ -622,6 +623,80 @@ export const TOOLS = [
         clientAsked,
       });
       return { proposalId: p.id, shown: "The card is in front of the client. Wait for her decision." };
+    },
+  }),
+
+  tool({
+    name: "propose_adset",
+    effect: "proposal",
+    description:
+      "Add a new ad set (its audience, budget and ads) inside an EXISTING campaign of this business, as a card. Use this, never propose_campaign, when she asks for an ad set in a campaign she already has. " +
+      "campaignId is that existing campaign (from read_results); the server checks it is this business's and builds the ad set there, paused, optimized like the campaign's other ad sets. " +
+      "Leave adset.dailyBudget out when the campaign holds the budget itself.",
+    input: AdsetAddSpec.omit({ campaignName: true, campaignBudget: true }).extend(proposalOptions),
+    run: async (ctx, { replaces, clientAsked, ...input }) => {
+      const meta = await metaContext(ctx.workspaceId);
+      let campaign;
+      try {
+        campaign = await ownedCampaign(meta, input.campaignId);
+      } catch (e) {
+        if (e instanceof OwnershipProblem) return { status: "error", error: `${e.message} Use a campaign id from read_results. Do not create a new campaign instead unless she explicitly asks for one.` };
+        throw e;
+      }
+      if (!campaign.campaignBudget && input.adset.dailyBudget == null) return { status: "error", error: "This campaign has no campaign budget, so the new ad set needs adset.dailyBudget." };
+      const spec: AdsetAddSpec = { ...input, campaignName: campaign.name, campaignBudget: campaign.campaignBudget };
+      if (spec.campaignBudget) delete spec.adset.dailyBudget;
+      const reserved = spec.adset.dailyBudget ? dailyCommit(spec.adset.dailyBudget, ctx.tz, spec.endTime, spec.startTime) : 0;
+      if (reserved) await assertWithinBudget(ctx.workspaceId, ctx.tz, meta, reserved, { excludeProposalId: replaces });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "adset", action: spec, month: monthKey(ctx.tz), currency: meta.currency, reserved, replaces, clientAsked });
+      return { proposalId: p.id, campaignId: campaign.id, newCampaign: false, shown: "The card (add an ad set to the existing campaign) is in front of the client." };
+    },
+  }),
+
+  tool({
+    name: "propose_adset_copy",
+    effect: "proposal",
+    description:
+      "Duplicate an existing ad set, with or without its ads, as a card. By default the copy goes into the SAME campaign: give only sourceAdsetId and the server reads its campaign (never ask for or invent a campaign id). " +
+      "targetCampaignId only when she asked for a different existing campaign; it must match (same goal, same budget setup). Changes (a new audience, name or daily budget) are applied to the paused copy right after copying. " +
+      "Use this, never propose_campaign, for 'duplicate this ad set'.",
+    input: AdsetCopySpec.pick({ title: true, why: true, sourceAdsetId: true, includeAds: true, targetCampaignId: true, changes: true }).extend(proposalOptions),
+    run: async (ctx, { replaces, clientAsked, ...input }) => {
+      const meta = await metaContext(ctx.workspaceId);
+      let plan;
+      try {
+        plan = await copyPlan(meta, input.sourceAdsetId, input.targetCampaignId);
+      } catch (e) {
+        if (e instanceof OwnershipProblem) return { status: "error", error: `${e.message} Nothing was prepared. Do not create a new campaign instead unless she explicitly asks for one.` };
+        throw e;
+      }
+      const spec: AdsetCopySpec = {
+        ...input,
+        targetCampaignId: input.targetCampaignId && input.targetCampaignId !== plan.source.campaignId ? input.targetCampaignId : undefined,
+        sourceName: plan.source.name,
+        sourceCampaignId: plan.source.campaignId,
+        targetCampaignName: plan.target.name,
+        sourceAdCount: plan.adCount,
+        copyDailyBudget: plan.target.campaignBudget ? undefined : plan.source.dailyBudget,
+      };
+      if (plan.target.campaignBudget && spec.changes?.dailyBudget != null) return { status: "error", error: "The target campaign holds the budget itself; the copy cannot get its own daily budget. Leave changes.dailyBudget out." };
+      const daily = spec.changes?.dailyBudget ?? spec.copyDailyBudget ?? 0;
+      const reserved = daily ? dailyCommit(daily, ctx.tz) : 0;
+      if (reserved) await assertWithinBudget(ctx.workspaceId, ctx.tz, meta, reserved, { excludeProposalId: replaces });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "adset_copy", action: spec, month: monthKey(ctx.tz), currency: meta.currency, reserved, replaces, clientAsked });
+      return { proposalId: p.id, campaignId: plan.target.id, sameCampaign: !spec.targetCampaignId, adsToCopy: spec.includeAds ? plan.adCount : 0, newCampaign: false, shown: "The card (duplicate the ad set) is in front of the client." };
+    },
+  }),
+
+  tool({
+    name: "withdraw_card",
+    effect: "memory",
+    description:
+      "Take back one of your own waiting cards that was wrong (it no longer can be approved and will not run), e.g. you prepared a new campaign when she asked for an ad set in an existing one. Then tell her plainly what was wrong.",
+    input: z.object({ proposalId: z.string().uuid(), reason: z.string().min(5).max(300) }),
+    run: async (ctx, i) => {
+      const row = await withdrawProposal(ctx.workspaceId, i.proposalId, i.reason);
+      return row ? { withdrawn: true, proposalId: row.id } : { status: "error", error: "No waiting card with that id (it may already be decided or running)." };
     },
   }),
 

@@ -43,7 +43,11 @@ export function dedupeKey(kind: ProposalKind, a: any): string {
     case "media":
       return `media:${sha(`${a.type}:${a.model}:${a.prompt}`).slice(0, 24)}`;
     case "activate":
-      return `activate:${a.campaignId}`;
+      return a.scope === "adsets" ? `activate:${a.campaignId}:${[...(a.adsetIds ?? [a.adsetId])].sort().join(",")}` : `activate:${a.campaignId}`;
+    case "adset":
+      return `adset:${a.campaignId}:${sha(canonical({ audience: a.adset.audience, media: a.adset.ads.map((x: any) => x.media.url).sort() })).slice(0, 24)}`;
+    case "adset_copy":
+      return `adset_copy:${a.sourceAdsetId}:${sha(canonical({ target: a.targetCampaignId ?? "", changes: a.changes ?? {}, ads: a.includeAds })).slice(0, 24)}`;
     case "video":
       return `video:${sha(canonical({ format: a.format, scenes: a.scenes })).slice(0, 24)}`;
   }
@@ -178,6 +182,7 @@ export async function approveProposal(workspaceId: string, id: string, versionHa
     if (p.status === "executing" || p.status === "done") return { status: p.status, duplicate: true as const };
     if (p.status === "superseded") throw new ApprovalRejected("מייקי החליף את ההצעה הזאת בגרסה חדשה.");
     if (p.status === "declined" || p.status === "cancelled") throw new ApprovalRejected("ההצעה הזאת כבר נדחתה.");
+    if (p.status === "withdrawn") throw new ApprovalRejected("מייקי ביטל את ההצעה הזאת, והיא לא תבוצע.");
     throw new ApprovalRejected("אי אפשר לאשר את ההצעה הזאת כרגע.");
   }
 
@@ -197,6 +202,20 @@ export async function declineProposal(workspaceId: string, id: string) {
   if (!row) throw new ApprovalRejected("ההצעה כבר טופלה");
   if (row.status === "cancelled") await enqueue(workspaceId, "execute", { proposalId: id, cleanup: true });
   return row;
+}
+
+/**
+ * Mikee takes back a waiting card that was wrong (for example a new campaign when she asked for an ad set in an
+ * existing one). It can no longer be approved, and it does not count as her declining the idea.
+ */
+export async function withdrawProposal(workspaceId: string, id: string, reason: string) {
+  const d = await db();
+  const [row] = await d
+    .update(schema.proposals)
+    .set({ status: "withdrawn", decidedAt: new Date(), result: { withdrawn: reason.slice(0, 300) } })
+    .where(and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId), eq(schema.proposals.status, "pending")))
+    .returning();
+  return row ?? null;
 }
 
 export async function saveProgress(id: string, patch: Record<string, unknown>) {

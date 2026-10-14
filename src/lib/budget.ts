@@ -127,7 +127,7 @@ async function reservedByPending(workspaceId: string, month: string, excludeProp
     eq(schema.proposals.workspaceId, workspaceId),
     eq(schema.proposals.status, "pending"),
     eq(schema.proposals.month, month),
-    sql`${schema.proposals.kind} in ('campaign','change')`,
+    sql`${schema.proposals.kind} in ('campaign','change','adset','adset_copy')`,
   ];
   if (excludeProposalId) conds.push(ne(schema.proposals.id, excludeProposalId));
   const [r] = await d.select({ total: sql<string>`coalesce(sum(${schema.proposals.reserved}), 0)` }).from(schema.proposals).where(and(...conds));
