@@ -12,11 +12,13 @@ export class FakeMeta {
   calls: Call[] = [];
   account = { id: "act_1", currency: "ILS", amount_spent: "1000000", spend_cap: "0", account_status: 1 };
   monthSpend = 0;
+  /** What debug_token reports for the business's token (when the app's credentials are set). */
+  token = { valid: true, scopes: ["ads_management", "pages_show_list", "pages_manage_metadata", "instagram_basic", "instagram_manage_messages"] };
   private seq = 1000;
   private failures: { match: (c: Call) => boolean; times: number; message: string; code?: number; subcode?: number }[] = [];
 
   constructor() {
-    this.nodes.set("page_1", { id: "page_1", type: "page", name: "Studio Noa", access_token: "page-token" });
+    this.nodes.set("page_1", { id: "page_1", type: "page", name: "Studio Noa", access_token: "page-token", instagram_business_account: { id: "ig_1" } });
     this.nodes.set("ig_1", { id: "ig_1", type: "ig" });
   }
 
@@ -81,6 +83,7 @@ export class FakeMeta {
     const parts = path.split("/").filter(Boolean);
     const [root, edge] = parts;
 
+    if (root === "debug_token") return { data: { app_id: process.env.META_APP_ID, is_valid: this.token.valid, scopes: this.token.scopes } };
     if (root === "me") {
       if (edge === "permissions") return { data: ["ads_management", "pages_manage_posts", "instagram_content_publish"].map((permission) => ({ permission, status: "granted" })) };
       return { id: "user_1", name: "Noa" };
@@ -137,6 +140,10 @@ export class FakeMeta {
 
     if (root === "page_1") {
       if (method === "GET" && !edge) return this.nodes.get("page_1");
+      if (method === "GET" && edge === "conversations") {
+        const convs = params.platform === "instagram" ? this.list("igconv") : [];
+        return { data: convs.map((c) => ({ id: c.id, updated_time: c.updated_time, participants: { data: c.participants } })), paging: {} };
+      }
       if (method === "GET" && edge === "leadgen_forms") return { data: this.list("leadform"), paging: {} };
       if (method === "GET" && edge === "posts") return { data: this.list("fbpost").map((p) => ({ id: p.id, message: p.message, created_time: p.created_time })) };
       if (method === "POST" && (edge === "photos" || edge === "feed" || edge === "videos")) {
@@ -165,6 +172,11 @@ export class FakeMeta {
         return { success: true };
       }
       if (node.type === "igcontainer") return { status_code: "FINISHED" };
+      if (node.type === "igconv") {
+        const msgs = this.list("igmsg").filter((m) => m.conversation === node.id).sort((a, b) => b.created_time.localeCompare(a.created_time));
+        return { id: node.id, participants: { data: node.participants }, messages: { data: msgs.map((m) => ({ id: m.id, created_time: m.created_time })) } };
+      }
+      if (node.type === "igmsg") return { id: node.id, created_time: node.created_time, from: node.from, to: node.to, message: node.message };
       return this.view(node);
     }
     if (node && edge === "adsets") return this.filter(this.list("adset").filter((a) => a.campaign_id === root), params);

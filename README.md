@@ -186,7 +186,8 @@ Checked against Meta's official docs (Graph API v26.0, October 2026). The app is
 1. Facebook Login for Business ← Configurations ← Create configuration:
    - Token: **System-user access token**, **60 days**. Mikee renews it automatically about 10 days before it expires, in the hourly job.
    - Assets: Pages, Ad accounts, Instagram accounts, Catalogs.
-   - Permissions: `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_ads`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `leads_retrieval`, `catalog_management`.
+   - Permissions: `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_ads`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `instagram_manage_messages`, `pages_manage_metadata`, `leads_retrieval`, `catalog_management`.
+   - Instagram direct messages (read only): `list_instagram_conversations` and `read_instagram_conversation` read the inbox of the Instagram account chosen for the business, through its page token. Before reading, the token is inspected live (`debug_token`) for `instagram_manage_messages`, and the page must be linked to that account. Reading messages from customers (people with no role on the app) normally needs Advanced Access for `instagram_manage_messages` (App Review); with Standard Access Meta refuses and Mikee reports its error as is. Replying and webhooks for new messages are not built yet.
    - The Configuration ID goes into `META_LOGIN_CONFIG_ID` (required).
 2. Facebook Login for Business ← Settings:
    - Valid OAuth Redirect URIs: exactly `{APP_URL}/api/meta/callback`.
