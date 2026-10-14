@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, FileText } from "lucide-react";
 import type { CardView, TimelineItem } from "@/lib/conversation";
 import { Composer, type Upload } from "./Composer";
@@ -75,6 +75,11 @@ function toolEvent(live: Live | null, name: string, state: "start" | "done" | "e
 }
 
 /** Mikee beside his words. Only the avatar the client is looking at moves; older ones stay still. */
+/** The true end of the page, below the composer, so the last message is never hidden behind it. */
+function toEnd() {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" as ScrollBehavior });
+}
+
 function MikeeMark({ state = "idle", active = false }: { state?: MikeeState; active?: boolean }) {
   return <MikeeAvatar size={24} state={state} animate={active} cues={active} className="mt-1" />;
 }
@@ -254,7 +259,7 @@ export function Chat({
     const el = list.current;
     const observer = el
       ? new ResizeObserver(() => {
-          if (pinned.current) bottom.current?.scrollIntoView({ block: "end" });
+          if (pinned.current) toEnd();
         })
       : null;
     if (el) observer!.observe(el);
@@ -265,8 +270,15 @@ export function Chat({
   }, []);
 
   useEffect(() => {
-    if (pinned.current) bottom.current?.scrollIntoView({ block: "end" });
+    if (pinned.current) toEnd();
   }, [items, live]);
+
+  // Opening or refreshing a conversation lands at its end before the first paint: the browser does not
+  // restore an old position halfway down, and nothing scrolls visibly into place.
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    toEnd();
+  }, []);
 
   function submit(text: string, attachments: string[] = [], uploads: Upload[] = []) {
     if ((!text.trim() && !attachments.length) || live) return;

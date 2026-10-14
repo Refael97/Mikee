@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bookmark, Check, ChevronLeft, Clapperboard, Heart, ImageIcon, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
+import { Bookmark, Check, ChevronLeft, ChevronRight, Clapperboard, Heart, ImageIcon, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
@@ -222,33 +222,100 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
   const media = card.media ?? [];
   const [index, setIndex] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+  const dragged = useRef(false);
   if (!media.length) return null;
 
   const textOnly = media.length === 1 && !media[0].url;
   if (textOnly) return <p className="mx-4 whitespace-pre-line rounded-[6px] bg-surface-2 p-3 text-[15px] leading-relaxed">{media[0].text}</p>;
 
+  const endDrag = (el: HTMLDivElement) => {
+    if (!drag.current) return;
+    dragged.current = drag.current.moved;
+    drag.current = null;
+    el.style.scrollSnapType = "";
+    el.style.scrollBehavior = "";
+    // Settle on the nearest preview.
+    const w = (el.firstElementChild as HTMLElement).offsetWidth + 12;
+    go(Math.round(Math.abs(el.scrollLeft) / w));
+  };
+  // Each preview is brought into view by index; scrollIntoView handles right-to-left layout by itself.
+  const go = (i: number) => {
+    const el = strip.current?.children[Math.max(0, Math.min(media.length - 1, i))] as HTMLElement | undefined;
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  };
+
   return (
-    <div>
+    <div className="relative">
       <div
         ref={strip}
         onScroll={(e) => {
           const el = e.currentTarget;
           setIndex(Math.round(Math.abs(el.scrollLeft) / (el.firstElementChild as HTMLElement).offsetWidth));
         }}
+        // With a mouse, the strip can be dragged sideways (touch and trackpads already swipe).
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse" || media.length < 2) return;
+          const el = e.currentTarget;
+          e.preventDefault(); // no native image drag or text selection
+          el.setPointerCapture(e.pointerId);
+          drag.current = { x: e.clientX, left: el.scrollLeft, moved: false };
+          el.style.scrollSnapType = "none";
+          el.style.scrollBehavior = "auto";
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (!d) return;
+          if (Math.abs(e.clientX - d.x) > 4) d.moved = true;
+          e.currentTarget.scrollLeft = d.left - (e.clientX - d.x);
+        }}
+        onPointerUp={(e) => endDrag(e.currentTarget)}
+        onPointerCancel={(e) => endDrag(e.currentTarget)}
+        onDragStart={(e) => e.preventDefault()}
+        onClickCapture={(e) => {
+          // A drag is not a click on the video or the caption.
+          if (dragged.current) {
+            e.stopPropagation();
+            e.preventDefault();
+            dragged.current = false;
+          }
+        }}
         className={`no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 ${media.length === 1 ? "justify-center" : ""}`}
       >
         {media.map((m, i) => (
           <div key={i} className={`shrink-0 snap-center ${media.length === 1 ? "w-full max-w-[360px]" : "w-[min(80%,320px)]"}`}>
-            <FeedPreview m={m} brand={brand} sponsored={card.kind === "campaign"} />
+            <FeedPreview m={m} brand={brand} sponsored={card.kind === "campaign" || card.kind === "activate"} />
           </div>
         ))}
       </div>
       {media.length > 1 && (
-        <div className="mt-3 flex justify-center gap-1.5">
-          {media.map((_, i) => (
-            <span key={i} className={`h-1.5 rounded-full transition-all duration-300 ease-[var(--ease)] ${i === index ? "w-4 bg-brand" : "w-1.5 bg-ink-3/40"}`} />
-          ))}
-        </div>
+        <>
+          <button
+            type="button"
+            aria-label="המודעה הקודמת"
+            onClick={() => go(index - 1)}
+            disabled={index === 0}
+            className="absolute start-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-[var(--shadow)] transition-opacity disabled:pointer-events-none disabled:opacity-0 sm:flex"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="המודעה הבאה"
+            onClick={() => go(index + 1)}
+            disabled={index >= media.length - 1}
+            className="absolute end-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-[var(--shadow)] transition-opacity disabled:pointer-events-none disabled:opacity-0 sm:flex"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="mt-3 flex justify-center gap-1">
+            {media.map((_, i) => (
+              <button key={i} type="button" aria-label={`מודעה ${i + 1} מתוך ${media.length}`} onClick={() => go(i)} className="flex h-6 items-center px-0.5">
+                <span className={`h-1.5 rounded-full transition-all duration-300 ease-[var(--ease)] ${i === index ? "w-4 bg-brand" : "w-1.5 bg-ink-3/40"}`} />
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -303,7 +370,9 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
       }
       if (decision === "decline") {
         setView((v) => ({ ...v, status: data.status }));
-        if (data.status === "declined" && card.kind !== "change" && card.kind !== "budget") onChange(card.title);
+        // Only a decline that means "let's change it" asks Mikee for a new version. "Not now" on an
+        // activation (or a budget or change card) is just a no: nothing is said on her behalf.
+        if (data.status === "declined" && ["campaign", "post", "media", "video"].includes(card.kind)) onChange(card.title);
       } else {
         setView((v) => ({ ...v, status: "executing", error: undefined }));
       }

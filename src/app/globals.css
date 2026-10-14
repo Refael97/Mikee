@@ -121,6 +121,10 @@ body {
   box-shadow: var(--ring);
   border-radius: var(--radius-sm);
 }
+/* A field inside a frame that shows focus itself (the composer) gets no second ring. */
+.no-ring:focus-visible {
+  box-shadow: none;
+}
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;

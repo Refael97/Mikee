@@ -186,7 +186,7 @@ export function Composer({
         }}
         rows={1}
         placeholder={listening ? "מקשיב…" : placeholder}
-        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[16px] leading-[1.5] outline-none placeholder:text-ink-3"
+        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[16px] leading-[1.5] no-ring outline-none placeholder:text-ink-3"
       />
 
       <div className="flex items-center gap-1 px-2 pb-2">
