@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { Autonomy } from "@/lib/autonomy";
+import { AutonomyPicker } from "./AutonomyPicker";
 import { ArrowUp, Camera, FileText, Loader2, Mic, Paperclip, Plus, Square, X } from "lucide-react";
 
 export type Upload = { localId: string; name: string; type: string; size: number; status: "uploading" | "ready" | "error"; id?: string; preview?: string; error?: string };
@@ -28,6 +30,7 @@ export function Composer({
   onSend,
   initialText,
   onTyping,
+  autonomy,
 }: {
   busy: boolean;
   placeholder: string;
@@ -35,6 +38,8 @@ export function Composer({
   onSend: (text: string, attachmentIds: string[], uploads: Upload[]) => void;
   /** Whether there is something in the box (Mikee looks up and listens). */
   onTyping?: (typing: boolean) => void;
+  /** The approval level picker, shown next to "+" when given. */
+  autonomy?: { value: Autonomy; onChange: (a: Autonomy) => void };
 }) {
   const [text, setText] = useState(initialText ?? "");
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -227,6 +232,7 @@ export function Composer({
             </div>
           )}
         </div>
+        {autonomy && <AutonomyPicker value={autonomy.value} onChange={autonomy.onChange} />}
         <input ref={fileInput} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => e.target.files && addFiles(e.target.files)} />
         <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files && addFiles(e.target.files)} />
 

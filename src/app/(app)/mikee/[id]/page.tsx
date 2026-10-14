@@ -17,7 +17,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <>
-      <Chat key={id} conversationId={id} initialItems={items} autoScan={false} firstName={user.name.split(" ")[0]} brand={brand} />
+      <Chat key={id} conversationId={id} initialItems={items} autoScan={false} firstName={user.name.split(" ")[0]} brand={brand} autonomy={workspace.settings?.autonomy} />
       {/* Runs as soon as the conversation's HTML arrives, before the app loads: the page opens at the
           latest message instead of the top. Allowed by the page's CSP nonce. */}
       <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: "history.scrollRestoration='manual';window.scrollTo(0,document.documentElement.scrollHeight)" }} />

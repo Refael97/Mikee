@@ -9,7 +9,7 @@ import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
 import { resolveIdentity } from "./meta/identities";
 import { activateCampaign, applyChange, buildCampaign, describeBuild, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
-import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
+import { approveProposal, createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
 import { CTA_HE } from "./cards";
@@ -73,7 +73,12 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         const check = await verifyBuild(ctx, spec, ids);
         if (!check.ok) throw new NotRetryable(`The built campaign does not match the approved card (${check.mismatches.join("; ")}). It stays paused.`);
         const activation = await openActivation(p, spec, ids, check.review, tz, ctx.currency).catch((e) => (e instanceof ProposalConflict ? null : Promise.reject(e)));
-        result = { ...ids, built: true, paused: true, review: check.review, blockers: check.blockers, activationProposalId: activation?.id };
+        // "Final approval only": her approval of this card was the final one, so a build that checked out clean
+        // goes live now (the activation re-checks the budget against live numbers). Any review problem leaves
+        // the activation card for her.
+        const autoActivated = ws?.settings?.autonomy === "final" && !!activation && check.blockers.length === 0;
+        if (autoActivated) await approveProposal(p.workspaceId, activation.id, activation.versionHash, { auto: true });
+        result = { ...ids, built: true, paused: !autoActivated, review: check.review, blockers: check.blockers, activationProposalId: activation?.id, autoActivated: autoActivated || undefined };
         break;
       }
       case "activate": {

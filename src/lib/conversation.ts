@@ -98,6 +98,8 @@ export type CardView = {
   technical?: { lines: { label: string; value: string }[] };
   /** Meta asked for the advertiser and payer (100/3858634): the card offers to choose them. */
   needsIdentity?: boolean;
+  /** A campaign approved at "final approval only" that went live right after its build checked out. */
+  autoActivated?: boolean;
 };
 
 /** Meta's original error fields and the checked build state, as short labelled lines. */
@@ -130,7 +132,7 @@ function technical(r: Record<string, any>): CardView["technical"] {
 
 /** The client-facing view of one proposal row. */
 export function cardView(p: { id: string; status: string; versionHash: string; card: unknown; result: unknown }): CardView {
-  const r = (p.result ?? {}) as { error?: string; retryable?: boolean; media?: CardView["output"] };
+  const r = (p.result ?? {}) as { error?: string; retryable?: boolean; media?: CardView["output"]; autoActivated?: boolean };
   return {
     id: p.id,
     status: p.status,
@@ -141,6 +143,7 @@ export function cardView(p: { id: string; status: string; versionHash: string; c
     output: r.media,
     technical: p.status === "failed" ? technical(r as Record<string, any>) : undefined,
     needsIdentity: p.status === "failed" && (r as Record<string, any>).meta?.error_subcode === 3858634,
+    autoActivated: r.autoActivated || undefined,
   };
 }
 

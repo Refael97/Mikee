@@ -21,6 +21,8 @@ export type WorkspaceSettings = {
   businessType?: "ecommerce" | "services" | "local" | "content";
   /** The results page Mikee chose for this kind of business. */
   dashboard?: DashboardSpec;
+  /** How much Mikee asks before moving on (src/lib/autonomy.ts). Spending and publishing always need a card. */
+  autonomy?: "every_step" | "important" | "final";
   /** Instant answers to Instagram direct messages, from approved business facts only (switched on by the client). */
   instagramAutoReply?: { enabled: boolean; topics: FactTopic[]; updatedAt: string; subscription?: { ok: boolean; at: string; detail: string } };
 };

@@ -10,12 +10,13 @@ import { LiveText, QuickReplies, StatusLine, type Step, Steps, splitReplies } fr
 import { RichText } from "./RichText";
 import { refreshConversations } from "./Sidebar";
 import { SILENT_STEPS, stepLabel } from "@/lib/progress";
+import { type Autonomy, DEFAULT_AUTONOMY } from "@/lib/autonomy";
 
 const SUGGESTIONS = [
   { title: "איך הולך החודש?", sub: "תמונת מצב קצרה, במספרים אמיתיים" },
   { title: "צריך יותר פניות", sub: "מייקי בונה תוכנית ומכין קמפיין" },
-  { title: "יש לי קולקציה חדשה", sub: "נשיק אותה נכון, עם תוכן מהספרייה" },
-  { title: "מה כדאי לקדם השבוע?", sub: "לפי המלאי, העונה והתוצאות" },
+  { title: "פוסטים לשבוע הקרוב", sub: "תוכן ברוח העמוד שלך, מוכן לאישור" },
+  { title: "רעיון לסרטון קצר", sub: "מהתמונות והסרטונים שכבר יש לך" },
 ];
 
 type Segment = { kind: "text"; text: string } | { kind: "card"; proposal: CardView };
@@ -75,6 +76,8 @@ export function Chat({
   brand,
   draft,
   nextMoves = [],
+  suggestions = SUGGESTIONS,
+  autonomy: initialAutonomy = DEFAULT_AUTONOMY,
 }: {
   conversationId: string | null;
   initialItems: TimelineItem[];
@@ -83,8 +86,16 @@ export function Chat({
   brand: Brand;
   draft?: string;
   nextMoves?: { title: string; why: string }[];
+  /** Starting points that fit this business (what is connected, what it sells). */
+  suggestions?: { title: string; sub: string }[];
+  autonomy?: Autonomy;
 }) {
   const [items, setItems] = useState(initialItems);
+  const [autonomy, setAutonomy] = useState<Autonomy>(initialAutonomy);
+  const chooseAutonomy = (a: Autonomy) => {
+    setAutonomy(a);
+    void fetch("/api/autonomy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ autonomy: a }) }).catch(() => undefined);
+  };
   const [live, setLive] = useState<Live | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
@@ -303,7 +314,7 @@ export function Chat({
             <section className="mt-6">
               <h2 className="label mb-2">או להתחיל מכאן</h2>
               <div className="grid gap-2 sm:grid-cols-2">
-                {SUGGESTIONS.map(({ title, sub }) => (
+                {suggestions.map(({ title, sub }) => (
                   <button key={title} onClick={() => submit(title)} className="card px-4 py-3 text-start transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-[var(--shadow)]">
                     <span className="block text-[15px] font-medium">{title}</span>
                     <span className="mt-0.5 block text-[14px] text-ink-2">{sub}</span>
@@ -362,7 +373,7 @@ export function Chat({
               return (
                 <div key={item.id} className="flex gap-3.5">
                   <span className="hidden w-7 shrink-0 sm:block" />
-                  <ProposalCard proposal={item.proposal} brand={brand} onChange={change} />
+                  <ProposalCard proposal={item.proposal} brand={brand} onChange={change} autonomy={autonomy} />
                 </div>
               );
             })}
@@ -376,7 +387,7 @@ export function Chat({
                     seg.kind === "text" ? (
                       <LiveText key={i} text={seg.text} />
                     ) : (
-                      <ProposalCard key={seg.proposal.id} proposal={seg.proposal} brand={brand} onChange={change} />
+                      <ProposalCard key={seg.proposal.id} proposal={seg.proposal} brand={brand} onChange={change} autonomy={autonomy} />
                     ),
                   )}
                   {!live.steps.some((x) => x.state === "running") && live.segments[live.segments.length - 1]?.kind !== "text" && <StatusLine activity={live.activity} />}
@@ -395,7 +406,7 @@ export function Chat({
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-5 bg-gradient-to-t from-bg from-70% to-transparent px-5 pb-3 pt-8 sm:pb-5">
-        <Composer onTyping={setTyping} busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
+        <Composer onTyping={setTyping} autonomy={{ value: autonomy, onChange: chooseAutonomy }} busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
         <p className="mt-2 text-center text-[12.5px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך</p>
       </div>
     </div>

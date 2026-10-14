@@ -1,5 +1,6 @@
 "use client";
 
+import type { Autonomy } from "@/lib/autonomy";
 import { useEffect, useRef, useState } from "react";
 import { Bookmark, Check, ChevronLeft, ChevronRight, Clapperboard, Heart, ImageIcon, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
@@ -321,7 +322,9 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
   );
 }
 
-export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView; brand: Brand; onChange: (title: string) => void }) {
+export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal: CardView; brand: Brand; onChange: (title: string) => void; autonomy?: Autonomy }) {
+  // At "final approval only" a campaign card is the one approval: it is built and, if the check passes, goes live.
+  const finalOnly = autonomy === "final" && proposal.card.kind === "campaign";
   const [view, setView] = useState(proposal);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -420,16 +423,19 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
           <div className="flex flex-col gap-2 sm:flex-row">
             <button className="btn btn-primary btn-lg sm:flex-1" disabled={busy} onClick={() => decide("approve")}>
               <Check className="h-4 w-4" strokeWidth={2.4} />
-              {card.approveLabel}
+              {finalOnly ? "לבנות ולהעלות לאוויר" : card.approveLabel}
             </button>
             <button className="btn btn-quiet btn-lg" disabled={busy} onClick={() => decide("decline")}>
               {card.changeLabel}
             </button>
           </div>
         )}
+        {view.status === "pending" && finalOnly && (
+          <p className="mt-2 text-[13.5px] text-ink-3">זה האישור היחיד: הקמפיין ייבנה, ייבדק ויעלה לאוויר. אם מטא תמצא בעיה הוא יישאר מושהה, ויגיע אלייך כרטיס הפעלה.</p>
+        )}
         {view.status === "executing" && (
           <p className="text-[14.5px] text-ink-2">
-            <span className="shimmer font-medium">{({ media: "יוצר", video: "מרנדר את הסרטון", campaign: "בונה את הקמפיין במצב מושהה", activate: "מפעיל" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
+            <span className="shimmer font-medium">{({ media: "יוצר", video: "מרנדר את הסרטון", campaign: finalOnly ? "בונה את הקמפיין ובודק אותו לפני העלייה לאוויר" : "בונה את הקמפיין במצב מושהה", activate: "מפעיל" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
           </p>
         )}
         {view.status === "done" && (
@@ -440,7 +446,9 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
               : card.kind === "video"
                 ? "מוכן. הסרטון נשמר בספרייה"
               : card.kind === "campaign"
-                ? "נבנה במצב מושהה ונבדק. כרטיס ההפעלה מחכה לך למטה"
+                ? view.autoActivated
+                  ? "נבנה, נבדק ועלה לאוויר לפי האישור שלך"
+                  : "נבנה במצב מושהה ונבדק. כרטיס ההפעלה מחכה לך למטה"
                 : `${kind.done}. מייקי עוקב אחרי זה מעכשיו`}
           </p>
         )}

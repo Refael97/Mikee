@@ -1,4 +1,5 @@
 import "server-only";
+import { AUTONOMY_RULES, DEFAULT_AUTONOMY } from "../autonomy";
 import Anthropic from "@anthropic-ai/sdk";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db";
@@ -68,7 +69,7 @@ export async function runMikee(opts: {
           { type: "text", text: MIKEE_CONSTITUTION, cache_control: { type: "ephemeral" } },
           {
             type: "text",
-            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}`,
+            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}\n\n# How much to ask the client\n${AUTONOMY_RULES[ws.settings?.autonomy ?? DEFAULT_AUTONOMY]}`,
           },
         ];
       })(),
