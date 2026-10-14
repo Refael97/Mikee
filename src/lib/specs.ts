@@ -20,6 +20,8 @@ export const LEAD_CTAS = ["APPLY_NOW", "DOWNLOAD", "GET_QUOTE", "LEARN_MORE", "S
 export const Media = z.object({
   type: z.enum(["image", "video"]),
   url: z.string().url().describe("Public URL of the image or video file"),
+  metaImageHash: z.string().regex(/^[A-Za-z0-9]{8,64}$/).optional().describe("An image already in the ad account (meta_media images: hash): used as is, not uploaded again"),
+  metaVideoId: z.string().regex(/^\d+$/).optional().describe("A video already in the ad account (meta_media videos: id): used as is, not uploaded again"),
 });
 
 export const AdSpec = z.object({

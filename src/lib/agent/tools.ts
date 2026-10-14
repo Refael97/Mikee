@@ -10,6 +10,7 @@ import { logActivity } from "../activity";
 import { metaContext, money, requireAdAccount } from "../meta/context";
 import { currentDailyBudget, describeError } from "../meta/actions";
 import { insights, readCampaigns } from "../meta/performance";
+import { metaMedia } from "../meta/media";
 import { fileConversation } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
 import { approveProposal, createProposal, ProposalConflict } from "../proposals";
@@ -376,10 +377,23 @@ export const TOOLS = [
   }),
 
   tool({
+    name: "meta_media",
+    effect: "read",
+    untrusted: "meta",
+    description:
+      "What the business already has in its connected Meta account: ad images (images), ad videos (videos), existing ads with their text and media (ads), and the page's instant lead forms (lead_forms). " +
+      "The content library (search_library) holds only files uploaded to Mikee, so an empty library never means the business has no media: check here and in read_social too. " +
+      "The answer's status is ok (items), empty (the request worked and there is nothing of this kind), or error (the reason). An error is not 'no media': say what failed. " +
+      "To reuse an ad image in propose_campaign give its url and metaImageHash; for an ad video its picture or source as url and metaVideoId.",
+    input: z.object({ kind: z.enum(["images", "videos", "ads", "lead_forms"]), limit: z.number().int().min(1).max(200).default(50) }),
+    run: async (ctx, i) => stripTokens(await metaMedia(ctx.workspaceId, i.kind, i.limit)),
+  }),
+
+  tool({
     name: "search_library",
     effect: "read",
     description:
-      "The business's own content library: photos and videos the client uploaded or imported from Google Drive, and media created earlier. " +
+      "Mikee's content library: photos, videos and music the client uploaded to Mikee or imported from Google Drive, and media created earlier. It does not include what is already in Meta (use meta_media and read_social for that). " +
       "Search it by what is shown (Hebrew words like 'שמלה אדומה', 'צוות', 'חנות') before creating anything new; use the returned URLs in ads and posts.",
     input: z.object({ q: z.string().max(80).optional(), kind: z.enum(["image", "video", "audio"]).optional().describe("audio = music and sound files"), limit: z.number().int().min(1).max(60).default(24) }),
     untrusted: "library",

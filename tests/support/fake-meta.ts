@@ -99,6 +99,12 @@ export class FakeMeta {
         if (edge === "campaigns") return this.filter(this.list("campaign"), params);
         if (edge === "adsets") return this.filter(this.list("adset"), params);
         if (edge === "customaudiences") return { data: [] };
+        if (edge === "adimages") {
+          const hashes: string[] | null = params.hashes ? JSON.parse(params.hashes) : null;
+          return { data: this.list("adimage").filter((i) => !hashes || hashes.includes(i.hash)), paging: {} };
+        }
+        if (edge === "advideos") return { data: this.list("advideo"), paging: {} };
+        if (edge === "ads") return { data: this.list("pastad"), paging: {} };
         return { data: [] };
       }
       switch (edge) {
@@ -129,6 +135,7 @@ export class FakeMeta {
 
     if (root === "page_1") {
       if (method === "GET" && !edge) return this.nodes.get("page_1");
+      if (method === "GET" && edge === "leadgen_forms") return { data: this.list("leadform"), paging: {} };
       if (method === "GET" && edge === "posts") return { data: this.list("fbpost").map((p) => ({ id: p.id, message: p.message, created_time: p.created_time })) };
       if (method === "POST" && (edge === "photos" || edge === "feed" || edge === "videos")) {
         if (params.published === "false") return { id: this.add("fbphoto", {}).id };

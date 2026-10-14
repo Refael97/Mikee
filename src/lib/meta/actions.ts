@@ -50,6 +50,21 @@ async function videoThumbnailHash(ctx: MetaContext, picture?: string): Promise<s
   return first.hash;
 }
 
+/** An image already in this ad account, by hash. Refuses a hash that is not in the business's own account. */
+async function existingImage(ctx: MetaContext, hash: string): Promise<string> {
+  const account = requireAdAccount(ctx);
+  const r = await ctx.graph.get<{ data?: { hash: string }[] }>(`/${account}/adimages`, { hashes: JSON.stringify([hash]), fields: "hash" });
+  if (!r.data?.some((i) => i.hash === hash)) throw new Error("That image is not in this business's ad account");
+  return hash;
+}
+
+/** A video already in Meta: ready to use, with the frame Meta picked for the thumbnail. */
+async function existingVideo(ctx: MetaContext, id: string): Promise<{ id: string; thumbnail?: string }> {
+  const v = await ctx.graph.get<any>(`/${id}`, { fields: "status,picture" });
+  if (v.status?.video_status && v.status.video_status !== "ready") throw new Error("The video is not ready at Meta");
+  return { id, thumbnail: v.picture };
+}
+
 async function uploadVideo(ctx: MetaContext, url: string): Promise<{ id: string; thumbnail?: string }> {
   const account = requireAdAccount(ctx);
   const { id } = await ctx.graph.post<{ id: string }>(`/${account}/advideos`, { file_url: url });
@@ -141,7 +156,7 @@ async function createCreative(ctx: MetaContext, spec: CampaignSpec, ad: Campaign
   if (ctx.igUserId) base.instagram_user_id = ctx.igUserId;
 
   if (ad.media.type === "image") {
-    const image_hash = await uploadImage(ctx, ad.media.url);
+    const image_hash = ad.media.metaImageHash ? await existingImage(ctx, ad.media.metaImageHash) : await uploadImage(ctx, ad.media.url);
     base.link_data = {
       link,
       message: ad.primaryText,
@@ -151,7 +166,7 @@ async function createCreative(ctx: MetaContext, spec: CampaignSpec, ad: Campaign
       call_to_action,
     };
   } else {
-    const video = await uploadVideo(ctx, ad.media.url);
+    const video = ad.media.metaVideoId ? await existingVideo(ctx, ad.media.metaVideoId) : await uploadVideo(ctx, ad.media.url);
     base.video_data = {
       video_id: video.id,
       message: ad.primaryText,

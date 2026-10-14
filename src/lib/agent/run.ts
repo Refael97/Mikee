@@ -22,7 +22,7 @@ export type AgentEvent = LoopEvent | { t: "done" } | { t: "error"; message: stri
  * specialist. He runs at medium effort; the specialists think hard about their narrow tasks.
  */
 export const MIKEE_TOOLS: ToolDef[] = [
-  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
+  ...pick(["file_conversation", "remember", "forget", "team_playbook", "update_playbook", "set_stage", "journey_status", "update_journey", "set_dashboard", "search_library", "meta_media", "budget_status", "read_results", "scan_website", "read_store", "read_social", "request_budget_increase"]),
   ...TEAM_TOOLS,
 ];
 
