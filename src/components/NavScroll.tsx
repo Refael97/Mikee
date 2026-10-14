@@ -34,7 +34,12 @@ export function NavScroll() {
     popped.current = false;
     if (path.startsWith("/mikee/")) return;
     const target = back ? (positions.get(path) ?? 0) : 0;
-    if (!target) return window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    // Never return what scrollTo returns: an effect's return value is its cleanup, and some browsers and
+    // extensions make scrollTo return a value, which React then tries to call (a crash on every page).
+    if (!target) {
+      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+      return;
+    }
     // Content streams in after the frame: try until the page is tall enough, for up to a second.
     let tries = 0;
     const restore = () => {
