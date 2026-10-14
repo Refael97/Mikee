@@ -383,10 +383,14 @@ export const TOOLS = [
     description:
       "What the business already has in its connected Meta account: ad images (images), ad videos (videos), existing ads with their text and media (ads), and the page's instant lead forms (lead_forms). " +
       "The content library (search_library) holds only files uploaded to Mikee, so an empty library never means the business has no media: check here and in read_social too. " +
-      "The answer's status is ok (items), empty (the request worked and there is nothing of this kind), or error (the reason). An error is not 'no media': say what failed. " +
+      "The answer's status is ok (items), empty (the request worked and there is nothing of this kind), or error (the reason). An error is not 'no media': say what failed. One page per call; when the answer has next, pass it as after for more. " +
       "To reuse an ad image in propose_campaign give its url and metaImageHash; for an ad video its picture or source as url and metaVideoId.",
-    input: z.object({ kind: z.enum(["images", "videos", "ads", "lead_forms"]), limit: z.number().int().min(1).max(200).default(50) }),
-    run: async (ctx, i) => stripTokens(await metaMedia(ctx.workspaceId, i.kind, i.limit)),
+    input: z.object({
+      kind: z.enum(["images", "videos", "ads", "lead_forms"]),
+      limit: z.number().int().min(1).max(50).default(25).describe("Per page (ads at most 25)"),
+      after: z.string().max(500).optional().describe("The `next` value from the previous answer, for the next page"),
+    }),
+    run: async (ctx, i) => stripTokens(await metaMedia(ctx.workspaceId, i.kind, i.limit, i.after)),
   }),
 
   tool({
@@ -678,12 +682,57 @@ export async function runToolIn(tools: ToolDef[], ctx: ToolContext, name: string
   try {
     const raw = await def.run(ctx, parsed.data as never);
     const out = def.untrusted ? wrapStrings(def.untrusted, raw) : raw;
-    const text = JSON.stringify(out ?? { ok: true });
-    return { content: text.length > 60000 ? `${text.slice(0, 60000)}…(truncated)` : text, isError: false };
+    return { content: fitResult(out ?? { ok: true }), isError: failedResult(raw) };
   } catch (err) {
     if (err instanceof BudgetExceeded || err instanceof ProposalConflict) return { content: err.message, isError: true };
     return { content: describeError(err), isError: true };
   }
+}
+
+/** A tool that answered with a failure ({ status: "error" }, or only { error }) is a failed call, with its reason kept. */
+function failedResult(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const r = raw as Record<string, unknown>;
+  return r.status === "error" || (typeof r.error === "string" && Object.keys(r).every((k) => k === "error" || k === "status" || k === "kind"));
+}
+
+const RESULT_LIMIT = 60_000;
+
+/**
+ * Results longer than the limit are shortened by dropping items from their longest list (and saying how
+ * many were left out), so the model always gets valid JSON, never a cut-off string.
+ */
+export function fitResult(value: unknown): string {
+  let text = JSON.stringify(value);
+  if (text.length <= RESULT_LIMIT) return text;
+  const copy = JSON.parse(text) as unknown;
+  const lists: { owner: Record<string, unknown> | unknown[]; key: string | number; list: unknown[] }[] = [];
+  const walk = (v: unknown, owner: any, key: string | number, depth: number) => {
+    if (depth > 4 || v == null || typeof v !== "object") return;
+    if (Array.isArray(v)) {
+      lists.push({ owner, key, list: v });
+      v.forEach((x, i) => walk(x, v, i, depth + 1));
+    } else for (const [k, x] of Object.entries(v)) walk(x, v, k, depth + 1);
+  };
+  walk(copy, null, "", 0);
+  lists.sort((a, b) => JSON.stringify(b.list).length - JSON.stringify(a.list).length);
+  const longest = lists[0];
+  if (longest) {
+    const total = longest.list.length;
+    let keep = total;
+    while (keep > 0) {
+      keep = Math.floor(keep / 2);
+      longest.list.length = keep;
+      text = JSON.stringify(copy);
+      if (text.length <= RESULT_LIMIT - 200) break;
+    }
+    const note = { shown: keep, total, more: `${total - keep} more left out to keep the answer short; ask for fewer at a time or the next page` };
+    if (longest.owner && !Array.isArray(longest.owner)) (longest.owner as Record<string, unknown>)[`${String(longest.key)}_truncated`] = note;
+    else if (!longest.owner && Array.isArray(copy)) return JSON.stringify({ items: copy, truncated: note });
+    text = JSON.stringify(copy);
+    if (text.length <= RESULT_LIMIT) return text;
+  }
+  return JSON.stringify({ truncated: true, note: "The answer was too long to show; ask for less (a smaller limit or fewer fields)." });
 }
 
 /** Runs any base tool by name (used by tests and by specialists through their own subsets). */
