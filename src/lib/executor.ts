@@ -7,7 +7,7 @@ import { storeBytes, storeFromUrl } from "./media";
 import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
-import { activateCampaign, applyChange, buildCampaign, describeBuild, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
+import { activateCampaign, applyChange, buildCampaign, describeBuild, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
 import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
@@ -125,6 +125,8 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
       detail: built ? `${describeError(err)} || ${describeBuild(built)}` : describeError(err),
       meta: err instanceof MetaError ? err.details() : undefined,
       built,
+      // Exactly where the ad set was aimed, so a location rule (EU advertiser and payer, verified advertiser) can be checked.
+      sentGeo: p.kind === "campaign" ? sentGeo(p.action) : undefined,
       retryable,
       budget: err instanceof BudgetExceeded || undefined,
     });
@@ -221,4 +223,13 @@ async function executeVideo(p: Proposal, cp: Checkpoint) {
   const stored = [{ url: m.url, type: "video" as const, id: m.id }];
   await cp.save({ stored });
   return { media: stored };
+}
+
+/** The geo_locations a campaign card sends to Meta, or nothing when the card cannot be read. */
+function sentGeo(action: unknown): unknown {
+  try {
+    return targeting(CampaignSpec.parse(action)).geo_locations;
+  } catch {
+    return undefined;
+  }
 }

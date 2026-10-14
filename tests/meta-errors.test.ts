@@ -85,6 +85,8 @@ describe("a failed build reports what exists at Meta, checked", () => {
     expect(result.built).toMatchObject({ checked: true, campaignId: meta.list("campaign")[0].id, adIds: [] });
     expect(result.detail).toMatch(/At Meta now, all paused: campaign/);
     expect(result.meta).toMatchObject({ operation: "POST /act_1/adsets", code: 100, reconnect: "not_needed" });
+    // Where the ad set was aimed, as sent.
+    expect(result.sentGeo).toEqual({ countries: ["IL"] });
   });
 
   it("says nothing exists only after checking", async () => {

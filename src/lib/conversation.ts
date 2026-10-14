@@ -102,7 +102,7 @@ export type CardView = {
 function technical(r: Record<string, any>): CardView["technical"] {
   const m = r.meta as Record<string, unknown> | undefined;
   const b = r.built as { checked: boolean; campaignId?: string; adsetId?: string; adIds?: string[]; error?: string } | undefined;
-  if (!m && !b) return undefined;
+  if (!m && !b && !r.sentGeo) return undefined;
   const lines: { label: string; value: string }[] = [];
   const add = (label: string, v: unknown) => v != null && v !== "" && lines.push({ label, value: String(v).slice(0, 300) });
   if (m) {
@@ -115,6 +115,7 @@ function technical(r: Record<string, any>): CardView["technical"] {
     add("fbtrace_id", m.fbtrace_id);
     if (m.outcome_unknown) add("תוצאה", "לא ידוע אם הבקשה בוצעה במטא");
   }
+  if (r.sentGeo) add("מיקומים שנשלחו", JSON.stringify(r.sentGeo));
   if (b) {
     const parts = [b.campaignId && `קמפיין ${b.campaignId}`, b.adsetId && `קבוצת מודעות ${b.adsetId}`, b.adIds?.length && `${b.adIds.length} מודעות`].filter(Boolean);
     add("מה קיים במטא", !b.checked ? `לא הצלחנו לבדוק (${b.error ?? ""})` : parts.length ? `${parts.join(", ")}, הכל מושהה` : "נבדק: לא נוצר כלום");
