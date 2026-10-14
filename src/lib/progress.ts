@@ -33,6 +33,8 @@ const ACTIONS: Record<string, string> = {
   set_dashboard: "מסדר את עמוד התוצאות",
   scan_website: "קורא את האתר",
   read_store: "בודק את החנות",
+  read_stories: "מייקי בודק את הסטוריז באינסטגרם",
+  read_organic_insights: "מייקי בודק את החשיפה האורגנית באינסטגרם",
   read_social: "עובר על הפוסטים באינסטגרם ובפייסבוק",
   read_results: "מקבל נתונים ממטא",
   read_insights: "מעמיק בנתונים",

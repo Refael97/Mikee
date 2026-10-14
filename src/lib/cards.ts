@@ -194,7 +194,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         title: s.title,
         why: "",
         rows: [
-          { label: "איפה", value: s.channels.map((c) => (c === "facebook" ? "פייסבוק" : "אינסטגרם")).join(" + ") },
+          { label: "איפה", value: s.format === "story" ? "סטורי באינסטגרם" : s.channels.map((c) => (c === "facebook" ? "פייסבוק" : "אינסטגרם")).join(" + ") },
           { label: "מתי", value: s.scheduleAt ? dateHe(s.scheduleAt)! : "מיד באישור" },
           ...(s.link ? [{ label: "קישור", value: host(s.link) }] : []),
         ],

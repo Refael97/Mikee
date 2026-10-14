@@ -37,7 +37,7 @@ export function dedupeKey(kind: ProposalKind, a: any): string {
     case "campaign":
       return `campaign:${sha(canonical({ goal: a.goal, links: a.ads.map((x: any) => x.link).sort(), media: a.ads.map((x: any) => x.media.url).sort() })).slice(0, 24)}`;
     case "post":
-      return `post:${sha(String(a.text).trim().replace(/\s+/g, " ")).slice(0, 24)}`;
+      return `post:${sha(canonical({ format: a.format ?? "auto", channels: [...a.channels].sort(), text: String(a.text).trim().replace(/\s+/g, " "), media: a.media, scheduleAt: a.scheduleAt })).slice(0, 24)}`;
     case "budget":
       return `budget:${a.month}`;
     case "media":

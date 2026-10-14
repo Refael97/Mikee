@@ -767,6 +767,11 @@ export function scheduleProblem(scheduleAt: string | undefined, now = Date.now()
  * converted to what each network accepts first (see images.ts).
  */
 export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoint, isRetry: boolean, workspaceId?: string) {
+  const story = spec.format === "story";
+  // Validate again at execution: legacy/stored proposals must not bypass format constraints.
+  if (story && (spec.channels.length !== 1 || spec.channels[0] !== "instagram" || spec.media.length !== 1 || spec.text.trim())) {
+    throw new PublishProblem("An Instagram Story needs one image/video, Instagram only, and no caption. Prepare a corrected proposal.");
+  }
   const problem = scheduleProblem(spec.scheduleAt);
   if (problem) throw new PublishProblem(problem);
   const when = spec.scheduleAt ? Math.floor(new Date(spec.scheduleAt).getTime() / 1000) : undefined;
@@ -826,7 +831,7 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
     if (!spec.media.length) throw new Error("Instagram posts need an image or a video");
     if (when) throw new Error("Instagram posts cannot be scheduled through Meta; choose 'publish now' or Facebook only.");
     const ig = ctx.igUserId;
-    if (isRetry) {
+    if (isRetry && !story) {
       const recent = await ctx.graph.get<{ data: { id: string; caption?: string; timestamp: string }[] }>(`/${ig}/media`, { fields: "id,caption,timestamp", limit: 15 });
       const hit = recent.data?.find((p) => sameText(p.caption, spec.text) && new Date(p.timestamp).getTime() > since);
       if (hit) await cp.save({ instagram: hit.id });
@@ -839,7 +844,9 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
           creationId = (
             await ctx.graph.post<{ id: string }>(
               `/${ig}/media`,
-              m.type === "image" ? { image_url: await photo(m.url, "instagram"), caption: spec.text } : { media_type: "REELS", video_url: m.url, caption: spec.text },
+              story
+                ? m.type === "image" ? { media_type: "STORIES", image_url: await photo(m.url, "instagram-story") } : { media_type: "STORIES", video_url: m.url }
+                : m.type === "image" ? { image_url: await photo(m.url, "instagram"), caption: spec.text } : { media_type: "REELS", video_url: m.url, caption: spec.text },
             )
           ).id;
         } else {
@@ -860,14 +867,30 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
         await cp.save({ igContainer: creationId });
       }
       const state = await waitForContainer(ctx, creationId);
+      if (story && state === "PUBLISHED") {
+        // Never use an empty caption to guess which Story was published.
+        throw new PublishProblem(`Meta confirms Story container ${creationId} is already published, but its published media id was not saved. Check Instagram before doing anything else; it will not be published again.`);
+      }
       if (state === "PUBLISHED") {
         // An earlier attempt published it; find the post instead of publishing twice.
         const recent = await ctx.graph.get<{ data: { id: string; caption?: string }[] }>(`/${ig}/media`, { fields: "id,caption", limit: 15 });
         const hit = recent.data?.find((p) => sameText(p.caption, spec.text));
         await cp.save({ instagram: hit?.id ?? creationId });
       } else {
-        const r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
-        await cp.save({ instagram: r.id });
+        if (cp.data.igPublishAttempted) {
+          throw new PublishProblem(`A previous publishing request for container ${creationId} has an unknown outcome. Check Instagram; do not create a new upload or publish again blindly.`);
+        }
+        await cp.save({ igPublishAttempted: true });
+        let r: { id: string };
+        try {
+          r = await ctx.graph.post<{ id: string }>(`/${ig}/media_publish`, { creation_id: creationId });
+        } catch (err) {
+          // An explicit API rejection is different from a transport timeout with unknown outcome.
+          if (err instanceof MetaError && err.status != null && err.status < 500) await cp.save({ igPublishAttempted: false });
+          throw err;
+        }
+        if (!r.id) throw new PublishProblem("Meta did not return a published media id. Check the publishing outcome before retrying.");
+        await cp.save({ instagram: r.id, igPublishedFormat: story ? "story" : "feed", igPublishAttempted: false });
       }
     }
   }

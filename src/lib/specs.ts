@@ -164,7 +164,8 @@ export type ChangeSpec = z.infer<typeof ChangeSpec>;
 export const PostSpec = z.object({
   title: z.string().describe("Friendly card headline, e.g. 'פוסט לקולקציה החדשה'"),
   channels: z.array(z.enum(["facebook", "instagram"])).min(1),
-  text: z.string().min(1),
+  format: z.enum(["auto", "story"]).default("auto").describe("Use story ONLY when asked for an Instagram Story; auto preserves existing feed/reel/carousel behavior. Stories accept exactly one image or video and no caption."),
+  text: z.string().default(""),
   media: z.array(Media).max(10).default([]).describe("Instagram requires at least one image or video"),
   link: z.string().url().optional().describe("Facebook only: a link to attach when there is no media"),
   scheduleAt: z.string().datetime({ offset: true }).optional().describe("ISO 8601 time to publish, 10 minutes to 30 days ahead (Facebook only). Omit to publish on approval"),

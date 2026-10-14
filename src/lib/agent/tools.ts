@@ -125,6 +125,11 @@ async function isClientRule(workspaceId: string, factId: string) {
  * one video, or photos only; schedules 10 minutes to 30 days ahead, Facebook only.
  */
 export function postProblem(spec: z.infer<typeof PostSpec>): string | null {
+  if (spec.format === "story") {
+    if (spec.channels.length !== 1 || spec.channels[0] !== "instagram") return "Story publishing here supports Instagram only. Use a separate proposal for Facebook.";
+    if (spec.media.length !== 1) return "An Instagram Story needs exactly one image or video.";
+    if (spec.text.trim()) return "Stories have no caption field here. Put any requested text in the media itself, then propose it with empty text.";
+  } else if (!spec.text.trim()) return "Feed posts and reels need text in this publisher.";
   if (spec.channels.includes("instagram")) {
     if (spec.text.length > 2200) return "Instagram captions are at most 2200 characters.";
     if ((spec.text.match(/#[\p{L}\p{N}_]+/gu) ?? []).length > 30) return "Instagram allows at most 30 hashtags.";
@@ -391,6 +396,32 @@ export const TOOLS = [
       timeIncrement: z.string().optional(),
     }),
     run: async (ctx, i) => insights(await metaContext(ctx.workspaceId), i),
+  }),
+
+  tool({
+    name: "read_stories",
+    effect: "read",
+    untrusted: "social",
+    description: "Read currently available Instagram Stories for this business. An empty result means no current Stories, not no publishing capability. Meta errors must be reported, never treated as an empty library.",
+    input: z.object({ limit: z.number().int().min(1).max(100).default(25) }),
+    run: async (ctx, i) => {
+      const meta = await metaContext(ctx.workspaceId);
+      if (!meta.igUserId) throw new Error("Instagram not connected");
+      return meta.graph.all(`/${meta.igUserId}/stories`, { fields: "id,media_type,media_url,timestamp" }, i.limit);
+    },
+  }),
+
+  tool({
+    name: "read_organic_insights",
+    effect: "read",
+    untrusted: "social",
+    description: "Instagram account reach insights for the connected business (not paid-ad results). Returns Meta's actual metrics or its actual error; do not invent results when unavailable.",
+    input: z.object({ since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }),
+    run: async (ctx, i) => {
+      const meta = await metaContext(ctx.workspaceId);
+      if (!meta.igUserId) throw new Error("Instagram not connected");
+      return meta.graph.all(`/${meta.igUserId}/insights`, { metric: "reach", period: "day", since: i.since, until: i.until });
+    },
   }),
 
   tool({
@@ -739,7 +770,7 @@ export const TOOLS = [
   tool({
     name: "propose_post",
     effect: "proposal",
-    description: "Prepare an organic post (Facebook page and/or Instagram, image, video/reel or carousel) and show it to the client before publishing.",
+    description: "Prepare an organic post or Instagram Story and show a card before publishing. For Stories set format=story, exactly one image/video, text empty, Instagram only. Reuse ready media; no new render is needed merely to publish it. Other posts use format=auto.",
     input: PostSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
       const problem = postProblem(spec);

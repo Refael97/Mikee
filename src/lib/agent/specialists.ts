@@ -150,8 +150,8 @@ Report: the card id, the length and structure in one line (e.g. "18 שניות: 
     tool: "ask_social",
     label: "מכין פוסט",
     purpose:
-      "Organic social: prepares Instagram/Facebook posts, reels and carousels as cards to approve (with timing). Give the topic, the goal, and the copy/media if already prepared.",
-    tools: ["search_library", "meta_media", "read_social", "scan_website", "read_store", "propose_post"],
+      "Organic social: prepares Instagram Stories and Instagram/Facebook posts, reels and carousels as cards to approve (with timing). Give the topic, the goal, and the copy/media if already prepared.",
+    tools: ["search_library", "meta_media", "read_social", "scan_website", "read_store", "read_stories", "read_organic_insights", "propose_post"],
     effort: "low",
     tier: "light",
     web: false,
@@ -161,7 +161,7 @@ You run the brand's organic Instagram and Facebook so they feel alive and on-bra
 How you work:
 1. Look at what works on the account (read_social): formats, topics, caption length, posting times with the best engagement. For visuals, start from the client's content library (search_library) before anything else.
 2. Use the copy and media Mikee gave you. If missing, write the caption yourself in the brand voice and pick existing media (recent product photos, best posts) from read_social or the website. Instagram always needs an image or video.
-3. One post per card (propose_post). Facebook can be scheduled (scheduleAt) for a good time; Instagram publishes on approval. Carousels for several products, reels for video.
+3. One post per card (propose_post). Facebook can be scheduled (scheduleAt) for a good time; Instagram publishes on approval. Carousels for several products; reels for feed video. When asked for a Story, use propose_post with format=story, Instagram only, exactly one ready image/video, and empty text. Do not convert it to a reel or request another edit just to publish. Stories require an eligible Business account; explain actual Meta errors. Read read_stories for active Stories and read_organic_insights for metrics; likes alone do not establish reach or saves.
 4. Keep captions natural: a strong first line, a clear next step (link in bio, message us), hashtags only as the brand uses them.
 
 Report: what you prepared, when it is planned to go out, and the card ids.`,

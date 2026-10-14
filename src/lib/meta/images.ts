@@ -10,9 +10,9 @@ import { safeFetch } from "../net";
  * each one is converted on the way out: oriented, in sRGB, cropped to the nearest allowed shape when it is
  * too tall or too wide (from the center), at most 1440px wide, and compressed until it fits.
  */
-export type Target = "instagram" | "facebook";
+export type Target = "instagram" | "instagram-story" | "facebook";
 
-const LIMIT: Record<Target, number> = { instagram: 8 * 1024 * 1024, facebook: 10 * 1024 * 1024 };
+const LIMIT: Record<Target, number> = { instagram: 8 * 1024 * 1024, "instagram-story": 8 * 1024 * 1024, facebook: 10 * 1024 * 1024 };
 const MIN_RATIO = 4 / 5;
 const MAX_RATIO = 1.91;
 

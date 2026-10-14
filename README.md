@@ -277,3 +277,28 @@ src/app/onboarding  getting connected
 
 ### Measuring page speed locally
 `MIKEE_META_GRAPH_BASE=http://127.0.0.1:4555` sends every Graph call to a local stand-in (for example one that answers after 3 seconds, or fails), so a production build (`MIKEE_DB=pglite npx next start`) can be measured against a slow or broken Meta. Production leaves it unset.
+
+## Instagram Stories and organic reporting
+
+The social agent can propose an Instagram Story with `propose_post` using
+`format: "story"`, `channels: ["instagram"]`, exactly one image/video, and
+`text: ""`. Approval uses the existing server-side proposal executor. The server
+creates a `STORIES` container, waits for processing, then calls `media_publish`;
+a container/render alone is never reported as a published Story. Story photos
+are converted to JPEG without the feed's 4:5 crop. Existing feed/reel/carousel
+proposals remain compatible (`format` defaults to `auto`).
+
+`read_stories` reads active Stories and `read_organic_insights` reads daily
+Instagram account reach. Both resolve the current workspace's connection and
+selected Instagram account, accept no external account ID, and propagate Meta
+errors rather than inventing empty results. Both tools are available to Mikee
+and the social specialist.
+
+Stories require an eligible Instagram Business account and the appropriate
+content-publishing permissions/access. Unsupported media or account errors are
+returned from Meta; interactive stickers and API-side Instagram scheduling are
+not implemented. A publishing timeout with an unknown outcome blocks a blind
+retry; an already-published Story container is not matched by an empty caption.
+
+Validation: simulated Meta tests in `tests/instagram-stories.test.ts`; no real
+Instagram account was published to during development.
