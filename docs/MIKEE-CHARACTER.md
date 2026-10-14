@@ -71,11 +71,12 @@
   - הופעה של `MikeeToast` היא `hello`.
 - **בדיקות:** `npm test` ו־`npm run build` חייבים לעבור. לבדוק בצילום מסך במצב בהיר, במצב כהה ובמובייל.
 
-## מצב השילוב (בוצע)
-- הקובץ ב־`public/rive/mikee.riv`, וה־wasm ב־`public/rive/rive.wasm` (מ־`@rive-app/canvas`; לעדכן יחד עם הספרייה).
-- `src/components/MikeeAvatar.tsx` מחליף את כל ה־`.orb`. התמונה הסטטית `public/rive/mikee.png` מוצגת בזמן טעינה, בתנועה מופחתת, ובהודעות ישנות בצ'אט.
-- `src/components/MikeeRive.tsx` מחבר את ה־ViewModel `Mikee` (מופע `light` או `dark`): `thinking`, `talking`, `listening` לפי הצ'אט, ו־`celebrate`, `concern`, `hello` דרך `cueMikee()`.
-- האנימציה מופעלת רק עם `NEXT_PUBLIC_MIKEE_RIVE=on`. **הקובץ הנוכחי יוצא מחשבון Rive חינמי**, ומכונת המצבים מציגה בהתחלה כ־3 שניות של סימן המים של Rive (מסך שחור עם "RIVE"). צריך לייצא שוב מחשבון בתשלום ולהחליף את הקובץ, ורק אז להדליק את המשתנה.
+## מצב השילוב (בוצע, בלי Rive)
+- מייקי מצויר ב־SVG ומונפש ב־CSS: `src/components/MikeeAvatar.tsx` והמחלקות `.mk-*` ב־`src/app/globals.css`. אין ספרייה, אין wasm, ואין שינוי ב־CSP.
+- המראה לקוח מהעיצוב שנבנה ב־Rive (`docs/mikee.riv`, לעיון בלבד): בועה תלת־ממדית עם תאורה משמאל למעלה, צל בקצה הרחוק, שוליים מוארים, ברק, עיניים מבריקות וצל רך מתחת.
+- מצבים: `idle` (נשימה ומצמוץ), `listening`, `thinking`, `talking` דרך ה־prop `state`. `celebrate`, `concern` ו־`hello` דרך `cueMikee()`, או `greet` להודעה הקופצת.
+- רק האווטאר הפעיל זז (`animate`). בתנועה מופחתת הכל עוצר.
+- הסיבה שלא Rive: הקובץ יוצא מחשבון חינמי ומכונת המצבים מציגה סימן מים של Rive בהתחלה.
 
 ## מה עוד פתוח להחלטה של רפאל
 - האם להוסיף פה קטן, או להישאר רק עם עיניים כמו היום.

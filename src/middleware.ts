@@ -10,8 +10,7 @@ export function middleware(req: NextRequest) {
   const dev = process.env.NODE_ENV !== "production";
   const csp = [
     "default-src 'self'",
-    // 'wasm-unsafe-eval' lets the Rive runtime (our own /rive/rive.wasm) compile; it does not allow eval of scripts.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval' https://apis.google.com${dev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://apis.google.com${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",

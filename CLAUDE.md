@@ -2,7 +2,7 @@
 
 Hebrew, RTL, chat-first AI marketing manager for small Israeli businesses (SaaS). The business owner talks only to Mikee; a hidden team of specialist agents (copywriter, media buyer, creative, video editor, social, analyst) does the work, each guided by a per-business playbook that Mikee writes and improves from the client's feedback. Every spend or publish is a proposal card the client approves; the monthly budget is a hard ceiling. Pilot client: the fashion store "רחל סיטבון שמלות שבת וערב".
 
-Read first: `README.md` (architecture, setup, Meta, videos), `PRODUCT.md` (users, purpose, visual standard), `DESIGN.md` (design system). The character brief for animating Mikee in Rive: `docs/MIKEE-CHARACTER.md`.
+Read first: `README.md` (architecture, setup, Meta, videos), `PRODUCT.md` (users, purpose, visual standard), `DESIGN.md` (design system). The character (SVG + CSS, `src/components/MikeeAvatar.tsx`) and its brief: `docs/MIKEE-CHARACTER.md`.
 
 ## Stack
 Next.js 15 (App Router), React 19, TypeScript, Tailwind v4, drizzle-orm (Postgres in production, PGlite locally and in tests), Vitest, zod 4, Claude API via `@anthropic-ai/sdk`. Meta Graph API v26.0 (Facebook Login for Business, system-user tokens). Video: HyperFrames render worker in `render-worker/`. Node 22.
