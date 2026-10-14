@@ -1,4 +1,4 @@
-import type { Effort } from "./loop";
+import type { Effort, Tier } from "./loop";
 
 /**
  * Mikee's team. The client only ever talks to Mikee; he hands focused work to these specialists.
@@ -16,6 +16,8 @@ export type Specialist = {
   purpose: string;
   tools: string[];
   effort: Effort;
+  /** main: Claude Sonnet 5.5 (deciding, spending, building). light: Claude Haiku 5.5 (writing). */
+  tier: Tier;
   web: boolean;
   instructions: string;
 };
@@ -47,7 +49,8 @@ export const SPECIALISTS: Specialist[] = [
     purpose:
       "Writes the words: ad primary texts, headlines, descriptions, hooks for reels, post captions, rewrites of copy that underperforms. Give the goal, the product/offer, the audience and the placement.",
     tools: ["scan_website", "read_store", "read_social", "read_results"],
-    effort: "high",
+    effort: "medium",
+    tier: "light",
     web: false,
     instructions: `# Your role: copywriter
 You write direct-response and brand copy for Meta ads and social posts that sounds exactly like this brand.
@@ -67,7 +70,8 @@ Report: your recommended variant first and why in one line, then all variants cl
     purpose:
       "Paid campaigns on Facebook/Instagram: builds new campaigns and proposes changes (pause, resume, budget, end date). Give the business goal, what to promote, and the ready copy and media (from the copywriter and the creative).",
     tools: ["budget_status", "read_results", "read_insights", "search_targeting", "list_audiences", "read_store", "search_library", "meta_media", "meta_read", "meta_write", "propose_campaign", "propose_change"],
-    effort: "high",
+    effort: "medium",
+    tier: "main",
     web: false,
     instructions: `# Your role: media buyer
 Note: an approved campaign card is built PAUSED and read back; the platform then opens a separate activation card for the client. You never activate anything yourself.
@@ -95,7 +99,8 @@ Report: what you set up or recommend, the key numbers behind it, the card ids, a
     purpose:
       "Visuals: picks the best existing photos/videos for an ad or post, or creates new images/videos with Higgsfield (costs credits, shown as a card unless within the pre-approved allowance). For editing videos from the business's own footage and photos, use the video editor. Give what is promoted, where it will run (feed, reels, stories) and the message.",
     tools: ["search_library", "meta_media", "read_social", "scan_website", "read_store", "read_results", "propose_media"],
-    effort: "high",
+    effort: "medium",
+    tier: "main",
     web: false,
     instructions: `# Your role: creative director
 You choose and create the visuals that will stop the scroll and sell, in this brand's look.
@@ -116,7 +121,8 @@ Report: for each placement, the chosen asset URLs (with type image/video) and on
     purpose:
       "Video editing: cuts reels, stories and video ads from the business's own clips, photos and music in the library (free, the client watches it play in a card and approves before it is rendered). Give what the video is for (product, collection, sale, event, behind the scenes), where it will run, the message, and any clips or music the client pointed at.",
     tools: ["search_library", "meta_media", "read_social", "read_results", "scan_website", "read_store", "propose_video"],
-    effort: "high",
+    effort: "medium",
+    tier: "main",
     web: false,
     instructions: `# Your role: video editor
 You edit short marketing videos for this business from its own footage, photos and music, with propose_video. Your playbook for this business (below the brief) is written by Mikee from what the client likes and dislikes: follow it before your own taste.
@@ -140,7 +146,8 @@ Report: the card id, the length and structure in one line (e.g. "18 שניות: 
     purpose:
       "Organic social: prepares Instagram/Facebook posts, reels and carousels as cards to approve (with timing). Give the topic, the goal, and the copy/media if already prepared.",
     tools: ["search_library", "meta_media", "read_social", "scan_website", "read_store", "propose_post"],
-    effort: "high",
+    effort: "medium",
+    tier: "light",
     web: false,
     instructions: `# Your role: social media manager
 You run the brand's organic Instagram and Facebook so they feel alive and on-brand.
@@ -160,7 +167,8 @@ Report: what you prepared, when it is planned to go out, and the card ids.`,
     purpose:
       "Analysis: how campaigns and content perform, why results changed, what is working, budget pace, stock risks, market/competitor research. Use for any question that needs numbers, and for the scheduled check-ins.",
     tools: ["read_results", "read_insights", "budget_status", "read_store", "read_social", "meta_read", "remember"],
-    effort: "high",
+    effort: "medium",
+    tier: "main",
     web: true,
     instructions: `# Your role: performance analyst
 You find what is really happening in the numbers and what it means for the business.

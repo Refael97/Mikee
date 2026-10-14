@@ -4,7 +4,20 @@ import type { Kind } from "../conversation";
 import { AiBudgetExceeded, assertAiBudget, claudeCostUsd, recordUsage } from "../usage";
 import { runToolIn, toolDefinitions, type ToolContext, type ToolDef } from "./tools";
 
-export const MODEL = "claude-opus-5-5";
+/**
+ * Two tiers, chosen per role for cost. "main" (Claude Sonnet 5.5) for Mikee and the specialists that decide
+ * or spend; "light" (Claude Haiku 5.5, about 20x cheaper) for writing copy and posts and for describing
+ * images. Either can be changed without code: MIKEE_MODEL_MAIN, MIKEE_MODEL_LIGHT.
+ */
+export type Tier = "main" | "light";
+export const MODELS: Record<Tier, string> = {
+  main: process.env.MIKEE_MODEL_MAIN || "claude-sonnet-5-5",
+  light: process.env.MIKEE_MODEL_LIGHT || "claude-haiku-5-5",
+};
+export const MODEL = MODELS.main;
+
+/** Server-side refusal fallback and the newer web tools exist on Sonnet and Opus, not on Haiku. */
+const isHaiku = (model: string) => model.startsWith("claude-haiku");
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type Row = { role: "user" | "assistant"; kind: Kind; content: unknown[] };
@@ -34,6 +47,8 @@ export async function agentLoop(opts: {
   pending: Row[];
   tools: ToolDef[];
   effort: Effort;
+  /** Which model tier runs this loop (default main). */
+  tier?: Tier;
   web?: boolean;
   compaction?: boolean;
   maxSteps?: number;
@@ -51,8 +66,10 @@ export async function agentLoop(opts: {
   for (let step = 0; step < (opts.maxSteps ?? 40); step++) {
     await assertAiBudget(ctx.workspaceId, ctx.tz);
     const system = typeof opts.system === "function" ? await opts.system() : opts.system;
+    const model = MODELS[opts.tier ?? "main"];
+    const haiku = isHaiku(model);
     const stream = anthropic().beta.messages.stream({
-      model: MODEL,
+      model,
       max_tokens: 64000,
       thinking: { type: "adaptive" },
       output_config: { effort: opts.effort },
@@ -60,7 +77,7 @@ export async function agentLoop(opts: {
       messages: [...opts.history, ...pending.map((r) => ({ role: r.role, content: r.content as Anthropic.Beta.BetaContentBlockParam[] }))],
       tools: [
         ...definitions,
-        ...(opts.web
+        ...(opts.web && !haiku
           ? ([
               { type: "web_search_20260209", name: "web_search", max_uses: 5 },
               { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
@@ -68,8 +85,8 @@ export async function agentLoop(opts: {
           : []),
       ],
       ...(opts.compaction ? { context_management: { edits: [{ type: "compact_20260112" as const }] } } : {}),
-      fallbacks: "default",
-      betas: ["server-side-fallback-2026-07-01", ...(opts.compaction ? (["compact-2026-01-12"] as const) : [])],
+      ...(haiku ? {} : { fallbacks: "default" as const }),
+      betas: [...(haiku ? [] : (["server-side-fallback-2026-07-01"] as const)), ...(opts.compaction ? (["compact-2026-01-12"] as const) : [])],
     });
     stream.on("text", (delta) => {
       text += delta;
@@ -77,7 +94,7 @@ export async function agentLoop(opts: {
     });
 
     const message = await stream.finalMessage();
-    await recordUsage(ctx.workspaceId, ctx.tz, "claude", claudeCostUsd(message.usage), { agent: opts.agent, model: message.model, step });
+    await recordUsage(ctx.workspaceId, ctx.tz, "claude", claudeCostUsd(message.usage, message.model), { agent: opts.agent, model: message.model, step });
     pending.push({ role: "assistant", kind: "chat", content: message.content });
     lastText = message.content
       .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")

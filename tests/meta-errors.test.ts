@@ -94,3 +94,15 @@ describe("a failed build reports what exists at Meta, checked", () => {
     expect((p.result as any).detail).toMatch(/Checked at Meta: nothing from this card exists there/);
   });
 });
+
+describe("AI cost is counted per model", async () => {
+  const { claudeCostUsd } = await import("@/lib/usage");
+  const usage = { input_tokens: 1_000_000, output_tokens: 1_000_000 } as any;
+  it("Sonnet 5.5, Haiku 5.5 and Opus 5.5 at their own prices, an unknown model at the highest", () => {
+    expect(claudeCostUsd(usage, "claude-sonnet-5-5")).toBeCloseTo(12);
+    expect(claudeCostUsd(usage, "claude-haiku-5-5")).toBeCloseTo(3); // past 100K prompt tokens: $0.50 / $2.50
+    expect(claudeCostUsd({ input_tokens: 10_000, output_tokens: 1_000 } as any, "claude-haiku-5-5")).toBeCloseTo(0.0015);
+    expect(claudeCostUsd(usage, "claude-opus-5-5")).toBeCloseTo(24);
+    expect(claudeCostUsd(usage, "some-future-model")).toBeCloseTo(60);
+  });
+});

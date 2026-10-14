@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, ilike, isNull, lt, or, sql } from "drizzle-orm";
 import { db, schema } from "./db";
-import { anthropic, MODEL } from "./agent/loop";
+import { anthropic, MODELS } from "./agent/loop";
 import { getMedia, readBytes, toView, type MediaView } from "./media";
 import { assertAiBudget, claudeCostUsd, recordUsage } from "./usage";
 
@@ -74,7 +74,7 @@ export async function describeMedia(workspaceId: string, tz: string, mediaId: st
   await assertAiBudget(workspaceId, tz);
   const bytes = await readBytes(row);
   const stream = anthropic().beta.messages.stream({
-    model: MODEL,
+    model: MODELS.light,
     max_tokens: 400,
     output_config: { effort: "low" },
     messages: [
@@ -88,7 +88,7 @@ export async function describeMedia(workspaceId: string, tz: string, mediaId: st
     ],
   } as never);
   const msg = await stream.finalMessage();
-  await recordUsage(workspaceId, tz, "claude", claudeCostUsd(msg.usage), { purpose: "describe_media", mediaId });
+  await recordUsage(workspaceId, tz, "claude", claudeCostUsd(msg.usage, msg.model), { purpose: "describe_media", mediaId, model: msg.model });
   const text = msg.content.map((b: { type: string; text?: string }) => (b.type === "text" ? b.text : "")).join("");
   let parsed: { description?: string; tags?: string[] } = {};
   try {

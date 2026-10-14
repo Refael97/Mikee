@@ -34,6 +34,7 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       pending,
       tools,
       effort: spec.effort,
+      tier: spec.tier,
       web: spec.web,
       maxSteps: 20,
     });

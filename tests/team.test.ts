@@ -94,7 +94,7 @@ describe("delegation", () => {
     expect(buyer[0].messages[0].content[0].text).toContain("Build a traffic campaign");
     expect(buyer[0].messages[0].content[0].text).toContain("Use the two approved ads");
     expect(buyer[0].tools.map((t: any) => t.name).sort()).toEqual([...SPECIALISTS.find((s) => s.id === "media_buyer")!.tools].sort());
-    expect(buyer[0].output_config.effort).toBe("high");
+    expect(buyer[0].output_config.effort).toBe("medium");
     // The specialist does not see the client conversation.
     expect(JSON.stringify(buyer[0].messages)).not.toContain("יש קולקציה חדשה");
 
@@ -138,6 +138,15 @@ describe("delegation", () => {
     await userSays(ws, "תכין משהו לקולקציה");
     await drainJobs();
     expect(team.requests.map((r) => r.agent).sort()).toEqual(["copywriter", "creative", "mikee", "mikee"]);
+    // Each role runs on its tier: writing on Haiku, deciding and building on Sonnet.
+    const by = (agent: string) => team.requests.find((r) => r.agent === agent)!.req;
+    expect(by("mikee").model).toBe("claude-sonnet-5-5");
+    expect(by("creative").model).toBe("claude-sonnet-5-5");
+    expect(by("copywriter").model).toBe("claude-haiku-5-5");
+    // Haiku gets no server-side fallback and no web tools (Sonnet and Opus only).
+    expect(by("copywriter").fallbacks).toBeUndefined();
+    expect(by("copywriter").betas).not.toContain("server-side-fallback-2026-07-01");
+    expect(by("mikee").fallbacks).toBe("default");
   });
 
   it("a specialist that fails reports back and Mikee carries on", async () => {
