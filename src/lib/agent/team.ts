@@ -39,6 +39,8 @@ export async function runSpecialist(spec: Specialist, ctx: Parameters<ToolDef["r
       maxSteps: 20,
       // After its card is created the specialist is done; the report is the card itself.
       stopAfterCard: true,
+      // The specialist's steps reach the client's screen under its own name (cards still arrive through Mikee).
+      emit: (e) => (e.t === "tool" ? ctx.emit?.(e) : undefined),
     });
     output = r.refused ? "The specialist could not help with this request." : r.endedOnCard ? `${r.lastText ? `${r.lastText}\n` : ""}Card created and shown to the client.` : r.lastText || r.text;
   } catch (e) {

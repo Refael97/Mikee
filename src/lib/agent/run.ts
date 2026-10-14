@@ -57,7 +57,8 @@ export async function runMikee(opts: {
 
   try {
     const r = await agentLoop({
-      ctx: { workspaceId, tz: ws.timezone, conversationId, agent: "mikee" },
+      // emit in the context lets the specialists show their own steps on the client's screen.
+      ctx: { workspaceId, tz: ws.timezone, conversationId, agent: "mikee", emit: (e) => (e.t === "tool" ? emit(e) : undefined) },
       agent: "mikee",
       // Built once per turn, not at every step: the brief carries the time, and any change at the front of
       // the request would make the cached conversation behind it count again at full price.

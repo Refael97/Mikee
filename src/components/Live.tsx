@@ -37,7 +37,7 @@ export function useCycle<T>(items: T[], ms: number): T {
 
 /** What Mikee is doing, in words that change while the work goes on. */
 const PHASES: Record<string, string[]> = {
-  "חושב": ["חושב", "מבין מה צריך", "מתכנן את הצעד הבא"],
+  "מייקי חושב": ["מייקי קורא את מה שכתבת", "מייקי מבין מה צריך", "מייקי מתכנן את הצעד הבא"],
   "בודק את התוצאות": ["בודק את התוצאות", "משווה לשבוע שעבר", "מחפש מה בולט"],
   "מנתח את התוצאות": ["מנתח את התוצאות", "עובר על המודעות", "משווה תקופות", "מסכם את העיקר"],
   "כותב טקסטים": ["כותב טקסטים", "מנסה כמה כיוונים", "מלטש את הניסוח"],
@@ -60,12 +60,13 @@ function Phrase({ base, className = "" }: { base: string; className?: string }) 
 export function StatusLine({ activity }: { activity: string | null }) {
   return (
     <div className="text-[16px] font-medium">
-      <Phrase base={activity ?? "חושב"} />
+      <Phrase base={activity ?? "מייקי חושב"} />
     </div>
   );
 }
 
-export type Step = { name: string; label: string; state: "running" | "done" | "error" };
+/** `sub`: a specialist's step, shown under the step where Mikee handed it the work. */
+export type Step = { name: string; label: string; state: "running" | "done" | "error"; sub?: boolean };
 
 /** The steps of the current turn, each turning into a check as it completes. */
 export function Steps({ steps }: { steps: Step[] }) {
@@ -73,7 +74,7 @@ export function Steps({ steps }: { steps: Step[] }) {
   return (
     <ul className="space-y-1.5">
       {steps.map((s, i) => (
-        <li key={`${s.name}-${i}`} className="rise flex items-center gap-2.5 text-[15px]">
+        <li key={`${s.name}-${i}`} className={`rise flex items-center gap-2.5 ${s.sub ? "ps-6 text-[14.5px]" : "text-[15px]"}`}>
           {s.state === "running" ? (
             <span className="spin h-3.5 w-3.5 rounded-full border-[1.5px] border-ink/15 border-t-ink" />
           ) : (

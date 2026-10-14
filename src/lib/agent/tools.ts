@@ -39,7 +39,7 @@ export type ToolContext = {
   /** Who on the team is acting: "mikee" or a specialist id. Cards remember it, so feedback reaches the right playbook. */
   agent?: string;
   /** Lets a tool surface progress (e.g. a card created by a specialist) to the client's screen. */
-  emit?: (e: { t: "proposal"; id: string } | { t: "tool"; name: string; state: "start" | "done" | "error" }) => void | Promise<void>;
+  emit?: (e: { t: "proposal"; id: string } | { t: "tool"; name: string; state: "start" | "done" | "error"; agent?: string }) => void | Promise<void>;
 };
 
 /**

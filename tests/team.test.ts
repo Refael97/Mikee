@@ -6,7 +6,7 @@ import { createConversation } from "@/lib/conversations";
 import { MIKEE_TOOLS, setAnthropicForTests } from "@/lib/agent/run";
 import { SPECIALISTS } from "@/lib/agent/specialists";
 import { BASE_TOOLS } from "@/lib/agent/tools";
-import { enqueue } from "@/lib/jobs";
+import { enqueue, eventsSince } from "@/lib/jobs";
 import { timeline } from "@/lib/conversation";
 import { FakeMeta } from "./support/fake-meta";
 import { campaignSpec, createBusiness, drainJobs, fakeTeam, NOW, toolUse } from "./support/setup";
@@ -102,10 +102,21 @@ describe("delegation", () => {
     expect(proposals.map((p) => p.status)).toEqual(["pending"]);
     expect(meta.writes()).toEqual([]);
 
-    // The client sees Mikee's words, a neutral activity line and the card: never the team.
+    // The client sees who is working in plain words, never internal names: Mikee hands the work over, and
+    // the campaign agent's own steps arrive under its name while it works.
     const items = await timeline(ws, job.conversationId);
     expect(items.map((i) => i.type)).toEqual(["user", "activity", "card"]);
+    expect((items[1] as { label: string }).label).toBe("סוכן הקמפיינים הכין את הקמפיין");
     expect(JSON.stringify(items)).not.toMatch(/media buyer|media_buyer|specialist/i);
+    const tools = (await eventsSince(job.id)).map((e) => e.event).filter((e) => e.t === "tool");
+    expect(tools).toEqual([
+      { t: "tool", name: "ask_media_buyer", state: "start" },
+      { t: "tool", name: "get_campaign_context", state: "start", agent: "media_buyer" },
+      { t: "tool", name: "get_campaign_context", state: "done", agent: "media_buyer" },
+      { t: "tool", name: "propose_campaign", state: "start", agent: "media_buyer" },
+      { t: "tool", name: "propose_campaign", state: "done", agent: "media_buyer" },
+      { t: "tool", name: "ask_media_buyer", state: "done" },
+    ]);
 
     const runs = await d.select().from(schema.agentRuns).where(eq(schema.agentRuns.workspaceId, ws));
     expect(runs.map((r) => [r.agent, r.proposalIds.length, r.steps])).toEqual([["media_buyer", 1, 2]]);

@@ -9,33 +9,7 @@ import { ProposalCard, type Brand } from "./ProposalCard";
 import { LiveText, QuickReplies, StatusLine, type Step, Steps, splitReplies } from "./Live";
 import { RichText } from "./RichText";
 import { refreshConversations } from "./Sidebar";
-
-const LIVE_LABELS: Record<string, string> = {
-  remember: "רושם לעצמי",
-  forget: "מעדכן את מה שאני יודע",
-  scan_website: "קורא את האתר",
-  read_store: "בודק את החנות",
-  read_results: "בודק את התוצאות",
-  read_social: "עובר על הפוסטים",
-  budget_status: "בודק את התקציב",
-  request_budget_increase: "מכין בקשה",
-  ask_copywriter: "כותב טקסטים",
-  ask_media_buyer: "עובד על הקמפיין",
-  ask_creative: "מכין ויז׳ואל",
-  ask_video_editor: "עורך וידאו",
-  update_playbook: "רושם את מה שאת אוהבת",
-  ask_social: "מכין פוסט",
-  ask_analyst: "מנתח את התוצאות",
-  read_insights: "מעמיק בנתונים",
-  search_targeting: "מחפש קהלים",
-  list_audiences: "בודק קהלים שמורים",
-  meta_read: "בודק משהו מאחורי הקלעים",
-  meta_write: "מסדר משהו מאחורי הקלעים",
-  web_search: "מחפש ברשת",
-  web_fetch: "קורא עמוד ברשת",
-};
-// Bookkeeping tools stay silent.
-const SILENT = new Set(["file_conversation", "set_stage", "team_playbook"]);
+import { SILENT_STEPS, stepLabel } from "@/lib/progress";
 
 const SUGGESTIONS = [
   { title: "איך הולך החודש?", sub: "תמונת מצב קצרה, במספרים אמיתיים" },
@@ -58,17 +32,20 @@ function appendText(live: Live | null, delta: string): Live {
 }
 
 /** A tool started or finished: the step list grows, and finished steps turn into checks. */
-function toolEvent(live: Live | null, name: string, state: "start" | "done" | "error"): Live {
+function toolEvent(live: Live | null, name: string, state: "start" | "done" | "error", agent?: string): Live {
   const l = live ?? EMPTY;
-  if (SILENT.has(name)) return l;
-  const label = LIVE_LABELS[name] ?? "עובד על זה";
+  if (SILENT_STEPS.has(name)) return l;
+  // Who does what, in plain words: "סוכן הקמפיינים בודק כמה תקציב פנוי החודש". A specialist's steps sit under
+  // the step where Mikee handed it the work.
+  const label = stepLabel(name, agent);
+  const sub = !!agent && agent !== "mikee";
   if (state === "start") {
     // The same kind of work twice in a row reads as one step.
     const running = l.steps.find((s) => s.label === label && s.state === "running");
-    return { ...l, steps: running ? l.steps : [...l.steps, { name, label, state: "running" }], activity: label };
+    return { ...l, steps: running ? l.steps : [...l.steps, { name, label, state: "running", sub }], activity: label };
   }
   const steps = [...l.steps];
-  const i = steps.findLastIndex((s) => s.name === name && s.state === "running");
+  const i = steps.findLastIndex((s) => s.name === name && !!s.sub === sub && s.state === "running");
   if (i >= 0) steps[i] = { ...steps[i], state };
   const stillRunning = steps.findLast((s) => s.state === "running");
   return { ...l, steps, activity: stillRunning?.label ?? null };
@@ -146,7 +123,7 @@ export function Chat({
           for (const e of data.events) {
             cursor = e.id;
             if (e.t === "text") setLive((l) => appendText(l, e.v));
-            if (e.t === "tool") setLive((l) => toolEvent(l, e.name, e.state));
+            if (e.t === "tool") setLive((l) => toolEvent(l, e.name, e.state, e.agent));
             if (e.t === "proposal") {
               const p = await fetch(`/api/proposals/${e.id}`).then((r) => (r.ok ? r.json() : null));
               if (p)

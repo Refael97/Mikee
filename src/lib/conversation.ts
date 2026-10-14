@@ -160,15 +160,15 @@ export const TOOL_LABELS: Record<string, string> = {
   meta_write: "מייקי סידר משהו מאחורי הקלעים",
   set_stage: "",
   file_conversation: "",
-  // The team stays invisible: the client sees what is being done, not who does it.
-  ask_copywriter: "מייקי כתב טקסטים",
-  ask_media_buyer: "מייקי עבד על הקמפיינים",
-  ask_creative: "מייקי הכין ויז׳ואל",
-  ask_video_editor: "מייקי ערך וידאו",
+  // The team by its plain names, as the client saw them at work.
+  ask_copywriter: "סוכן הקופי כתב את הטקסטים",
+  ask_media_buyer: "סוכן הקמפיינים הכין את הקמפיין",
+  ask_creative: "סוכן הקריאייטיב הכין את הוויז׳ואל",
+  ask_video_editor: "סוכן עריכת הווידאו ערך את הסרטון",
   update_playbook: "מייקי רשם את מה שאת אוהבת",
   team_playbook: "",
-  ask_social: "מייקי הכין פוסט",
-  ask_analyst: "מייקי ניתח את התוצאות",
+  ask_social: "סוכן הסושיאל הכין את הפוסט",
+  ask_analyst: "סוכן הנתונים ניתח את התוצאות",
   web_search: "מייקי חיפש ברשת",
   web_fetch: "מייקי קרא עמוד ברשת",
 };

@@ -47,7 +47,8 @@ const isHaiku = (model: string) => model.startsWith("claude-haiku");
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type Row = { role: "user" | "assistant"; kind: Kind; content: unknown[] };
-export type LoopEvent = { t: "text"; v: string } | { t: "tool"; name: string; state: "start" | "done" | "error" } | { t: "proposal"; id: string };
+/** `agent` is set when a specialist (not Mikee) runs the tool, so the client sees who is doing what. */
+export type LoopEvent = { t: "text"; v: string } | { t: "tool"; name: string; state: "start" | "done" | "error"; agent?: string } | { t: "proposal"; id: string };
 
 let client: Pick<Anthropic, "beta"> | null = null;
 export const anthropic = () => (client ??= new Anthropic());
@@ -188,9 +189,10 @@ export async function agentLoop(opts: {
 
     const results = await Promise.all(
       toolUses.map(async (b) => {
-        await emit({ t: "tool", name: b.name, state: "start" });
+        const agent = opts.agent === "mikee" ? undefined : opts.agent;
+        await emit({ t: "tool", name: b.name, state: "start", agent });
         const r = await runToolIn(opts.tools, ctx, b.name, b.input);
-        await emit({ t: "tool", name: b.name, state: r.isError ? "error" : "done" });
+        await emit({ t: "tool", name: b.name, state: r.isError ? "error" : "done", agent });
         for (const id of proposalIdsIn(r.content)) await emit({ t: "proposal", id });
         return { type: "tool_result" as const, tool_use_id: b.id, content: r.content, is_error: r.isError || undefined };
       }),
