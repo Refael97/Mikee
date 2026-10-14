@@ -31,6 +31,8 @@ export class MetaError extends Error {
   tokenKind?: TokenKind;
   /** A write whose answer never came (timeout or dropped connection): it may or may not exist at Meta. */
   outcomeUnknown = false;
+  /** Selected fields of the failed request as sent (never tokens), e.g. an ad set's targeting. */
+  request?: Record<string, unknown>;
 
   constructor(
     message: string,
@@ -81,6 +83,7 @@ export class MetaError extends Error {
       fbtrace_id: this.fbtraceId,
       http_status: this.status,
       outcome_unknown: this.outcomeUnknown || undefined,
+      request: this.request,
       reconnect: this.reconnect,
     };
   }

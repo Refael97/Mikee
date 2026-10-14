@@ -87,6 +87,9 @@ describe("a failed build reports what exists at Meta, checked", () => {
     expect(result.meta).toMatchObject({ operation: "POST /act_1/adsets", code: 100, reconnect: "not_needed" });
     // Where the ad set was aimed, as sent.
     expect(result.sentGeo).toEqual({ countries: ["IL"] });
+    // The failed request itself: the targeting as sent, and that no advertiser identity field went with it.
+    expect(result.meta.request.targeting.geo_locations).toEqual({ countries: ["IL"] });
+    expect(result.meta.request.advertiser_identity_fields).toBe("none sent");
   });
 
   it("says nothing exists only after checking", async () => {

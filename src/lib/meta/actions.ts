@@ -235,7 +235,7 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
   let adsetId: string | undefined = cp.data.adsetId ?? undefined;
   if (!(await exists(ctx, adsetId))) adsetId = await findTagged(ctx, `/${campaignId}/adsets`, tag);
   if (!adsetId) {
-    ({ id: adsetId } = await ctx.graph.post<{ id: string }>(`/${account}/adsets`, {
+    const adset = {
       name,
       campaign_id: campaignId,
       daily_budget: toMinor(spec.dailyBudget, currency),
@@ -246,7 +246,17 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
       end_time: spec.endTime,
       status: "PAUSED",
       ...optimization(ctx, spec),
-    }));
+    } as Record<string, unknown>;
+    try {
+      ({ id: adsetId } = await ctx.graph.post<{ id: string }>(`/${account}/adsets`, adset));
+    } catch (err) {
+      // Keep exactly what was sent, so a location or identity rule can be matched to the request.
+      if (err instanceof MetaError) {
+        const identity = Object.fromEntries(Object.entries(adset).filter(([k]) => /dsa_|regional_regulat/.test(k)));
+        err.request = { targeting: adset.targeting, advertiser_identity_fields: Object.keys(identity).length ? identity : "none sent" };
+      }
+      throw err;
+    }
   }
   if (adsetId !== cp.data.adsetId) await cp.save({ adsetId });
 

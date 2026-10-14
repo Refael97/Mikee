@@ -114,6 +114,9 @@ function technical(r: Record<string, any>): CardView["technical"] {
     add("error_user_msg", m.error_user_msg);
     add("fbtrace_id", m.fbtrace_id);
     if (m.outcome_unknown) add("תוצאה", "לא ידוע אם הבקשה בוצעה במטא");
+    const req = m.request as Record<string, unknown> | undefined;
+    if (req?.targeting) add("targeting שנשלח", JSON.stringify(req.targeting));
+    if (req?.advertiser_identity_fields) add("שדות זהות מפרסם שנשלחו", typeof req.advertiser_identity_fields === "string" ? "לא נשלחו" : JSON.stringify(req.advertiser_identity_fields));
   }
   if (r.sentGeo) add("מיקומים שנשלחו", JSON.stringify(r.sentGeo));
   if (b) {
