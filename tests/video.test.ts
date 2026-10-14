@@ -221,6 +221,9 @@ describe("making a video", () => {
     const id = await photo(ws);
     expect(JSON.parse((await runTool(ctx(ws), "propose_video", reel(id))).content).error).toMatch(/not connected/);
     expect(TOOLS.some((t) => t.name === "propose_video")).toBe(true);
+    // A Railway reference that resolved to nothing is not a connection either.
+    process.env.RENDER_URL = "http://:8080";
+    expect(JSON.parse((await runTool(ctx(ws), "propose_video", reel(id))).content).error).toMatch(/not connected/);
   });
 });
 

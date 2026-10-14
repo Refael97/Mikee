@@ -6,10 +6,29 @@ import { compose, KIT_FILES, type MediaFiles } from "./compose";
 import { mediaUses, type MediaUse, type VideoSpec } from "./spec";
 
 /** The render worker, when it is set up (RENDER_URL + RENDER_SECRET). */
+let warned = false;
+
+/**
+ * The render worker, when it is set up properly. An address without a host (a Railway reference that resolved
+ * to nothing, e.g. "http://:8080") counts as not connected, so Mikee says so up front instead of a video
+ * failing after it was approved.
+ */
 export function videoRenderer(): { url: string; secret: string } | null {
   const url = process.env.RENDER_URL?.replace(/\/+$/, "");
   const secret = process.env.RENDER_SECRET ?? "";
-  return url && secret.length >= 24 ? { url, secret } : null;
+  if (!url || secret.length < 24) return null;
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    host = "";
+  }
+  if (!host) {
+    if (!warned) console.warn(`[video] RENDER_URL has no host ("${url}"): check the render worker's service name in the Railway reference`);
+    warned = true;
+    return null;
+  }
+  return { url, secret };
 }
 
 const IMAGE: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
