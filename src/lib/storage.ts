@@ -8,6 +8,9 @@ import { createHash, createHmac, randomUUID } from "crypto";
  *
  *   S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com   S3_BUCKET=mikee-media
  *   S3_REGION=auto   S3_ACCESS_KEY_ID=...   S3_SECRET_ACCESS_KEY=...
+ *
+ * Railway buckets: S3_ENDPOINT=https://storage.railway.app (the bucket goes in the host name automatically;
+ * S3_URL_STYLE=path or virtual overrides it, as the bucket's Credentials tab says).
  */
 
 export type Stored = { storage: "db" | "s3"; key: string | null; bytes: Buffer | null };
@@ -17,7 +20,10 @@ export const DB_MAX_BYTES = 50 * 1024 * 1024;
 function s3Config() {
   const { S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY } = process.env;
   if (!S3_ENDPOINT || !S3_BUCKET || !S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY) return null;
-  return { endpoint: S3_ENDPOINT.replace(/\/$/, ""), bucket: S3_BUCKET, region: process.env.S3_REGION || "auto", keyId: S3_ACCESS_KEY_ID, secret: S3_SECRET_ACCESS_KEY };
+  const endpoint = S3_ENDPOINT.replace(/\/$/, "");
+  // Railway buckets want the bucket in the host name (virtual-hosted style); R2, S3 and others take it in the path.
+  const style = process.env.S3_URL_STYLE === "virtual" || process.env.S3_URL_STYLE === "path" ? process.env.S3_URL_STYLE : /(^|\.)storage\.railway\.app$/.test(new URL(endpoint).host) ? "virtual" : "path";
+  return { endpoint, bucket: S3_BUCKET, region: process.env.S3_REGION || "auto", keyId: S3_ACCESS_KEY_ID, secret: S3_SECRET_ACCESS_KEY, style };
 }
 
 export const usingBucket = () => !!s3Config();
@@ -53,9 +59,17 @@ export async function deleteObject(row: { storage: string; key: string | null })
 const sha256 = (data: string | Buffer) => createHash("sha256").update(data).digest("hex");
 const hmac = (key: Buffer | string, data: string) => createHmac("sha256", key).update(data).digest();
 
-/** A minimal AWS Signature V4 request (path-style), enough for put, get and delete of one object. */
+/** The object's address, in the style the storage provider expects. */
+export function objectUrl(cfg: { endpoint: string; bucket: string; style: string }, key: string): URL {
+  const path = key.split("/").map(encodeURIComponent).join("/");
+  if (cfg.style !== "virtual") return new URL(`${cfg.endpoint}/${cfg.bucket}/${path}`);
+  const base = new URL(cfg.endpoint);
+  return new URL(`${base.protocol}//${cfg.bucket}.${base.host}/${path}`);
+}
+
+/** A minimal AWS Signature V4 request, enough for put, get and delete of one object. */
 async function s3(cfg: NonNullable<ReturnType<typeof s3Config>>, method: "PUT" | "GET" | "DELETE", key: string, body?: Buffer, contentType?: string) {
-  const url = new URL(`${cfg.endpoint}/${cfg.bucket}/${key.split("/").map(encodeURIComponent).join("/")}`);
+  const url = objectUrl(cfg, key);
   const now = new Date();
   const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const day = amzDate.slice(0, 8);

@@ -88,7 +88,7 @@ How it's tracked and used:
 
 ### The content library (`src/lib/library.ts`, `src/lib/storage.ts`, `src/lib/google.ts`)
 - **Getting files in:** upload, drag and drop, or attach in the chat. Images and videos land in the library, and media Mikee creates is saved there too.
-- **Storage:** a private S3/R2 bucket under each business's prefix. A per-plan quota is enforced on every save (2/5/10GB, `src/lib/plans.ts`).
+- **Storage:** a private S3-compatible bucket (Railway Buckets, Cloudflare R2, S3, Backblaze B2) under each business's prefix. Without one, files stay in the database and uploads are capped at 50MB. Railway: add a Bucket to the project and set `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` on the app service as references to the bucket's variables (`${{Bucket.ENDPOINT}}` and so on); the bucket-in-host-name style is chosen automatically, `S3_URL_STYLE` overrides it. A per-plan quota is enforced on every save (2/5/10GB, `src/lib/plans.ts`).
 - **Searchable descriptions:** Mikee describes every new image once (a background job), so it can be found by what's in it. `search_library` is available to Mikee, the creative director, the social manager and the media buyer, and they search the library before creating anything new.
 - **Google Drive:** connects with the narrowest permission (`drive.file`). The client picks files in Google's own picker, and only those files are copied into the library.
 
