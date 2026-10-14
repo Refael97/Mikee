@@ -15,7 +15,7 @@ export function MediaGenerating({ label = "יוצר תמונה", ratio = "4/5" }
       <div className="dot-grid absolute inset-0" />
       <div className="dot-grid-glow absolute inset-0" />
       <div className="dot-grid-lit absolute inset-0" />
-      <span key={phrase} className="swap-in absolute bottom-3 start-3 rounded-[5px] border border-line bg-surface/90 px-2.5 py-1 text-[13.5px] font-semibold">
+      <span key={phrase} className="swap-in absolute bottom-3 start-3 rounded-[8px] border border-line bg-surface/90 px-2.5 py-1 text-[13.5px] font-semibold">
         <span className="shimmer">{phrase}…</span>
       </span>
     </div>
@@ -130,7 +130,7 @@ export function QuickReplies({ replies, onPick }: { replies: string[]; onPick: (
           key={r}
           onClick={() => onPick(r)}
           style={{ animationDelay: `${120 + i * 70}ms` }}
-          className="rise h-8 rounded-[6px] border border-line-strong bg-surface px-3 text-[14.5px] font-medium text-ink shadow-[0_1px_1px_rgba(26,31,54,0.05)] transition-colors duration-100 hover:border-brand hover:text-brand"
+          className="rise h-8 rounded-[12px] border border-line-strong bg-surface px-3 text-[14.5px] font-medium text-ink shadow-[0_1px_1px_rgba(26,31,54,0.05)] transition-colors duration-100 hover:border-brand hover:text-brand"
         >
           {r}
         </button>

@@ -15,7 +15,7 @@ Next.js 15 (App Router), React 19, TypeScript, Tailwind v4, drizzle-orm (Postgre
 
 ## Working rules
 - Branch: `claude/pensive-dirac-podemb`. Railway deploys it on every push.
-- UI copy is natural modern Hebrew; no emoji; no dashes joining clauses; follow `DESIGN.md` (Stripe-level quiet, 6px radius, no pill labels).
+- UI copy is natural modern Hebrew; no emoji; no dashes joining clauses; follow `DESIGN.md` (white panels on a light ground, light 300 text, thin icons, color only in tiles, dots and badges, a black capsule for the one primary action).
 - Security is strict: CSP with nonce in `src/middleware.ts` (no external scripts), same-origin checks on mutating routes, rate limits, untrusted content wrapped for the model, tokens encrypted and never sent to the browser or the model. Keep it that way.
 - Never commit secrets (`.env*`, `railway-*.env` are git-ignored).
 - The Rive MCP server (`.mcp.json`) works only in a local session on the machine where the Rive desktop app runs.

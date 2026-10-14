@@ -12,16 +12,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (workspace.stage === "connect") redirect("/onboarding");
   const meta = await getConnection(workspace.id, "meta");
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
+    // Desktop: a 10px frame and 10px gaps around the rail and the panels. Mobile: full width, no frame.
+    <div className="flex min-h-dvh flex-col lg:flex-row lg:gap-[10px] lg:p-[10px]">
       <Nav who={{ name: user.name, email: user.email, business: workspace.name }} support={{ email: process.env.SUPPORT_EMAIL, whatsapp: process.env.SUPPORT_WHATSAPP }} />
       <MikeeToast />
       <div className="flex min-w-0 flex-1 flex-col">
       {meta?.status === "broken" && (
-        <Link href="/settings" className="flex items-center justify-center gap-3 border-b border-line bg-warn-tint px-5 py-2 text-[14.5px] text-warn">
+        <Link href="/settings" className="flex items-center justify-center gap-3 bg-warn-tint px-5 py-2.5 text-[15px] text-warn lg:mb-[10px] lg:rounded-[14px]">
           <span>
-            <span className="font-semibold">החיבור לפייסבוק ולאינסטגרם נותק.</span> מייקי לא יכול לעבוד עד שמחברים מחדש.
+            <span className="font-medium">החיבור לפייסבוק ולאינסטגרם נותק.</span> מייקי לא יכול לעבוד עד שמחברים מחדש.
           </span>
-          <span className="shrink-0 font-semibold underline underline-offset-4">לחבר</span>
+          <span className="shrink-0 underline underline-offset-4">לחבר</span>
         </Link>
       )}
       <div className="flex flex-1 flex-col">{children}</div>

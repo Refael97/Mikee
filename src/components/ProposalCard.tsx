@@ -160,7 +160,7 @@ function MediaResult({ view }: { view: CardView }) {
     return (
       <div className={`grid gap-2 px-4 ${cols(view.output.length)}`}>
         {view.output.map((m, i) => (
-          <a key={m.url} href={m.url} target="_blank" rel="noreferrer" className="reveal block overflow-hidden rounded-[6px] bg-surface-2" style={{ animationDelay: `${i * 140}ms`, aspectRatio: gen?.ratio ?? "4/5" }}>
+          <a key={m.url} href={m.url} target="_blank" rel="noreferrer" className="reveal block overflow-hidden rounded-[12px] bg-surface-2" style={{ animationDelay: `${i * 140}ms`, aspectRatio: gen?.ratio ?? "4/5" }}>
             {m.type === "video" ? (
               <video src={m.url} className="h-full w-full object-cover" autoPlay muted loop playsInline />
             ) : (
@@ -177,7 +177,7 @@ function MediaResult({ view }: { view: CardView }) {
     <div className="flex gap-2 px-4 pb-1">
       {refs.map((m, i) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-[6px] border border-line object-cover" />
+        <img key={i} src={m.url} alt="" className="h-16 w-16 rounded-[12px] border border-line object-cover" />
       ))}
     </div>
   );
@@ -191,7 +191,7 @@ function VideoPreview({ view }: { view: CardView }) {
   const out = view.status === "done" ? view.output?.[0] : undefined;
   return (
     <div className="px-4">
-      <div className="mx-auto overflow-hidden rounded-[6px] border border-line bg-[#111]" style={{ aspectRatio: preview.ratio, width: tall ? "min(62%, 270px)" : "100%" }}>
+      <div className="mx-auto overflow-hidden rounded-[12px] border border-line bg-[#111]" style={{ aspectRatio: preview.ratio, width: tall ? "min(62%, 270px)" : "100%" }}>
         {out ? (
           <video src={out.url} className="reveal h-full w-full" controls playsInline preload="metadata" />
         ) : view.status === "executing" ? (
@@ -227,7 +227,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
   if (!media.length) return null;
 
   const textOnly = media.length === 1 && !media[0].url;
-  if (textOnly) return <p className="mx-4 whitespace-pre-line rounded-[6px] bg-surface-2 p-3 text-[15px] leading-relaxed">{media[0].text}</p>;
+  if (textOnly) return <p className="mx-4 whitespace-pre-line rounded-[12px] bg-surface-2 p-3 text-[15px] leading-relaxed">{media[0].text}</p>;
 
   const endDrag = (el: HTMLDivElement) => {
     if (!drag.current) return;
@@ -406,7 +406,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
 
       {card.kind === "video" ? <VideoPreview view={view} /> : card.kind === "media" ? <MediaResult view={view} /> : <Previews card={card} brand={brand} />}
 
-      <dl className="mx-4 mt-3 divide-y divide-line rounded-[6px] border border-line">
+      <dl className="mx-4 mt-3 divide-y divide-line rounded-[12px] border border-line">
         {card.rows.map((r) => (
           <div key={r.label} className="flex items-baseline justify-between gap-6 px-3 py-2">
             <dt className="shrink-0 text-[14px] text-ink-2">{r.label}</dt>
@@ -448,7 +448,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
           <div className="space-y-3">
             <p className="note note-bad text-[15px] leading-relaxed">{view.error}</p>
             {view.needsIdentity && !identitySaved && (
-              <div className="rounded-[6px] border border-line p-3">
+              <div className="rounded-[12px] border border-line p-3">
                 <IdentityPicker
                   proposalId={view.id}
                   onSaved={() => {
@@ -460,7 +460,7 @@ export function ProposalCard({ proposal, brand, onChange }: { proposal: CardView
             )}
             {identitySaved && <p className="note note-good text-[14.5px]">נשמר. עכשיו אפשר לנסות שוב, וקבוצת המודעות תיבנה עם המפרסם והמשלם שבחרת.</p>}
             {view.technical && (
-              <details className="rounded-[6px] border border-line px-3 py-2 text-[13.5px]">
+              <details className="rounded-[12px] border border-line px-3 py-2 text-[13.5px]">
                 <summary className="cursor-pointer text-ink-2">פרטים טכניים מהשגיאה</summary>
                 <dl className="mt-2 space-y-1">
                   {view.technical.lines.map((l) => (

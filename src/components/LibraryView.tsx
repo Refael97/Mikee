@@ -174,15 +174,16 @@ export function LibraryView({
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative min-w-56 flex-1">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" strokeWidth={1.75} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות" className="field ps-9" />
+          <Search className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ink-3" strokeWidth={1.5} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות" className="field rounded-full ps-10" />
         </label>
-        <div className="inline-flex rounded-[6px] border border-line-strong bg-surface-2 p-0.5">
+        <div className="inline-flex flex-wrap gap-1">
           {([["", "הכל"], ["image", "תמונות"], ["video", "סרטונים"], ["audio", "מוזיקה"]] as const).map(([k, l]) => (
             <button
               key={k}
               onClick={() => setKind(k)}
-              className={`flex h-7 items-center rounded-[5px] px-3 text-[14px] font-medium ${kind === k ? "bg-surface text-ink shadow-[0_1px_2px_rgba(26,31,54,0.12)]" : "text-ink-2 hover:text-ink"}`}
+              aria-pressed={kind === k}
+              className="tab"
             >
               {l}
             </button>
@@ -190,7 +191,7 @@ export function LibraryView({
         </div>
         <div className="flex items-center gap-2.5 text-[13px] text-ink-3" title="אחסון בספרייה">
           <span className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-2">
-            <span className={`block h-full rounded-full ${pct > 90 ? "bg-bad" : "bg-brand"}`} style={{ width: `${pct}%` }} />
+            <span className={`block h-full rounded-full ${pct > 90 ? "bg-coral" : "bg-mint"}`} style={{ width: `${pct}%` }} />
           </span>
           <span className="num">
             {size(usage.used)} מתוך {size(usage.limit)}
@@ -199,15 +200,16 @@ export function LibraryView({
       </div>
 
       {folders.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2 text-[14px]">
+        <div className="mt-4 flex flex-wrap gap-1">
           {[{ name: "", count: 0 }, ...folders].map((f) => (
             <button
               key={f.name || "all"}
               onClick={() => setFolder(f.name)}
-              className={`h-7 rounded-[6px] border px-2.5 font-medium ${folder === f.name ? "border-brand bg-brand-tint text-brand" : "border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
+              aria-pressed={folder === f.name}
+              className="tab tab-sm"
             >
               {f.name || "כל התיקיות"}
-              {f.count ? <span className="num ms-1.5 font-normal opacity-70">{f.count}</span> : null}
+              {f.count ? <span className="num text-[14px] text-ink-3">{f.count}</span> : null}
             </button>
           ))}
         </div>
@@ -244,7 +246,7 @@ export function LibraryView({
                 {m.kind === "video" ? (
                   <>
                     <video src={m.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
-                    <span className="absolute bottom-2 start-2 flex items-center gap-1 rounded-[4px] bg-ink/75 px-1.5 py-0.5 text-[12px] text-bg">
+                    <span className="absolute bottom-2 start-2 flex items-center gap-1 rounded-full bg-ink/75 px-1.5 py-0.5 text-[12px] text-bg">
                       <Film className="h-3 w-3" /> וידאו
                     </span>
                   </>
@@ -259,7 +261,7 @@ export function LibraryView({
                   <p className="truncate text-[14px] font-medium">{m.name}</p>
                   <p className="line-clamp-2 text-[13px] leading-snug text-ink-3">{m.description ?? (m.kind === "image" ? "מייקי עוד לא תיאר את התמונה" : m.source === "higgsfield" ? "נוצר על ידי מייקי" : "")}</p>
                 </div>
-                <button onClick={() => remove(m.id)} aria-label="מחיקה" className="shrink-0 rounded-[5px] p-1 text-ink-3 opacity-0 transition-opacity hover:bg-bad-tint hover:text-bad group-hover:opacity-100 max-lg:opacity-100">
+                <button onClick={() => remove(m.id)} aria-label="מחיקה" className="shrink-0 rounded-[8px] p-1 text-ink-3 opacity-0 transition-opacity hover:bg-bad-tint hover:text-bad group-hover:opacity-100 max-lg:opacity-100">
                   <Trash2 className="h-4 w-4" strokeWidth={1.8} />
                 </button>
               </div>

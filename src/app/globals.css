@@ -1,73 +1,102 @@
 @import "tailwindcss";
 
 /*
- * Mikee: the category standard, at the craft level of the Stripe Dashboard.
- * White work surfaces on a cool shell, hairline borders, one ink, and Mikee's violet only on what acts
- * (primary actions, links, selection, focus) and on Mikee himself. Numbers are tabular; icons are lucide.
+ * Mikee's design system (DESIGN.md): white panels on a very light ground, light text with hierarchy from
+ * size and grey, thin icons, color only in small doses (tiles, dots, badges), and black as the action.
+ * Token names are shared by every screen; the values follow the approved mockup.
  */
 :root {
-  --bg: #ffffff;
-  --shell: #f7f8fa;
-  --surface: #ffffff;
-  --surface-2: #f5f6f8;
-  --ink: #1a1f36;
-  --ink-2: #545969;
-  --ink-3: #8792a2;
-  --line: #ebeef1;
-  --line-strong: #d5dbe1;
+  /* surfaces */
+  --shell: #f6f6f4; /* ground: the app background */
+  --bg: #ffffff; /* the main panel */
+  --surface: #ffffff; /* panels and cards */
+  --surface-2: #f3f3f1; /* hover, active item, active tab, soft background */
+  --line: #e7e7e4;
+  --line-strong: #dcdcd8;
+  /* text */
+  --ink: #1b1b1b;
+  --ink-2: #5c5c5f;
+  --ink-3: #9a9a9d;
 
-  --brand: #4b3fe0;
-  --brand-hover: #3e33c4;
-  --brand-tint: #efeefd;
+  /* The action is black: primary buttons, selection, switches. */
+  --brand: #1b1b1b;
+  --brand-hover: #000000;
+  --brand-tint: #f3f3f1;
   --on-brand: #ffffff;
 
-  --good: #0f6b3a;
-  --good-tint: #e3f6e9;
-  --warn: #9a4b00;
-  --warn-tint: #fdf1d6;
-  --bad: #b3093c;
-  --bad-tint: #fde8ee;
-  --info: #0b5cad;
-  --info-tint: #e6f0fb;
+  /* Soft accents: a color for dots and icons, a tint for tiles and badges, and a deeper shade for text
+     on the tint, so small text stays readable. */
+  --mint: #3fae9f;
+  --mint-tint: #e6f6f3;
+  --sun: #d9a23e;
+  --sun-tint: #fbf3e2;
+  --coral: #ee8a72;
+  --coral-tint: #fdeee9;
+  --violet: #9580f2;
+  --violet-tint: #f0ecfe;
+  --blue: #4a8df6;
 
-  --radius: 8px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 1px rgba(26, 31, 54, 0.04), 0 2px 5px rgba(26, 31, 54, 0.04);
-  --shadow-float: 0 7px 14px rgba(26, 31, 54, 0.08), 0 3px 6px rgba(26, 31, 54, 0.06);
-  --ring: 0 0 0 4px rgba(75, 63, 224, 0.18);
+  --good: #23806f; /* success, live, Mikee */
+  --good-tint: var(--mint-tint);
+  --warn: #9a6a12; /* awaiting, draft */
+  --warn-tint: var(--sun-tint);
+  --bad: #c2523a; /* ended, error */
+  --bad-tint: var(--coral-tint);
+  --info: #2f6fd6;
+  --info-tint: #eaf2fe;
+
+  /* shape */
+  --radius: 18px; /* panels and cards */
+  --radius-item: 10px; /* rows, items */
+  --radius-sm: 10px;
+  --radius-tile: 8px;
+  --shadow: 0 0 0 1px rgba(0, 0, 0, 0.035), 0 8px 30px rgba(0, 0, 0, 0.04);
+  --shadow-float: 0 0 0 1px var(--line), 0 18px 50px rgba(0, 0, 0, 0.12);
+  --ring: 0 0 0 3px rgba(74, 141, 246, 0.35);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #12141c;
-    --shell: #0d0f15;
-    --surface: #171a23;
-    --surface-2: #1e2230;
-    --ink: #eef0f5;
-    --ink-2: #a8afc0;
-    --ink-3: #6e778a;
-    --line: #262b39;
-    --line-strong: #353b4d;
+    --shell: #0f0f0f;
+    --bg: #1b1b1b;
+    --surface: #1b1b1b;
+    --surface-2: #262626;
+    --line: #2c2c2c;
+    --line-strong: #3a3a3a;
+    --ink: #f1f1ef;
+    --ink-2: #b2b2b5;
+    --ink-3: #747477;
 
-    --brand: #8b84ff;
-    --brand-hover: #a29cff;
-    --brand-tint: rgba(139, 132, 255, 0.14);
-    --on-brand: #0d0f15;
+    /* In the dark the action is the light ink, with dark text on it. */
+    --brand: #f1f1ef;
+    --brand-hover: #ffffff;
+    --brand-tint: #262626;
+    --on-brand: #1b1b1b;
 
-    --good: #6fd69a;
-    --good-tint: rgba(111, 214, 154, 0.12);
-    --warn: #f0b860;
-    --warn-tint: rgba(240, 184, 96, 0.12);
-    --bad: #ff8aa8;
-    --bad-tint: rgba(255, 138, 168, 0.12);
-    --info: #7cb6f5;
-    --info-tint: rgba(124, 182, 245, 0.12);
+    --mint-tint: rgba(63, 174, 159, 0.18);
+    --sun-tint: rgba(217, 162, 62, 0.18);
+    --coral-tint: rgba(238, 138, 114, 0.18);
+    --violet-tint: rgba(149, 128, 242, 0.18);
 
-    --shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 2px 5px rgba(0, 0, 0, 0.3);
-    --shadow-float: 0 7px 14px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.35);
-    --ring: 0 0 0 4px rgba(139, 132, 255, 0.25);
+    --good: #6fcfbf;
+    --warn: #e8bd6a;
+    --bad: #f3a593;
+    --info: #8ab5fa;
+    --info-tint: rgba(74, 141, 246, 0.18);
+
+    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 30px rgba(0, 0, 0, 0.35);
+    --shadow-float: 0 0 0 1px var(--line), 0 18px 50px rgba(0, 0, 0, 0.5);
   }
+}
+
+/* Weights stay light: nothing above 500 (the old semibold and bold become 500). */
+@theme {
+  --font-weight-light: 300;
+  --font-weight-normal: 300;
+  --font-weight-medium: 400;
+  --font-weight-semibold: 500;
+  --font-weight-bold: 500;
 }
 
 @theme inline {
@@ -91,16 +120,26 @@
   --color-bad-tint: var(--bad-tint);
   --color-info: var(--info);
   --color-info-tint: var(--info-tint);
-  --font-sans: "Heebo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-mint: var(--mint);
+  --color-mint-tint: var(--mint-tint);
+  --color-sun: var(--sun);
+  --color-sun-tint: var(--sun-tint);
+  --color-coral: var(--coral);
+  --color-coral-tint: var(--coral-tint);
+  --color-violet: var(--violet);
+  --color-violet-tint: var(--violet-tint);
+  --color-blue: var(--blue);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Heebo", "Segoe UI", system-ui, sans-serif;
   --ease-mikee: var(--ease);
 }
 
 html,
 body {
-  background: var(--bg);
+  background: var(--shell);
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 16px;
+  font-weight: 300;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -119,7 +158,6 @@ body {
 :focus-visible {
   outline: none;
   box-shadow: var(--ring);
-  border-radius: var(--radius-sm);
 }
 /* A field inside a frame that shows focus itself (the composer) gets no second ring. */
 .no-ring:focus-visible {
@@ -133,58 +171,73 @@ body {
 /* Component classes live in a layer so Tailwind utilities (lg:hidden, px-2, ...) can override them. */
 @layer components {
   /* ---------- Type: one family, clear steps ---------- */
-  .display {
-    font-size: clamp(30px, 3.4vw, 40px);
-    font-weight: 700;
-    line-height: 1.15;
-  }
+  .display,
   .title {
-    font-size: 26px;
-    font-weight: 700;
-    line-height: 1.25;
+    font-size: 34px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
   }
+  @media (max-width: 639px) {
+    .display,
+    .title {
+      font-size: 26px;
+    }
+  }
+  /* Card and block titles: body size, a touch more weight. Hierarchy comes from size and grey. */
   .h2 {
-    font-size: 18px;
-    font-weight: 600;
-    line-height: 1.35;
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+  /* Section heading: grey, light, never bold or uppercase. */
+  .section-head {
+    font-size: 17px;
+    font-weight: 300;
+    color: var(--ink-3);
   }
   .lead {
-    font-size: 16px;
-    line-height: 1.6;
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.55;
     color: var(--ink-2);
   }
   .label {
-    font-size: 13.5px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 400;
     color: var(--ink-2);
+  }
+  .meta {
+    font-size: 13.5px;
+    font-weight: 300;
+    color: var(--ink-3);
   }
   .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
   }
   .link {
-    color: var(--brand);
-    font-weight: 500;
+    color: var(--ink);
+    font-weight: 400;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
   }
   .link:hover {
-    color: var(--brand-hover);
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    text-decoration-color: var(--ink);
   }
 
   /* ---------- Surfaces: elevation is declared once ---------- */
   .card {
     background: var(--surface);
-    border: 1px solid var(--line);
     border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
   .card-float,
   .pop-over {
     background: var(--surface);
-    border-radius: var(--radius);
-    box-shadow:
-      0 0 0 1px rgba(26, 31, 54, 0.06),
-      var(--shadow-float);
+    border-radius: 20px;
+    box-shadow: var(--shadow-float);
   }
   .glass {
     background: color-mix(in srgb, var(--bg) 92%, transparent);
@@ -196,40 +249,48 @@ body {
   }
   .group-list {
     background: var(--surface);
-    border: 1px solid var(--line);
     border-radius: var(--radius);
+    box-shadow: var(--shadow);
     overflow: hidden;
   }
   .group-list > * + * {
     border-top: 1px solid var(--line);
   }
+  /* Info and result tiles: the soft background, no border. */
   .tile {
     background: var(--surface-2);
-    border-radius: var(--radius-sm);
+    border-radius: 14px;
+  }
+  /* A colored icon tile: tint background, colored thin icon. */
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: var(--radius-tile);
   }
 
-  /* Status badge: a small rectangle with a tinted ground, like a ledger mark. */
+  /* Status badge: a capsule with a tinted ground, colored text and an optional dot. */
   .tag {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 22px;
-    padding: 0 7px;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 500;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 400;
     line-height: 1;
     white-space: nowrap;
     background: var(--surface-2);
     color: var(--ink-2);
   }
-  .tag-brand {
-    background: var(--brand-tint);
-    color: var(--brand);
-  }
+  .tag-brand,
   .tag-quiet {
     background: var(--surface-2);
-    color: var(--ink-3);
+    color: var(--ink-2);
   }
   .tag-good {
     background: var(--good-tint);
@@ -243,10 +304,21 @@ body {
     background: var(--bad-tint);
     color: var(--bad);
   }
+  .tag-violet {
+    background: var(--violet-tint);
+    color: #6a55d6;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
   .note {
     display: block;
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    border-radius: 12px;
+    padding: 10px 14px;
     background: var(--info-tint);
     color: var(--ink);
   }
@@ -370,8 +442,35 @@ body {
     animation: shimmer 2s linear infinite;
   }
   .progress-light {
-    background: linear-gradient(90deg, transparent, var(--brand), transparent);
+    background: linear-gradient(90deg, transparent, var(--mint), transparent);
     animation: progress-light 1.4s var(--ease) infinite;
+  }
+
+  /* Tabs and filter chips: capsules, the active one on the soft background. */
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-size: 16px;
+    color: var(--ink-2);
+    transition: background-color 120ms var(--ease), color 120ms var(--ease);
+  }
+  .tab:hover {
+    color: var(--ink);
+  }
+  .tab[aria-current="page"],
+  .tab[aria-checked="true"],
+  .tab[aria-pressed="true"] {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .tab-sm {
+    height: 34px;
+    padding: 0 14px;
+    font-size: 15px;
   }
 
   /* ---------- Controls ---------- */
@@ -379,46 +478,45 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    height: 36px;
-    padding: 0 14px;
-    border-radius: var(--radius-sm);
-    font-size: 15px;
-    font-weight: 500;
+    gap: 7px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 400;
     white-space: nowrap;
-    border: 1px solid transparent;
+    border: 0;
     transition:
       background-color 120ms ease,
-      border-color 120ms ease,
-      box-shadow 120ms ease,
-      color 120ms ease;
+      color 120ms ease,
+      opacity 120ms ease,
+      transform 160ms var(--ease);
+  }
+  /* Pressing answers at once, before the server does. */
+  .btn:active {
+    transform: scale(0.97);
   }
   .btn:disabled {
-    opacity: 0.45;
+    opacity: 0.4;
     pointer-events: none;
   }
-  .btn-primary {
-    background: var(--brand);
-    color: var(--on-brand);
-    box-shadow:
-      0 1px 1px rgba(26, 31, 54, 0.12),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-  }
-  .btn-primary:hover {
-    background: var(--brand-hover);
-  }
+  /* The action: a black capsule. One per screen. */
+  .btn-primary,
   .btn-brand {
     background: var(--brand);
     color: var(--on-brand);
   }
+  .btn-primary:hover,
+  .btn-brand:hover {
+    background: var(--brand-hover);
+  }
+  /* Secondary: a soft capsule. */
   .btn-quiet {
-    background: var(--surface);
-    border-color: var(--line-strong);
+    background: var(--surface-2);
     color: var(--ink);
-    box-shadow: 0 1px 1px rgba(26, 31, 54, 0.05);
   }
   .btn-quiet:hover {
-    border-color: var(--ink-3);
+    background: color-mix(in srgb, var(--surface-2) 100%, var(--ink) 5%);
   }
   .btn-ghost {
     color: var(--ink-2);
@@ -428,44 +526,43 @@ body {
     background: var(--surface-2);
   }
   .btn-danger {
-    background: var(--surface);
-    border-color: var(--line-strong);
+    background: var(--surface-2);
     color: var(--bad);
   }
   .btn-sm {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 14px;
+    height: 34px;
+    padding: 0 14px;
+    font-size: 14.5px;
   }
   .btn-lg {
-    height: 42px;
-    padding: 0 18px;
-    font-size: 16px;
+    height: 46px;
+    padding: 0 22px;
+    font-size: 16.5px;
   }
 
   .field {
     width: 100%;
-    height: 38px;
+    height: 44px;
     background: var(--surface);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius-sm);
-    padding: 0 11px;
-    font-size: 15px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 0 14px;
+    font-size: 16px;
+    font-weight: 300;
     outline: none;
-    box-shadow: 0 1px 1px rgba(26, 31, 54, 0.04);
     transition:
       border-color 120ms ease,
       box-shadow 120ms ease;
   }
   textarea.field {
     height: auto;
-    padding: 8px 11px;
+    padding: 10px 14px;
   }
   .field:hover {
-    border-color: var(--ink-3);
+    border-color: var(--line-strong);
   }
   .field:focus {
-    border-color: var(--brand);
+    border-color: var(--blue);
     box-shadow: var(--ring);
   }
   .field::placeholder {
@@ -491,12 +588,12 @@ body {
     width: 16px;
     height: 16px;
     border-radius: 9999px;
-    background: #fff;
+    background: var(--surface);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     transition: transform 200ms var(--ease);
   }
   .switch:checked {
-    background: var(--brand);
+    background: var(--ink);
   }
   .switch:checked::after {
     transform: translateX(-14px);

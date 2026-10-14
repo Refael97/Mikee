@@ -55,7 +55,7 @@ function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
             <div className="no-scrollbar flex snap-x gap-3 overflow-x-auto pb-1">
               {c.ads.map((a) => (
                 <figure key={a.id} className="w-32 shrink-0 snap-start">
-                  <div className="overflow-hidden rounded-[6px] border border-line bg-surface">
+                  <div className="overflow-hidden rounded-[12px] border border-line bg-surface">
                     {a.thumbnail ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.thumbnail} alt="" className="aspect-[4/5] w-full object-cover" />

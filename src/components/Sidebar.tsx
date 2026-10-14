@@ -85,45 +85,45 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         onClick={onClose}
       />
       <aside
-        className={`fixed inset-y-0 start-0 z-50 flex w-[288px] flex-col border-e border-line bg-surface p-3 transition-transform duration-300 ease-[var(--ease)] lg:sticky lg:top-0 lg:z-0 lg:h-dvh lg:w-[264px] lg:translate-x-0 ${
+        className={`fixed inset-y-0 start-0 z-50 flex w-[300px] flex-col bg-surface p-3 transition-transform duration-300 ease-[var(--ease)] lg:sticky lg:top-[10px] lg:z-0 lg:h-[calc(100dvh-20px)] lg:translate-x-0 lg:rounded-[18px] lg:shadow-[var(--shadow)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="mb-3 flex items-center gap-2 lg:hidden">
-          <span className="text-[16px] font-semibold">שיחות</span>
+          <span className="text-[17px] font-medium">שיחות</span>
           <button onClick={onClose} aria-label="סגירה" className="btn btn-ghost btn-sm ms-auto px-2">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <Link href="/mikee" onClick={onClose} className="btn btn-primary btn-sm w-full">
-          <Plus className="h-4 w-4" strokeWidth={2.2} />
+        <Link href="/mikee" onClick={onClose} className="btn btn-primary w-full">
+          <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
           שיחה חדשה
         </Link>
 
-        <label className="relative mt-2.5 block">
-          <Search className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" strokeWidth={1.75} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="field h-8 ps-8 text-[14px]" />
+        <label className="relative mt-3 block">
+          <Search className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ink-3" strokeWidth={1.5} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="field h-10 rounded-full ps-10 text-[15px]" />
         </label>
 
-        <nav className="-mx-1 mt-3 flex-1 overflow-y-auto px-1 pb-6">
-          {items === null && <p className="px-2 text-[14px] text-ink-3">טוען…</p>}
-          {items?.length === 0 && <p className="px-2 text-[14px] leading-relaxed text-ink-3">כאן יופיעו השיחות שלך, מסודרות לפי נושא.</p>}
+        <nav className="-mx-1 mt-4 flex-1 overflow-y-auto px-1 pb-6">
+          {items === null && <p className="px-2 text-[15px] text-ink-3">טוען…</p>}
+          {items?.length === 0 && <p className="px-2 text-[15px] leading-relaxed text-ink-3">כאן יופיעו השיחות שלך, מסודרות לפי נושא.</p>}
           {groups.map(({ cat, list }) => {
             const { title } = CATEGORY_UI[cat];
             const isCollapsed = collapsed[cat];
             return (
-              <section key={cat} className="mb-3">
+              <section key={cat} className="mb-4">
                 <button
                   onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))}
-                  className="flex w-full items-center gap-1.5 px-2 py-1 text-[12.5px] font-medium text-ink-3 hover:text-ink"
+                  className="flex w-full items-center gap-1.5 px-2 pb-1.5 text-[17px] text-ink-3 hover:text-ink-2"
                 >
                   {title}
-                  <span className="num font-normal">{list.length}</span>
+                  <span className="num text-[13.5px]">{list.length}</span>
                   <ChevronDown className={`ms-auto h-3.5 w-3.5 text-ink-3 transition-transform duration-200 ${isCollapsed ? "rotate-90" : ""}`} strokeWidth={1.75} />
                 </button>
                 {!isCollapsed && (
-                  <ul className="mt-1 space-y-0.5">
+                  <ul className="space-y-px">
                     {list.map((c) => {
                       const active = activeId === c.id;
                       return (
@@ -131,18 +131,18 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                           <Link
                             href={`/mikee/${c.id}`}
                             onClick={onClose}
-                            className={`flex h-8 items-center gap-2 rounded-[6px] pe-8 ps-2 transition-colors duration-100 ${
-                              active ? "bg-brand-tint text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                            className={`flex h-[38px] items-center gap-2 rounded-[10px] pe-9 ps-2 text-ink transition-colors duration-100 ${
+                              active ? "bg-surface-2" : "hover:bg-surface-2"
                             }`}
                           >
-                            {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="חדש" />}
-                            <span className={`min-w-0 flex-1 truncate text-[14.5px] ${active ? "font-medium" : c.unread ? "font-semibold text-ink" : ""}`}>{c.title}</span>
-                            <span className="num shrink-0 text-[12px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
+                            {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-blue" aria-label="חדש" />}
+                            <span className={`min-w-0 flex-1 truncate text-[17px] ${c.unread && !active ? "font-medium" : ""}`}>{c.title}</span>
+                            <span className="num shrink-0 text-[13.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
                           </Link>
                           <button
                             aria-label="אפשרויות"
                             onClick={() => setMenuFor(menuFor === c.id ? null : c.id)}
-                            className={`absolute end-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[5px] text-ink-3 transition-opacity hover:bg-surface-2 hover:text-ink ${
+                            className={`absolute end-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[8px] text-ink-3 transition-opacity hover:bg-surface-2 hover:text-ink ${
                               menuFor === c.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-lg:opacity-100"
                             }`}
                           >
@@ -150,17 +150,17 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                           </button>
                           {menuFor === c.id && (
                             <div className="pop-over rise absolute end-0 top-full z-30 mt-1 w-56 p-1.5" onMouseLeave={() => setMenuFor(null)}>
-                              <p className="px-3 pb-1 pt-1.5 text-[12.5px] text-ink-3">להעביר ל־</p>
+                              <p className="px-3 pb-1 pt-1.5 text-[13.5px] text-ink-3">להעביר ל־</p>
                               {ORDER.filter((x) => x !== c.category).map((x) => {
                                 const { title: t } = CATEGORY_UI[x];
                                 return (
-                                  <button key={x} onClick={() => patch(c.id, { category: x })} className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-start text-[15px] hover:bg-surface-2">
+                                  <button key={x} onClick={() => patch(c.id, { category: x })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[17px] hover:bg-surface-2">
                                     {t}
                                   </button>
                                 );
                               })}
                               <div className="my-1 h-px bg-line" />
-                              <button onClick={() => patch(c.id, { archived: true })} className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-start text-[15px] text-bad hover:bg-bad-tint">
+                              <button onClick={() => patch(c.id, { archived: true })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[17px] text-bad hover:bg-bad-tint">
                                 <X className="h-4 w-4" />
                                 הסרה מהרשימה
                               </button>

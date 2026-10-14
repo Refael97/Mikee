@@ -7,7 +7,7 @@ type Platform = "" | "shopify" | "woocommerce";
 
 function Steps({ items }: { items: string[] }) {
   return (
-    <details className="group rounded-[6px] border border-line bg-surface-2 px-3 py-2 text-[14px] text-ink-2">
+    <details className="group rounded-[12px] border border-line bg-surface-2 px-3 py-2 text-[14px] text-ink-2">
       <summary className="flex cursor-pointer list-none select-none items-center gap-1.5 font-medium text-ink [&::-webkit-details-marker]:hidden">
         <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
         איפה מוצאים את זה?
@@ -50,7 +50,7 @@ export function StoreFields({ platform: initial, domain, consumerKey, hasSecret 
             role="radio"
             aria-checked={platform === v}
             onClick={() => setPlatform(v)}
-            className={`h-9 rounded-[6px] border px-3 text-[14.5px] font-medium ${platform === v ? "border-brand bg-brand-tint text-brand" : "border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
+            className="tab tab-sm"
           >
             {l}
           </button>

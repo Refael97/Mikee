@@ -109,6 +109,7 @@ export function Composer({
 
   const uploading = uploads.some((u) => u.status === "uploading");
   const ready = uploads.filter((u) => u.status === "ready");
+  const hasContent = text.trim().length > 0 || uploads.length > 0;
   const canSend = !busy && !uploading && (text.trim().length > 0 || ready.length > 0);
 
   function submit() {
@@ -121,8 +122,8 @@ export function Composer({
 
   return (
     <div
-      className={`relative rounded-[10px] border bg-surface shadow-[var(--shadow)] transition-[border-color,box-shadow] duration-150 focus-within:border-brand focus-within:shadow-[var(--ring)] ${
-        dragging ? "border-brand shadow-[var(--ring)]" : "border-line-strong"
+      className={`relative rounded-[24px] border-[1.5px] bg-surface shadow-[var(--shadow)] transition-[border-color] duration-150 focus-within:border-line-strong ${
+        dragging ? "border-blue" : "border-line"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -136,15 +137,15 @@ export function Composer({
       }}
     >
       {uploads.length > 0 && (
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pt-3">
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3.5 pt-3.5">
           {uploads.map((u) => (
             <div key={u.localId} className="tile relative flex h-16 shrink-0 items-center gap-2.5 overflow-hidden pe-3 ps-1.5">
               {u.preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={u.preview} alt="" className="h-[52px] w-[52px] rounded-[6px] object-cover" />
+                <img src={u.preview} alt="" className="h-[52px] w-[52px] rounded-[8px] object-cover" />
               ) : (
-                <span className="flex h-[52px] w-[52px] items-center justify-center rounded-[6px] bg-surface text-ink-2">
-                  <FileText className="h-5 w-5" />
+                <span className="flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-surface text-ink-2">
+                  <FileText className="h-5 w-5" strokeWidth={1.5} />
                 </span>
               )}
               <span className="max-w-36 leading-tight">
@@ -158,7 +159,7 @@ export function Composer({
                 type="button"
                 aria-label="הסרה"
                 onClick={() => setUploads((x) => x.filter((y) => y.localId !== u.localId))}
-                className="absolute end-1 top-1 flex h-5 w-5 items-center justify-center rounded-[4px] bg-ink/75 text-bg"
+                className="absolute end-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-ink/75 text-bg"
               >
                 <X className="h-3 w-3" strokeWidth={3} />
               </button>
@@ -186,30 +187,30 @@ export function Composer({
         }}
         rows={1}
         placeholder={listening ? "מקשיב…" : placeholder}
-        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[16px] leading-[1.5] no-ring outline-none placeholder:text-ink-3"
+        className="block max-h-[220px] min-h-12 w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-[17px] leading-[1.5] no-ring outline-none placeholder:text-ink-3"
       />
 
-      <div className="flex items-center gap-1 px-2 pb-2">
+      <div className="flex items-center gap-1 px-2.5 pb-2.5">
         <div className="relative">
           <button
             type="button"
             aria-label="צירוף"
             onClick={() => setMenu((m) => !m)}
-            className={`flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors duration-100 ${menu ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2"}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-100 ${menu ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2"}`}
           >
-            <Plus className={`h-5 w-5 transition-transform duration-300 ${menu ? "rotate-45" : ""}`} strokeWidth={2} />
+            <Plus className={`h-5 w-5 transition-transform duration-300 ${menu ? "rotate-45" : ""}`} strokeWidth={1.5} />
           </button>
           {menu && (
-            <div className="pop-over rise absolute bottom-11 start-0 z-30 w-56 p-1.5" onMouseLeave={() => setMenu(false)}>
+            <div className="pop-over rise absolute bottom-12 start-0 z-30 w-60 p-1.5" onMouseLeave={() => setMenu(false)}>
               <button
                 type="button"
                 onClick={() => {
                   setMenu(false);
                   fileInput.current?.click();
                 }}
-                className="flex w-full items-center gap-3 rounded-[6px] px-3 py-2.5 text-start text-[15px] hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-[17px] hover:bg-surface-2"
               >
-                <Paperclip className="h-4 w-4 text-ink-2" strokeWidth={1.8} />
+                <Paperclip className="h-5 w-5 text-ink-2" strokeWidth={1.5} />
                 קבצים ותמונות
               </button>
               <button
@@ -218,9 +219,9 @@ export function Composer({
                   setMenu(false);
                   cameraInput.current?.click();
                 }}
-                className="flex w-full items-center gap-3 rounded-[6px] px-3 py-2.5 text-start text-[15px] hover:bg-surface-2"
+                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-[17px] hover:bg-surface-2"
               >
-                <Camera className="h-4 w-4 text-ink-2" strokeWidth={1.8} />
+                <Camera className="h-5 w-5 text-ink-2" strokeWidth={1.5} />
                 צילום
               </button>
             </div>
@@ -230,28 +231,30 @@ export function Composer({
         <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files && addFiles(e.target.files)} />
 
         <div className="ms-auto flex items-center gap-1.5">
-          {canDictate && (
+          {canDictate && (listening || !hasContent) && (
             <button
               type="button"
               aria-label={listening ? "עצירת הקלטה" : "הקלטה"}
               onClick={toggleDictation}
-              className={`relative flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors duration-100 ${
+              className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-100 ${
                 listening ? "bg-bad-tint text-bad" : "text-ink-2 hover:bg-surface-2"
               }`}
             >
-              {listening && <span className="absolute inset-0 animate-ping rounded-[7px] bg-bad/20" />}
-              {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" strokeWidth={2} />}
+              {listening && <span className="absolute inset-0 animate-ping rounded-full bg-bad/20" />}
+              {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" strokeWidth={1.5} />}
             </button>
           )}
+          {(hasContent || !canDictate) && (
           <button
             type="button"
             onClick={submit}
             disabled={!canSend}
             aria-label="שליחה"
-            className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-brand text-on-brand transition-colors duration-100 hover:bg-[var(--brand-hover)] disabled:bg-surface-2 disabled:text-ink-3"
+            className="pop flex h-9 w-9 items-center justify-center rounded-full bg-brand text-on-brand transition-[background-color,transform] duration-100 hover:bg-[var(--brand-hover)] active:scale-[.97] disabled:bg-surface-2 disabled:text-ink-3"
           >
-            <ArrowUp className="h-4 w-4" strokeWidth={2.2} />
+            <ArrowUp className="h-[18px] w-[18px]" strokeWidth={1.75} />
           </button>
+          )}
         </div>
       </div>
     </div>

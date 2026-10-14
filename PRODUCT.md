@@ -44,4 +44,4 @@ No customer testimonials, case studies, logos or real results yet (pilot stage).
 5. Real over generated: the business's own content and data come first.
 
 ## Visual Standard
-The owner chose the category standard, played straight, at the craft level of the Stripe Dashboard: calm, precise, trustworthy around money, clear data. No themed "world", no costume; character comes from precision, Mikee's mark and his voice.
+The owner chose a calm, white standard (see `DESIGN.md`): white panels on a light ground, light text, thin icons, color in small doses and black for the action. Calm, precise, trustworthy around money, clear data. No themed "world", no costume; character comes from precision, Mikee's mark and his voice.

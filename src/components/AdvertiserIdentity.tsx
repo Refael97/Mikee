@@ -104,7 +104,7 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
       {discovery.candidates.map((c) => {
         const on = selected === c.id;
         return (
-          <div key={c.id} className={`rounded-[6px] border transition-colors ${on ? "border-brand bg-brand/5" : "border-line hover:border-ink-3"}`}>
+          <div key={c.id} className={`rounded-[12px] border transition-colors ${on ? "border-brand bg-brand/5" : "border-line hover:border-ink-3"}`}>
             <button type="button" role="radio" aria-checked={on} name={group} onClick={() => pick(c.id)} className="flex w-full items-start gap-3 px-3 py-3 text-start">
               <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-brand bg-brand text-on-brand" : "border-ink-3"}`}>
                 {on && <Check className="h-3 w-3" strokeWidth={3} />}
@@ -200,7 +200,7 @@ export function AdvertiserIdentitySettings() {
       <h4 className="font-semibold">המפרסם והמשלם במטא</h4>
       <p className="text-[14px] text-ink-2">חלק מהחשבונות והמיקומים דורשים לציין מי המפרסם ומי המשלם בכל קבוצת מודעות. בוחרים פעם אחת, ומייקי משתמש בזה בכל קמפיין.</p>
       {saved.length > 0 && (
-        <ul className="divide-y divide-line rounded-[6px] border border-line">
+        <ul className="divide-y divide-line rounded-[12px] border border-line">
           {saved.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[14.5px]">
               <span className="min-w-0">
