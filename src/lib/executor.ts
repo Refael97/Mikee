@@ -5,6 +5,7 @@ import { assertWithinBudget, BudgetExceeded, dailyCommit, syncMetaSpendCap } fro
 import { mediaGenerator } from "./higgsfield";
 import { storeBytes, storeFromUrl } from "./media";
 import { buildProject, renderVideo, VideoProblem } from "./video/render";
+import { totalSeconds } from "./video/spec";
 import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
 import { resolveIdentity } from "./meta/identities";
@@ -13,7 +14,8 @@ import { approveProposal, createProposal, finishProposal, ProposalConflict, type
 import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
 import { CTA_HE } from "./cards";
-import { mediaAllowance, recordUsage } from "./usage";
+import { recordUsage } from "./usage";
+import { creditBalance, creditsFromHiggsfield, videoEditCredits } from "./credits";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -119,7 +121,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         break;
       }
       case "video": {
-        result = await executeVideo(p, cp);
+        result = await executeVideo(p, cp, tz);
         break;
       }
     }
@@ -191,9 +193,9 @@ async function executeMedia(p: Proposal, cp: Checkpoint, tz: string) {
       throw new NotRetryable("Not sure whether the earlier generation request reached Higgsfield. Check there before trying again.");
     }
     const credits = Number(p.reserved);
-    const allowance = await mediaAllowance(p.workspaceId, tz);
-    if (credits > allowance.remaining) {
-      throw new NotRetryable(`This needs ${credits} credits but only ${allowance.remaining} are left in this month's media budget.`);
+    const balance = await creditBalance(p.workspaceId, tz);
+    if (creditsFromHiggsfield(credits) > balance.remaining) {
+      throw new NotRetryable(`צריך ${creditsFromHiggsfield(credits)} קרדיטים ונשארו ${balance.remaining} החודש. אפשר להוסיף קרדיטים ולנסות שוב.`);
     }
     const refs: string[] = cp.data.refs ?? [];
     for (const url of spec.referenceUrls.slice(refs.length)) {
@@ -231,14 +233,22 @@ async function executeMedia(p: Proposal, cp: Checkpoint, tz: string) {
 }
 
 /** Renders an approved video on the HyperFrames worker and keeps the MP4 in the business's library. */
-async function executeVideo(p: Proposal, cp: Checkpoint) {
-  if (cp.data.stored) return { media: cp.data.stored };
+async function executeVideo(p: Proposal, cp: Checkpoint, tz: string) {
   const spec = VideoSpec.parse(p.action);
-  const mp4 = await renderVideo(await buildProject(p.workspaceId, spec));
-  const m = await storeBytes(p.workspaceId, mp4, { filename: "video.mp4", source: "hyperframes", sourceRef: p.id, inLibrary: true, folder: "סרטונים" });
-  const stored = [{ url: m.url, type: "video" as const, id: m.id }];
-  await cp.save({ stored });
-  return { media: stored };
+  const credits = videoEditCredits(totalSeconds(spec));
+  if (!cp.data.stored) {
+    const balance = await creditBalance(p.workspaceId, tz);
+    if (credits > balance.remaining) throw new NotRetryable(`עריכת הסרטון צריכה ${credits} קרדיטים ונשארו ${balance.remaining} החודש. אפשר להוסיף קרדיטים ולנסות שוב.`);
+    const mp4 = await renderVideo(await buildProject(p.workspaceId, spec));
+    const m = await storeBytes(p.workspaceId, mp4, { filename: "video.mp4", source: "hyperframes", sourceRef: p.id, inLibrary: true, folder: "סרטונים" });
+    await cp.save({ stored: [{ url: m.url, type: "video" as const, id: m.id }] });
+  }
+  // Charged once, for a finished video only. A crash between the two saves undercharges, never doubles.
+  if (!cp.data.charged) {
+    await cp.save({ charged: true });
+    await recordUsage(p.workspaceId, tz, "render", credits, { proposalId: p.id, seconds: totalSeconds(spec) });
+  }
+  return { media: cp.data.stored };
 }
 
 /** The geo_locations a campaign card sends to Meta, or nothing when the card cannot be read. */

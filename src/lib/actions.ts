@@ -143,15 +143,9 @@ export async function saveLimits(form: FormData) {
     const n = Number(str(form, k));
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   };
-  // The plan sets the ceiling; the business may only lower it.
-  const plan = planOf(await getSettings(workspace.id));
-  const cap = (v: number | undefined, max: number) => (v == null ? undefined : Math.min(v, max));
-  const media = cap(num("mediaMonthlyCredits"), plan.mediaCredits);
-  const auto = num("mediaAutoCredits");
+  // The credits themselves come from the plan; the client only chooses how much media may run without a card.
   await updateSettings(workspace.id, {
-    aiMonthlyLimitUsd: cap(num("aiMonthlyLimitUsd"), plan.aiUsd),
-    mediaMonthlyCredits: media,
-    mediaAutoCredits: auto != null && media != null ? Math.min(auto, media) : auto,
+    autoMediaCredits: num("autoMediaCredits"),
     metaSpendCap: form.get("metaSpendCap") === "on",
   });
   if (form.get("metaSpendCap") === "on") {

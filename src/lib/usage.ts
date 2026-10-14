@@ -1,10 +1,9 @@
 import "server-only";
-import { planOf } from "./plans";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { monthKey } from "./budget";
-import { getSettings } from "./settings";
+import { assertCredits, CreditsExhausted } from "./credits";
 
 /** USD per million tokens (cache writes at 1.25x input), by model family. Web search is per request. */
 const PRICES: { prefix: string; input: number; output: number; cacheWrite: number; cacheRead: number }[] = [
@@ -33,13 +32,13 @@ export function claudeCostUsd(u: Anthropic.Beta.BetaUsage, model = "claude-fable
   );
 }
 
-export async function recordUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield", amount: number, detail?: Record<string, unknown>) {
+export async function recordUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield" | "render", amount: number, detail?: Record<string, unknown>) {
   if (!amount) return;
   const d = await db();
   await d.insert(schema.usage).values({ workspaceId, kind, month: monthKey(tz), amount, detail });
 }
 
-export async function monthUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield"): Promise<number> {
+export async function monthUsage(workspaceId: string, tz: string, kind: "claude" | "higgsfield" | "render"): Promise<number> {
   const d = await db();
   const [r] = await d
     .select({ total: sql<string>`coalesce(sum(${schema.usage.amount}), 0)` })
@@ -48,28 +47,8 @@ export async function monthUsage(workspaceId: string, tz: string, kind: "claude"
   return Number(r?.total ?? 0);
 }
 
-export class AiBudgetExceeded extends Error {}
-
-/** Mikee does not start (or continue) thinking once this month's AI cap is reached. */
+/** Thinking costs credits: Mikee does not start (or continue) once the month's credits are used up. */
+export const AiBudgetExceeded = CreditsExhausted;
 export async function assertAiBudget(workspaceId: string, tz: string) {
-  const settings = await getSettings(workspaceId);
-  // The plan's ceiling always wins over the business's own setting.
-  const aiMonthlyLimitUsd = Math.min(settings.aiMonthlyLimitUsd, planOf(settings).aiUsd);
-  const used = await monthUsage(workspaceId, tz, "claude");
-  if (used >= aiMonthlyLimitUsd) {
-    throw new AiBudgetExceeded(`מייקי הגיע למגבלת השימוש החודשית ($${aiMonthlyLimitUsd}). אפשר לשנות אותה בהגדרות, עד הגבול של המנוי.`);
-  }
-  return { used, limit: aiMonthlyLimitUsd };
-}
-
-/** Credits still available this month for media generation, and how many of them need no card. */
-export async function mediaAllowance(workspaceId: string, tz: string) {
-  const s = await getSettings(workspaceId);
-  const used = await monthUsage(workspaceId, tz, "higgsfield");
-  return {
-    used,
-    hardLimit: Math.min(s.mediaMonthlyCredits, planOf(s).mediaCredits),
-    remaining: Math.max(0, Math.min(s.mediaMonthlyCredits, planOf(s).mediaCredits) - used),
-    autoRemaining: Math.max(0, Math.min(s.mediaAutoCredits, s.mediaMonthlyCredits) - used),
-  };
+  return assertCredits(workspaceId, tz);
 }

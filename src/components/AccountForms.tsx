@@ -30,10 +30,12 @@ export function ProfileForm({ name, email, username }: { name: string; email: st
   );
 }
 
-export function PasswordForm() {
+export function PasswordForm({ username }: { username?: string }) {
   const [state, action, pending] = useActionState(changePassword, null);
   return (
     <form action={action} className="grid max-w-xl gap-4 sm:grid-cols-2">
+      {/* Which account the new password belongs to, for password managers (and the browser's own check). */}
+      <input type="text" name="username" autoComplete="username" defaultValue={username ?? ""} readOnly hidden aria-hidden />
       <label className="space-y-1.5 sm:col-span-2">
         <span className="text-[15px] text-ink-2">הסיסמה הנוכחית</span>
         <input name="current" type="password" autoComplete="current-password" required className="field" dir="ltr" />

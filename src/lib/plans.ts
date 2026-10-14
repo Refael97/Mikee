@@ -4,10 +4,11 @@
  */
 export type PlanId = "starter" | "growth" | "pro";
 
-export const PLANS: Record<PlanId, { name: string; storageGb: number; aiUsd: number; mediaCredits: number }> = {
-  starter: { name: "בסיסי", storageGb: 2, aiUsd: 60, mediaCredits: 300 },
-  growth: { name: "צמיחה", storageGb: 5, aiUsd: 150, mediaCredits: 1000 },
-  pro: { name: "מקצועי", storageGb: 10, aiUsd: 400, mediaCredits: 3000 },
+/** credits: Mikee credits a month for everything Mikee does (src/lib/credits.ts); one credit is about a cent of our cost. */
+export const PLANS: Record<PlanId, { name: string; storageGb: number; credits: number }> = {
+  starter: { name: "בסיסי", storageGb: 2, credits: 1000 },
+  growth: { name: "צמיחה", storageGb: 5, credits: 2500 },
+  pro: { name: "מקצועי", storageGb: 10, credits: 6000 },
 };
 
 const DEFAULT_PLAN = ((process.env.MIKEE_DEFAULT_PLAN as PlanId) in PLANS ? process.env.MIKEE_DEFAULT_PLAN : "growth") as PlanId;

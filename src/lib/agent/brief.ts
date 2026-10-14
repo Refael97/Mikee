@@ -3,19 +3,21 @@ import { brainAsText, listFacts } from "../brain";
 import { getConnection, type MetaConfig, type StoreConfig, type WebsiteConfig } from "../connections";
 import { openAndRecent } from "../proposals";
 import { journeyAsText } from "../journey";
+import { creditBalance } from "../credits";
 
 /**
  * The business brief every agent on the team receives: today, what is connected, what is waiting for
  * the client, and the brain (each line with its source and date).
  */
 export async function businessBrief(workspaceId: string, tz: string): Promise<string> {
-  const [facts, meta, site, store, cards, journey] = await Promise.all([
+  const [facts, meta, site, store, cards, journey, credits] = await Promise.all([
     listFacts(workspaceId),
     getConnection<MetaConfig>(workspaceId, "meta"),
     getConnection<WebsiteConfig>(workspaceId, "website"),
     getConnection<StoreConfig>(workspaceId, "store"),
     openAndRecent(workspaceId),
     journeyAsText(workspaceId),
+    creditBalance(workspaceId, tz).catch(() => null),
   ]);
   const m = meta?.config;
   const today = new Intl.DateTimeFormat("he-IL", { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(new Date());
@@ -39,5 +41,8 @@ export async function businessBrief(workspaceId: string, tz: string): Promise<st
     ...open.map((c) => `- [${c.kind}] "${c.card.title}" id ${c.id}, since ${c.createdAt.toISOString().slice(0, 16)}${by(c.agent)}`),
     ...(recent.length ? ["Recently decided:", ...recent.map((c) => `- [${c.kind}] "${c.card.title}": ${c.status} ${c.decidedAt?.toISOString().slice(0, 10) ?? ""}${by(c.agent)}`)] : []),
   ].join("\n");
-  return `# Now\n${today} (${tz})\n\n# Connections (internal; never show ids to the client)\n${connections}\n\n# Cards\n${cardLines}\n\n# Where the business stands on its marketing path\n${journey}\n\n# What we know about the business\n${brainAsText(facts)}`;
+  const creditLine = credits
+    ? `${credits.used} of ${credits.total} used this month, ${credits.remaining} left${credits.remaining < credits.total * 0.1 ? " (LOW)" : ""}. Images and AI videos run without a card up to ${credits.autoMedia} a month.`
+    : "unknown";
+  return `# Now\n${today} (${tz})\n\n# Mikee credits (the client's monthly balance for everything Mikee does)\n${creditLine}\n\n# Connections (internal; never show ids to the client)\n${connections}\n\n# Cards\n${cardLines}\n\n# Where the business stands on its marketing path\n${journey}\n\n# What we know about the business\n${brainAsText(facts)}`;
 }

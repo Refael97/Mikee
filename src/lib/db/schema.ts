@@ -4,12 +4,10 @@ const ts = (name: string) => timestamp(name, { withTimezone: true });
 const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 export type WorkspaceSettings = {
-  /** Monthly cap on Claude usage, in USD. */
-  aiMonthlyLimitUsd?: number;
-  /** Monthly cap on Higgsfield credits; nothing beyond it can be generated. */
-  mediaMonthlyCredits?: number;
-  /** Credits Mikee may spend per month without asking. 0 = every generation needs a card. */
-  mediaAutoCredits?: number;
+  /** Monthly Mikee credits for this business, set by us for a special deal; otherwise the plan's (src/lib/credits.ts). */
+  credits?: number;
+  /** Mikee credits a month that images and AI videos may use without a card. 0 = every generation needs a card. */
+  autoMediaCredits?: number;
   /** Mirror the monthly budget onto the ad account's spending limit at Meta (hard stop on charges). */
   metaSpendCap?: boolean;
   metaSpendCapStatus?: { ok: boolean; at: string; detail: string };
@@ -32,10 +30,8 @@ export type FactTopic = "address" | "hours" | "phone" | "website" | "other";
 export type KpiId = "spend" | "leads" | "cost_per_lead" | "purchases" | "revenue" | "roas" | "cost_per_purchase" | "messages" | "calls" | "link_clicks" | "cost_per_click" | "reach" | "followers" | "store_orders" | "store_revenue";
 export type DashboardSpec = { kpis: KpiId[]; headline?: string; note?: string; updatedAt: string };
 
-export const DEFAULT_SETTINGS: Required<Pick<WorkspaceSettings, "aiMonthlyLimitUsd" | "mediaMonthlyCredits" | "mediaAutoCredits" | "metaSpendCap">> = {
-  aiMonthlyLimitUsd: 150,
-  mediaMonthlyCredits: 0,
-  mediaAutoCredits: 0,
+export const DEFAULT_SETTINGS: Required<Pick<WorkspaceSettings, "autoMediaCredits" | "metaSpendCap">> = {
+  autoMediaCredits: 0,
   metaSpendCap: true,
 };
 
@@ -274,7 +270,7 @@ export const jobEvents = pgTable("job_events", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
-/** Metered costs outside the ad account. kind: claude (USD) | higgsfield (credits) */
+/** Metered costs outside the ad account. kind: claude (USD) | higgsfield (its credits) | render (Mikee credits) | topup (Mikee credits added) */
 export const usage = pgTable("usage", {
   id: serial("id").primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),

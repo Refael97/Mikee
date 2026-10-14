@@ -122,7 +122,8 @@ describe("a Mikee turn", () => {
   });
 
   it("stops before calling the model once the monthly AI limit is reached", async () => {
-    const ws = await createBusiness({ budget: 3000, settings: { aiMonthlyLimitUsd: 5 } });
+    // 500 credits a month at a cent each: $5.01 of thinking uses them all.
+    const ws = await createBusiness({ budget: 3000, settings: { credits: 500 } });
     await recordUsage(ws, TZ, "claude", 5.01);
     const claude = fakeClaude([]);
     setAnthropicForTests(claude);
@@ -130,7 +131,7 @@ describe("a Mikee turn", () => {
     await drainJobs();
     expect(claude.requests).toHaveLength(0);
     const errors = (await eventsSince(job.id)).filter((e) => e.event.t === "error");
-    expect(String(errors[0].event.message)).toMatch(/מגבלת השימוש/);
+    expect(String(errors[0].event.message)).toMatch(/נגמרו הקרדיטים/);
   });
 });
 
@@ -138,14 +139,14 @@ describe("media generation costs credits, so it is gated too", () => {
   const mediaInput = { title: "סרטון לקולקציה", why: "צריך סרטון קצר לרילס", type: "video", model: "seedance_2_5", prompt: "A slow pan over the new autumn dresses on a rack", aspectRatio: "9:16" };
 
   it("without a pre-approved allowance, shows the price and generates nothing", async () => {
-    const ws = await createBusiness({ settings: { mediaMonthlyCredits: 100, mediaAutoCredits: 0 } });
+    const ws = await createBusiness({ settings: { autoMediaCredits: 0 } });
     const { gen, state } = fakeGenerator({ cost: 12 });
     setMediaGeneratorForTests(gen);
     const r = await runTool({ workspaceId: ws, tz: TZ }, "propose_media", mediaInput);
     const p = await proposal(JSON.parse(r.content).proposalId);
     expect(p.status).toBe("pending");
     expect(state.submits).toBe(0);
-    expect((p.card as any).rows.find((x: any) => x.label === "עלות").value).toBe("12 קרדיטים");
+    expect((p.card as any).rows.find((x: any) => x.label === "עלות").value).toBe("84 קרדיטים"); // 12 Higgsfield credits at $0.07, in Mikee credits of a cent
 
     await approveProposal(ws, p.id, p.versionHash);
     await drainJobs();
@@ -156,7 +157,8 @@ describe("media generation costs credits, so it is gated too", () => {
   });
 
   it("within the allowance it runs at once; beyond the monthly limit it is refused", async () => {
-    const ws = await createBusiness({ settings: { mediaMonthlyCredits: 20, mediaAutoCredits: 10 } });
+    // 8 Higgsfield credits = 56 Mikee credits; 60 may run without a card, 300 in all this month.
+    const ws = await createBusiness({ settings: { credits: 300, autoMediaCredits: 60 } });
     const { gen, state } = fakeGenerator({ cost: 8 });
     setMediaGeneratorForTests(gen);
     const r = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", mediaInput)).content);
@@ -164,18 +166,18 @@ describe("media generation costs credits, so it is gated too", () => {
     await drainJobs();
     expect(state.submits).toBe(1);
 
-    // 8 used: 2 auto credits left, so the next one needs a card...
+    // 56 used: 4 auto credits left, so the next one needs a card...
     const second = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", { ...mediaInput, prompt: "Close-up of fabric texture in morning light" })).content);
     expect(second.autoApproved).toBeUndefined();
     // ...and something costing more than what is left this month is refused outright.
     setMediaGeneratorForTests(fakeGenerator({ cost: 50 }).gen);
     const third = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", { ...mediaInput, prompt: "A long brand film with many scenes" })).content);
-    expect(third.error).toMatch(/left in this month's media budget/);
+    expect(third.error).toMatch(/costs 350 credits; 244 are left this month/);
   });
 
   it("a retry waits for the same Higgsfield job and never pays twice", async () => {
     process.env.MIKEE_MEDIA_WAIT_MS = "50";
-    const ws = await createBusiness({ settings: { mediaMonthlyCredits: 100 } });
+    const ws = await createBusiness();
     const { gen, state } = fakeGenerator({ cost: 10, terminalAfter: 1000 });
     setMediaGeneratorForTests(gen);
     const id = JSON.parse((await runTool({ workspaceId: ws, tz: TZ }, "propose_media", mediaInput)).content).proposalId;

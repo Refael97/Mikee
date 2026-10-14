@@ -48,6 +48,8 @@ export function friendlyError(err: unknown): string {
       : "אחת התמונות של הסרטון לא זמינה בספרייה. מייקי יכול להכין גרסה עם תמונות אחרות.";
   }
   const m = err instanceof Error ? err.message : String(err);
+  // Messages written for the client (credits running out) are shown as they are.
+  if (/קרדיטים/.test(m)) return m;
   if (/renderer is busy/i.test(m)) return "שרת הסרטונים עמוס כרגע. אפשר לנסות שוב בעוד כמה דקות.";
   if (/Video render/i.test(m)) return "הרינדור של הסרטון לא הצליח. אפשר לנסות שוב; אם זה חוזר, מייקי יפשט את הסרטון.";
   if (/Higgsfield|generation/i.test(m)) return "יצירת התמונה או הסרטון לא הושלמה. אפשר לנסות שוב; קרדיטים לא ינוכו פעמיים.";

@@ -8,7 +8,7 @@ import { CONNECTORS } from "@/lib/connectors";
 import { storageUsage } from "@/lib/media";
 import { planOf } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
-import { monthUsage } from "@/lib/usage";
+import { creditBalance } from "@/lib/credits";
 import { Section } from "@/components/ConnectionForms";
 import { PasswordForm, ProfileForm } from "@/components/AccountForms";
 import { Page, PageHeader } from "@/components/Page";
@@ -35,11 +35,10 @@ function Meter({ label, used, limit, show }: { label: string; used: number; limi
 export default async function AccountPage() {
   const { user, workspace } = await requireSession();
   const d = await db();
-  const [settings, storage, ai, credits, conns, security] = await Promise.all([
+  const [settings, storage, credits, conns, security] = await Promise.all([
     getSettings(workspace.id),
     storageUsage(workspace.id),
-    monthUsage(workspace.id, workspace.timezone, "claude"),
-    monthUsage(workspace.id, workspace.timezone, "higgsfield"),
+    creditBalance(workspace.id, workspace.timezone),
     d.select().from(schema.connections).where(eq(schema.connections.workspaceId, workspace.id)),
     d
       .select()
@@ -71,11 +70,10 @@ export default async function AccountPage() {
       <Section title="המנוי והשימוש" hint="מה כלול במנוי ומה כבר נוצל החודש. תקציב הפרסום עצמו משולם ישירות למטא ולא נספר כאן.">
         <div className="max-w-xl">
           <Meter label="אחסון בספרייה" used={storage.used} limit={storage.limit} show={size} />
-          <Meter label="שימוש של מייקי החודש (בדולרים)" used={ai} limit={Math.min(settings.aiMonthlyLimitUsd, plan.aiUsd)} show={(n) => `$${n.toFixed(n < 10 ? 2 : 0)}`} />
-          <Meter label="קרדיטים ליצירת תמונות וסרטונים" used={credits} limit={Math.min(settings.mediaMonthlyCredits || plan.mediaCredits, plan.mediaCredits)} show={(n) => String(Math.round(n))} />
+          <Meter label="קרדיטים החודש" used={credits.used} limit={credits.total} show={(n) => Math.round(n).toLocaleString("he-IL")} />
         </div>
         <p className="mt-4 text-[15px] text-ink-2">
-          צריך יותר? <Link href="/settings#limits" className="link">המגבלות בהגדרות</Link> או פנייה דרך העזרה לשדרוג.
+          צריך יותר? <Link href="/settings#limits" className="link">פירוט הקרדיטים בהגדרות</Link>, או פנייה דרך העזרה להוספת קרדיטים או לשדרוג.
         </p>
       </Section>
 
@@ -101,7 +99,7 @@ export default async function AccountPage() {
       </Section>
 
       <Section title="אבטחה" hint="סיסמה, כניסות אחרונות, ויציאה מכל המכשירים.">
-        <PasswordForm />
+        <PasswordForm username={user.email} />
         <div className="mt-10 max-w-xl">
           <h3 className="font-semibold">פעילות אחרונה בחשבון</h3>
           <ul className="mt-3 border-t border-line">

@@ -8,7 +8,8 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "create-user": "tsx scripts/create-user.ts"
+    "create-user": "tsx scripts/create-user.ts",
+    "add-credits": "tsx scripts/add-credits.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

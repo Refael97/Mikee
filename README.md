@@ -170,7 +170,11 @@ The calculation is a projection. The policy:
 - **A second check at the moment of execution,** against live numbers.
 - **A hard ceiling at Meta:** the ad account's `spend_cap` is synced to the same ceiling (after a budget change, an increase, an execution, and on every cron run). Meta itself stops charges, including from changes made outside Mikee. The write is read back to verify it; the status appears in Settings. **It needs to be verified once on the real account in the pilot** (the units of the field).
 
-AI costs have a separate monthly cap (Claude in dollars, calculated from `usage`; Higgsfield in credits). Mikee won't start a turn after the cap is reached.
+**Mikee credits** (`src/lib/credits.ts`): one monthly balance per business for everything Mikee does. Conversations, analysis and campaign work (Claude), images and AI videos (Higgsfield) and branded video editing all come out of it, charged by what each really cost:
+- One credit is `MIKEE_CREDIT_USD` of our cost (default $0.01). Claude dollars and Higgsfield credits (at `MIKEE_HIGGSFIELD_CREDIT_USD`, default $0.07) are converted; video editing is a service priced per second (`MIKEE_VIDEO_CREDITS_PER_SECOND`, default 2, minimum `MIKEE_VIDEO_CREDITS_MIN`, default 20).
+- Monthly credits come from the plan (`src/lib/plans.ts`: 1,000 / 2,500 / 6,000), or `settings.credits` for a special deal. Add credits for this month with `npm run add-credits -- owner@example.com 500 "reason"`.
+- Raw costs stay in `usage` (Claude in dollars, Higgsfield in its credits, renders and top-ups in Mikee credits) and the balance is computed from them, so the real cost per business can always be read back.
+- Image, AI video and editing cards show their price. When the balance is used up nothing that costs credits starts; the client chooses in Settings how much media may run without a card (`autoMediaCredits`).
 
 ### Background jobs (`src/lib/jobs.ts`, `src/lib/worker.ts`)
 Every turn of Mikee's and every execution is a job in the database with a heartbeat. A worker inside the server (`src/instrumentation.ts`) claims jobs atomically (`FOR UPDATE SKIP LOCKED`). A job whose worker died is picked up again, and a turn resumes from its last completed step. The screen follows progress through `/api/jobs/:id` and reconnects after a refresh, a disconnect or a deploy.
