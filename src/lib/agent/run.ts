@@ -87,7 +87,9 @@ export async function runMikee(opts: {
         ? err.message
         : err instanceof Anthropic.RateLimitError
           ? "מייקי עמוס כרגע, נסי שוב בעוד דקה."
-          : err instanceof Anthropic.APIError
+          : err instanceof Anthropic.APIError && /credit balance/i.test(err.message)
+            ? "נגמר הקרדיט בחשבון Anthropic שמפעיל את מייקי. צריך להטעין אותו ב־console.anthropic.com, בעמוד Plans & Billing."
+            : err instanceof Anthropic.APIError
             ? `תקלה בחיבור למייקי (${err.status}). נסי שוב בעוד רגע. (${failureNote(err)})`
             : /ANTHROPIC_API_KEY|apiKey|authToken/i.test(String((err as Error)?.message))
               ? "מייקי לא מחובר ל־Claude: חסר בשרת המשתנה ANTHROPIC_API_KEY."

@@ -17,11 +17,20 @@ function regainMinutes(headers: Headers): number | undefined {
   }
 }
 
+export type TokenKind = "user" | "system_user" | "page";
+
 export class MetaError extends Error {
   /** Meta marked the error as temporary (is_transient, or codes 1/2). */
   transient = false;
   /** When throttled: minutes until access returns, if Meta said. */
   regainMinutes?: number;
+  /** Meta's id for the failed call, to quote to Meta support. */
+  fbtraceId?: string;
+  /** The call that failed, e.g. "POST /act_1/campaigns" (ids only, never a token). */
+  operation?: string;
+  tokenKind?: TokenKind;
+  /** A write whose answer never came (timeout or dropped connection): it may or may not exist at Meta. */
+  outcomeUnknown = false;
 
   constructor(
     message: string,
@@ -48,11 +57,46 @@ export class MetaError extends Error {
     return [4, 17, 32, 341, 613].includes(c) || (c >= 80000 && c <= 80014);
   }
 
-  /** Short, model-readable description used in tool results. */
+  /**
+   * Whether reconnecting Facebook would fix this. Only a dead token (190, 102) or a permission the token
+   * lacks (10, or 200-299 that says so) is fixed by reconnecting; everything else is about the request or the
+   * object, and reconnecting would not help.
+   */
+  get reconnect(): "needed" | "only_if_permission_missing" | "not_needed" {
+    if (this.isAccessLost) return "needed";
+    const c = this.code ?? -1;
+    if (c === 10 || (c >= 200 && c <= 299 && !this.subcode && /permission/i.test(this.message))) return "only_if_permission_missing";
+    return "not_needed";
+  }
+
+  /** Meta's original error fields, as they came (tokens never included). */
+  details() {
+    return {
+      operation: this.operation,
+      token: this.tokenKind,
+      message: this.message,
+      code: this.code,
+      error_subcode: this.subcode,
+      error_user_msg: this.userMessage,
+      fbtrace_id: this.fbtraceId,
+      http_status: this.status,
+      outcome_unknown: this.outcomeUnknown || undefined,
+      reconnect: this.reconnect,
+    };
+  }
+
+  /** Model-readable description used in tool results and failed cards: the original fields, nothing guessed. */
   describe(): string {
+    const d = this.details();
     return [
-      `Meta error${this.code ? ` ${this.code}` : ""}${this.subcode ? `/${this.subcode}` : ""}: ${this.message}`,
-      this.userMessage ? `Detail: ${this.userMessage}` : "",
+      `Meta error on ${d.operation ?? "a call"}${d.token ? ` (${d.token} token)` : ""}`,
+      `message: ${d.message}`,
+      d.code != null ? `code: ${d.code}` : "",
+      d.error_subcode != null ? `error_subcode: ${d.error_subcode}` : "",
+      d.error_user_msg ? `error_user_msg: ${d.error_user_msg}` : "",
+      d.fbtrace_id ? `fbtrace_id: ${d.fbtrace_id}` : "",
+      d.outcome_unknown ? "outcome unknown: the request may have been carried out at Meta; check before trying again" : "",
+      `reconnect: ${d.reconnect}`,
     ]
       .filter(Boolean)
       .join(" | ");
@@ -91,6 +135,7 @@ export class Graph {
     private token: string,
     /** Called when Meta says the token or an asset is no longer accessible. */
     private onAccessLost?: (err: MetaError) => void | Promise<void>,
+    readonly kind: TokenKind = "user",
   ) {}
 
   /**
@@ -118,13 +163,26 @@ export class Graph {
     const { access_token: _ignored, appsecret_proof: _proof, ...rest } = params;
     const query = encode({ ...rest, appsecret_proof: appSecretProof(this.token) });
     const url = method === "GET" || method === "DELETE" ? `${BASE}${clean}?${query}` : `${BASE}${clean}`;
+    const operation = `${method} ${clean}`;
     // The token travels in a header, never in a URL that could end up in logs.
-    const res = await fetch(url, {
-      method,
-      body: method === "POST" ? query : undefined,
-      headers: { Authorization: `Bearer ${this.token}`, ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
-      cache: "no-store",
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        body: method === "POST" ? query : undefined,
+        headers: { Authorization: `Bearer ${this.token}`, ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
+        cache: "no-store",
+        signal: AbortSignal.timeout(Number(process.env.MIKEE_META_TIMEOUT_MS ?? 90_000)),
+      });
+    } catch (e) {
+      // No answer: a read can simply be tried again, but a write may already exist at Meta.
+      const err = new MetaError(`No answer from Meta (${(e as Error)?.name === "TimeoutError" ? "timed out" : "connection failed"})`);
+      err.operation = operation;
+      err.tokenKind = this.kind;
+      err.transient = method === "GET";
+      err.outcomeUnknown = method !== "GET";
+      throw err;
+    }
     const json = (await res.json().catch(() => ({}))) as {
       error?: { message: string; code?: number; error_subcode?: number; error_user_msg?: string; error_user_title?: string; is_transient?: boolean; fbtrace_id?: string };
     } & T;
@@ -138,6 +196,9 @@ export class Graph {
         res.status,
       );
       err.transient = !!e?.is_transient || e?.code === 1 || e?.code === 2;
+      err.fbtraceId = e?.fbtrace_id;
+      err.operation = operation;
+      err.tokenKind = this.kind;
       err.regainMinutes = regainMinutes(res.headers);
       if (e?.fbtrace_id) console.warn(`[meta] ${clean} ${e.code ?? ""}/${e.error_subcode ?? ""} trace ${e.fbtrace_id}`);
       if (err.isAccessLost) await this.onAccessLost?.(err);
@@ -182,7 +243,7 @@ export class Graph {
   async forPage(pageId: string): Promise<Graph> {
     const page = await this.get<{ access_token?: string }>(`/${pageId}`, { fields: "access_token" });
     if (!page.access_token) throw new MetaError("No Page access token: the connected person needs a role on the Page that allows posting and advertising", 200);
-    return new Graph(page.access_token, this.onAccessLost);
+    return new Graph(page.access_token, this.onAccessLost, "page");
   }
 }
 

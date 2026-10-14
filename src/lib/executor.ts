@@ -6,7 +6,8 @@ import { mediaGenerator } from "./higgsfield";
 import { storeBytes, storeFromUrl } from "./media";
 import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
-import { activateCampaign, applyChange, buildCampaign, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild } from "./meta/actions";
+import { MetaError } from "./meta/graph";
+import { activateCampaign, applyChange, buildCampaign, describeBuild, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
 import { createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, VideoSpec } from "./specs";
 import { friendlyError } from "./errors";
@@ -117,9 +118,13 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
     await finishProposal(p, true, result);
   } catch (err) {
     const retryable = !(err instanceof NotRetryable || err instanceof VideoProblem || err instanceof PublishProblem);
+    // A failed build may have left paused objects at Meta (or created one whose answer was lost): look.
+    const built = p.kind === "campaign" ? await metaContext(p.workspaceId).then((ctx) => whatWasBuilt(ctx, `mk-${p.id.slice(0, 8)}`, cp)).catch((e) => ({ checked: false as const, error: describeError(e), adIds: [] })) : undefined;
     await finishProposal(p, false, {
       error: friendlyError(err),
-      detail: describeError(err),
+      detail: built ? `${describeError(err)} || ${describeBuild(built)}` : describeError(err),
+      meta: err instanceof MetaError ? err.details() : undefined,
+      built,
       retryable,
       budget: err instanceof BudgetExceeded || undefined,
     });

@@ -16,7 +16,7 @@ export async function metaContext(workspaceId: string): Promise<MetaContext> {
     );
   }
   const onAccessLost = (err: MetaError) => markConnection(workspaceId, "meta", "broken", err.message);
-  return { ...conn.config, graph: new Graph(conn.secret, onAccessLost) };
+  return { ...conn.config, graph: new Graph(conn.secret, onAccessLost, conn.config.tokenType === "SYSTEM_USER" ? "system_user" : "user") };
 }
 
 export function requireAdAccount(ctx: MetaContext): string {

@@ -273,6 +273,46 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
   return { campaignId: campaignId!, adsetId: adsetId!, adIds: Object.values(ads) };
 }
 
+export type BuildState =
+  | { checked: true; campaignId?: string; adsetId?: string; adIds: string[] }
+  | { checked: false; error: string; campaignId?: string; adsetId?: string; adIds: string[] };
+
+/**
+ * After a failed build: what really exists at Meta now, looked up by the saved ids and by the build's tag
+ * (an object can exist without a saved id when an answer was lost). A lookup that fails says so, so a failed
+ * check is never reported as "nothing was built".
+ */
+export async function whatWasBuilt(ctx: MetaContext, tag: string, cp: Checkpoint): Promise<BuildState> {
+  const saved = { campaignId: cp.data.campaignId as string | undefined, adsetId: (cp.data.adsetId ?? undefined) as string | undefined, adIds: Object.values((cp.data.ads ?? {}) as Record<string, string>) };
+  try {
+    const account = requireAdAccount(ctx);
+    const live = async (id?: string) => {
+      if (!id) return undefined;
+      const n = await ctx.graph.get<{ id: string; effective_status?: string }>(`/${id}`, { fields: "id,effective_status" }).catch((e) => {
+        // A deleted or unknown object is gone; any other failure means we do not know.
+        if (e instanceof MetaError && e.code === 100) return null;
+        throw e;
+      });
+      return n && n.effective_status !== "DELETED" && n.effective_status !== "ARCHIVED" ? n.id : undefined;
+    };
+    const tagged = async (edge: string, t: string) =>
+      (await ctx.graph.get<{ data: { id: string }[] }>(edge, { fields: "id,name", filtering: [{ field: "name", operator: "CONTAIN", value: t }], limit: 50 })).data?.map((x) => x.id) ?? [];
+    const campaignId = (await live(saved.campaignId)) ?? (await tagged(`/${account}/campaigns`, tag))[0];
+    const adsetId = campaignId ? ((await live(saved.adsetId)) ?? (await tagged(`/${campaignId}/adsets`, tag))[0]) : undefined;
+    const adIds = adsetId ? await tagged(`/${adsetId}/ads`, tag) : [];
+    return { checked: true, campaignId, adsetId, adIds };
+  } catch (err) {
+    return { checked: false, error: describeError(err), ...saved };
+  }
+}
+
+/** One line for the failed card: exactly what exists at Meta, or that it could not be checked. */
+export function describeBuild(b: BuildState): string {
+  const parts = [b.campaignId && `campaign ${b.campaignId}`, b.adsetId && `ad set ${b.adsetId}`, b.adIds.length && `${b.adIds.length} ads (${b.adIds.join(", ")})`].filter(Boolean);
+  if (!b.checked) return `Could not check what exists at Meta (${b.error}).${parts.length ? ` Saved before the failure: ${parts.join(", ")}.` : ""}`;
+  return parts.length ? `At Meta now, all paused: ${parts.join(", ")}. A retry continues from these and creates nothing twice.` : "Checked at Meta: nothing from this card exists there.";
+}
+
 export type BuildCheck = { ok: boolean; mismatches: string[]; review: string; blockers: string[] };
 
 const REVIEW_HE: Record<string, string> = {
