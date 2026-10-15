@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { appPath, sitePath } from "./links";
+import "@fontsource-variable/rubik/wght.css";
 import "./site.css";
 
 export const metadata: Metadata = {
