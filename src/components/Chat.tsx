@@ -130,16 +130,28 @@ export function Chat({
     }
   }, []);
 
-  /** Follows a background job by polling its events; survives refreshes, drops and server restarts. */
+  /**
+   * Follows a background job by polling its events; survives refreshes, drops and server restarts.
+   * quiet: a turn Mikee started on his own (a check-in, the outcome of a card). Nothing on screen changes and
+   * the composer stays free until he actually starts working; one that never starts is let go of quietly.
+   */
   const follow = useCallback(
-    async (jobId: string) => {
-      setLive((l) => l ?? EMPTY);
+    async (jobId: string, opts: { quiet?: boolean } = {}) => {
+      if (!opts.quiet) setLive((l) => l ?? EMPTY);
       let cursor = 0;
       let finished = false;
+      let shown = !opts.quiet;
+      const since = Date.now();
       for (;;) {
         const res = await fetch(`/api/jobs/${jobId}?after=${cursor}`, { cache: "no-store" }).catch(() => null);
+        // Gone (or never this business's): nothing left to follow.
+        if (res?.status === 404) break;
         if (res?.ok) {
           const data = (await res.json()) as { status: string; events: any[] };
+          if (!shown && data.events.length) {
+            shown = true;
+            setLive((l) => l ?? EMPTY);
+          }
           for (const e of data.events) {
             cursor = e.id;
             if (e.t === "text") setLive((l) => appendText(l, e.v));
@@ -158,6 +170,8 @@ export function Chat({
           }
           if (finished || data.status === "done" || data.status === "failed") break;
         }
+        // A quiet turn that has not said anything for two minutes is left alone; it shows up when it is done.
+        if (!shown && Date.now() - since > 120_000) break;
         await new Promise((r) => setTimeout(r, 700));
       }
       // The saved timeline replaces the live block in one go: no gap, no stale "working" line.
@@ -247,13 +261,19 @@ export function Chat({
   // While the conversation is open and quiet, look for that every few seconds and show it live.
   const liveRef = useRef(live);
   liveRef.current = live;
+  const quietRef = useRef(false);
   useEffect(() => {
     if (!conversationId) return;
     const t = setInterval(async () => {
-      if (liveRef.current || document.hidden || !convId.current) return;
+      if (liveRef.current || quietRef.current || document.hidden || !convId.current) return;
       const active = await fetch(`/api/jobs/active?conversationId=${convId.current}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      if (!active?.jobId || liveRef.current) return;
-      await follow(active.jobId);
+      if (!active?.jobId || liveRef.current || quietRef.current) return;
+      quietRef.current = true;
+      try {
+        await follow(active.jobId, { quiet: true });
+      } finally {
+        quietRef.current = false;
+      }
       // She watched it arrive, so it is already read.
       await fetch(`/api/conversations/${convId.current}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ read: true }) });
     }, 12_000);
