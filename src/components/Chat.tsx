@@ -141,45 +141,58 @@ export function Chat({
       let cursor = 0;
       let finished = false;
       let shown = !opts.quiet;
+      let misses = 0;
       const since = Date.now();
-      for (;;) {
-        const res = await fetch(`/api/jobs/${jobId}?after=${cursor}`, { cache: "no-store" }).catch(() => null);
-        // Gone (or never this business's): nothing left to follow.
-        if (res?.status === 404) break;
-        if (res?.ok) {
-          const data = (await res.json()) as { status: string; events: any[] };
-          if (!shown && data.events.length) {
-            shown = true;
-            setLive((l) => l ?? EMPTY);
-          }
-          for (const e of data.events) {
-            cursor = e.id;
-            if (e.t === "text") setLive((l) => appendText(l, e.v));
-            if (e.t === "tool") setLive((l) => toolEvent(l, e.name, e.state, e.agent));
-            if (e.t === "proposal") {
-              const p = await fetch(`/api/proposals/${e.id}`).then((r) => (r.ok ? r.json() : null));
-              if (p)
-                setLive((l) =>
-                  l?.segments.some((x) => x.kind === "card" && x.proposal.id === p.id)
-                    ? l
-                    : { ...(l ?? EMPTY), segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null },
-                );
+      try {
+        for (;;) {
+          // Any failure along the way (a dropped connection, an answer that is not JSON, a card that would not
+          // load) is a miss to try again, never a reason to leave the screen saying Mikee is still working.
+          try {
+            const res = await fetch(`/api/jobs/${jobId}?after=${cursor}`, { cache: "no-store" });
+            // Gone (or never this business's): nothing left to follow.
+            if (res.status === 404) break;
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = (await res.json()) as { status: string; events: any[] };
+            misses = 0;
+            if (!shown && data.events.length) {
+              shown = true;
+              setLive((l) => l ?? EMPTY);
             }
-            if (e.t === "error") setError(e.message);
-            if (e.t === "done") finished = true;
+            for (const e of data.events) {
+              cursor = e.seq;
+              if (e.t === "text") setLive((l) => appendText(l, e.v));
+              if (e.t === "tool") setLive((l) => toolEvent(l, e.name, e.state, e.agent));
+              if (e.t === "proposal") {
+                const p = await fetch(`/api/proposals/${e.id}`)
+                  .then((r) => (r.ok ? r.json() : null))
+                  .catch(() => null);
+                if (p)
+                  setLive((l) =>
+                    l?.segments.some((x) => x.kind === "card" && x.proposal.id === p.id)
+                      ? l
+                      : { ...(l ?? EMPTY), segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null },
+                  );
+              }
+              if (e.t === "error") setError(e.message);
+              if (e.t === "done") finished = true;
+            }
+            if (finished || data.status === "done" || data.status === "failed") break;
+          } catch {
+            // A minute of failures in a row: stop following; the saved conversation below shows where things are.
+            if (++misses >= 80) break;
           }
-          if (finished || data.status === "done" || data.status === "failed") break;
+          // A quiet turn that has not said anything for two minutes is left alone; it shows up when it is done.
+          if (!shown && Date.now() - since > 120_000) break;
+          await new Promise((r) => setTimeout(r, 700));
         }
-        // A quiet turn that has not said anything for two minutes is left alone; it shows up when it is done.
-        if (!shown && Date.now() - since > 120_000) break;
-        await new Promise((r) => setTimeout(r, 700));
+      } finally {
+        // Whatever happened above, the saved timeline replaces the live block: no stale "working" line.
+        await refresh();
+        setLive(null);
+        pinned.current = true;
+        refreshConversations(convId.current ?? undefined); // Mikee may have titled or filed the conversation
+        usageChanged(); // the usage meter catches up in the background
       }
-      // The saved timeline replaces the live block in one go: no gap, no stale "working" line.
-      await refresh();
-      setLive(null);
-      pinned.current = true;
-      refreshConversations(convId.current ?? undefined); // Mikee may have titled or filed the conversation
-      usageChanged(); // the usage meter catches up in the background
     },
     [refresh],
   );
