@@ -39,7 +39,8 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
     d.query.budgets.findFirst({ where: eq(schema.budgets.workspaceId, workspace.id) }),
   ]);
   const connected = !!meta?.secret;
-  const assets = !!meta?.config.adAccountId;
+  // The page alone is enough to start: when Meta withholds the ads permissions, the ad account is added later.
+  const assets = !!(meta?.config.adAccountId || meta?.config.pageId);
   const ready = connected && assets && !!site?.config.url;
 
   return (

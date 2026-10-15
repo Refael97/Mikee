@@ -114,7 +114,8 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
   const page = found.pages.find((p) => p.id === chosen.pageId);
   const account = found.adAccounts.find((a) => a.id === chosen.adAccountId);
   const pixel = found.pixels.find((p) => p.id === chosen.pixelId);
-  const saved = !!c.adAccountId;
+  const saved = !!(c.adAccountId || c.pageId);
+  const adsBlocked = !account && !!found.blocked.adAccounts;
 
   if (!page && !account) return <p className="text-ink-2">לא מצאתי דף או חשבון מודעות שמחוברים למשתמש הזה.</p>;
 
@@ -138,9 +139,15 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
               חשבון המודעות <strong>{account.name}</strong>
             </li>
           )}
+          {adsBlocked && <li className="text-ink-3">חשבון המודעות: פייסבוק לא נתן לי גישה אליו בחיבור הזה</li>}
           {pixel && <li>המעקב באתר פעיל{pixel.lastFired ? ` (נראה לאחרונה ${new Date(pixel.lastFired).toLocaleDateString("he-IL")})` : ""}</li>}
         </ul>
       </div>
+      {adsBlocked && (
+        <p className="text-[15px] text-ink-3">
+          אפשר להתחיל כבר עכשיו עם הדף והאינסטגרם. כשפייסבוק יאשר את הרשאות המודעות, אחבר את חשבון המודעות בהגדרות.
+        </p>
+      )}
       {!saved && (
         <form action={saveMetaAssets}>
           <Hidden chosen={chosen} />
@@ -151,7 +158,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
         <summary className="cursor-pointer select-none text-ink-2 flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />{saved ? "להחליף" : "לא, אבחר בעצמי"}</summary>
         <form action={saveMetaAssets} className="mt-4 grid gap-4 sm:grid-cols-2">
           <Select label="דף הפייסבוק" name="page" value={chosen.pageId} options={found.pages.map((p) => [p.id, `${p.name}${p.ig?.username ? ` · @${p.ig.username}` : ""}`])} />
-          <Select label="חשבון המודעות" name="adAccount" value={chosen.adAccountId} options={found.adAccounts.map((a) => [a.id, a.name])} />
+          {found.adAccounts.length > 0 && <Select label="חשבון המודעות" name="adAccount" value={chosen.adAccountId} options={found.adAccounts.map((a) => [a.id, a.name])} />}
           <Select label="מעקב באתר" name="pixel" value={chosen.pixelId} options={[["", "בלי"], ...found.pixels.map((p) => [p.id, p.name] as [string, string])]} />
           <Select label="קטלוג מוצרים" name="catalog" value={chosen.catalogId} options={[["", "בלי"], ...found.catalogs.map((k) => [k.id, k.name] as [string, string])]} />
           <div className="sm:col-span-2">

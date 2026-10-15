@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { discoverAssets } from "@/lib/meta/context";
+import { detectBusiness } from "@/lib/meta/detect";
 import { Graph, oauthDialogUrl } from "@/lib/meta/graph";
 import { FakeMeta } from "./support/fake-meta";
 
@@ -20,6 +21,15 @@ describe("connecting Facebook", () => {
     expect(out.me.name).toBe("Noa");
     expect(out.adAccounts).toEqual([]);
     expect(out.problems.join(" ")).toContain("Missing Permissions");
+  });
+
+  it("onboarding still finds the page and Instagram when the ad accounts are refused", async () => {
+    meta.failOn((c) => c.path.includes("me/adaccounts"), 5, "(#200) Missing Permissions", 200);
+    const found = await detectBusiness(new Graph("system-user-token"), "Noa");
+    expect(found.adAccounts).toEqual([]);
+    expect(found.blocked.adAccounts).toContain("Missing Permissions");
+    expect(found.pages.length).toBeGreaterThan(0);
+    expect(found.guess.pageId).toBeDefined();
   });
 
   it("the window always asks again for what was declined, so an old grant is not reused silently", () => {

@@ -9,6 +9,8 @@ export type Detected = {
   catalogs: { id: string; name: string }[];
   /** The best guess of which assets belong to this business, shown as one question to confirm. */
   guess: { adAccountId?: string; pageId?: string; pixelId?: string; catalogId?: string; confident: boolean };
+  /** What Meta refused to show (e.g. ad accounts when the ads permissions were not granted). */
+  blocked: { adAccounts?: string; pages?: string };
 };
 
 const norm = (s = "") => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
@@ -36,12 +38,20 @@ function similarity(a: string, b: string) {
  * that fired most recently on that account.
  */
 export async function detectBusiness(graph: Graph, businessName: string, websiteUrl?: string): Promise<Detected> {
+  const blocked: Detected["blocked"] = {};
+  // One refused list must not hide the other: a login without the ads permissions still reaches the page and Instagram.
+  const soft = (key: keyof Detected["blocked"], p: Promise<any[]>) =>
+    p.catch((e: Error) => {
+      blocked[key] = e.message;
+      return [] as any[];
+    });
   const [me, rawAccounts, rawPages, businesses] = await Promise.all([
     graph.get<{ id: string; name: string }>("/me", { fields: "id,name" }),
-    graph.all<any>("/me/adaccounts", { fields: "id,name,currency,account_status,amount_spent" }),
-    graph.all<any>("/me/accounts", { fields: "id,name,website,instagram_business_account{id,username}" }),
+    soft("adAccounts", graph.all<any>("/me/adaccounts", { fields: "id,name,currency,account_status,amount_spent" })),
+    soft("pages", graph.all<any>("/me/accounts", { fields: "id,name,website,instagram_business_account{id,username}" })),
     graph.all<any>("/me/businesses", { fields: "id,name,owned_product_catalogs{id,name}" }).catch(() => []),
   ]);
+  if (blocked.adAccounts && blocked.pages) throw new Error(blocked.adAccounts);
   const adAccounts = rawAccounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency, active: a.account_status === 1, spent: Number(a.amount_spent ?? 0) }));
   const pages = rawPages.map((p) => ({
     id: p.id,
@@ -82,6 +92,7 @@ export async function detectBusiness(graph: Graph, businessName: string, website
     pages,
     pixels,
     catalogs,
+    blocked,
     guess: { adAccountId: account?.id, pageId: page?.id, pixelId: pixel?.id, catalogId: catalogs.length === 1 ? catalogs[0].id : undefined, confident },
   };
 }
