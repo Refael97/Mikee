@@ -1,6 +1,6 @@
 # Requests from public authorities for user data
 
-Policy of Adrat Group Ltd., the operator of Mikee and the controller of the data Mikee receives from Meta.
+Policy of ADRT GROUP LTD, the operator of Mikee and the controller of the data Mikee receives from Meta.
 Adopted October 2026. Owner: Refael Levi.
 
 1. **Legality review.** Every request from a public authority for personal data of Mikee's users (including

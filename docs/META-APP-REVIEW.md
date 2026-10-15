@@ -97,7 +97,7 @@ npm run meta-review-calls -- "אדרט"
 
 ## Data handling
 - **Data processors:** Yes. Railway (hosting and database), Anthropic (AI processing of page content, results and Instagram messages; access tokens are never sent to it), Cloudflare (DNS and network), and the file storage bucket provider in use.
-- **Responsible entity:** Adrat Group Ltd., Israel.
+- **Responsible entity:** ADRT GROUP LTD, Israel.
 - **National security requests in the past 12 months:** No.
 - **Policies for requests from public authorities:** all four, according to `docs/GOVERNMENT-REQUESTS-POLICY.md` (only after it has actually been adopted).
 
