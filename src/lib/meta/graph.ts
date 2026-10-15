@@ -329,6 +329,10 @@ export type TokenInfo = {
   expiresAt: string | null;
   dataAccessExpiresAt: string | null;
   type?: string;
+  /** When Meta issued it: a token from an earlier install is handed back again instead of a new one. */
+  issuedAt?: string | null;
+  /** The (system) user the token acts as. */
+  userId?: string;
 };
 
 /**
@@ -343,7 +347,7 @@ export async function inspectToken(token: string): Promise<TokenInfo | null> {
   // The documented form: the app token as access_token (server to server only; this URL is never logged).
   const res = await fetch(`${BASE}/debug_token?${new URLSearchParams({ input_token: token, access_token: `${appId}|${secret}` })}`, { cache: "no-store" });
   const json = (await res.json().catch(() => ({}))) as {
-    data?: { app_id?: string; is_valid?: boolean; scopes?: string[]; granular_scopes?: { scope: string; target_ids?: string[] }[]; expires_at?: number; data_access_expires_at?: number; type?: string };
+    data?: { app_id?: string; is_valid?: boolean; scopes?: string[]; granular_scopes?: { scope: string; target_ids?: string[] }[]; expires_at?: number; data_access_expires_at?: number; type?: string; issued_at?: number; user_id?: string };
   };
   const d = json.data;
   if (!d) throw new MetaError("Could not inspect the token");
@@ -356,6 +360,8 @@ export async function inspectToken(token: string): Promise<TokenInfo | null> {
     expiresAt: when(d.expires_at),
     dataAccessExpiresAt: when(d.data_access_expires_at),
     type: d.type,
+    issuedAt: when(d.issued_at),
+    userId: d.user_id,
   };
 }
 

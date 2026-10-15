@@ -13,7 +13,8 @@
     "set-plan": "tsx scripts/set-plan.ts",
     "meetings": "tsx scripts/meetings.ts",
     "postinstall": "node scripts/copy-rive-wasm.mjs",
-    "prebuild": "node scripts/copy-rive-wasm.mjs"
+    "prebuild": "node scripts/copy-rive-wasm.mjs",
+    "meta-diagnose": "tsx --conditions=react-server scripts/meta-diagnose.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
