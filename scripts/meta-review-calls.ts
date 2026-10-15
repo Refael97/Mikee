@@ -53,12 +53,21 @@ async function main() {
           return forms;
         }),
     ],
-    ["leads_retrieval", () => need(formId, () => page.get(`/${formId}/leads`, { limit: 1 }), "no lead form on the page")],
+    // Leads are read with the connection's own token first (the Page token does not always carry leads_retrieval).
+    ["leads_retrieval", () => need(formId, () => g.get(`/${formId}/leads`, { limit: 1 }).catch(() => page.get(`/${formId}/leads`, { limit: 1 })), "no lead form on the page")],
     ["instagram_basic", () => need(c.igUserId, () => g.get(`/${c.igUserId}`, { fields: "username,media_count" }))],
     ["instagram_content_publish", () => need(c.igUserId, () => g.get(`/${c.igUserId}/content_publishing_limit`, { fields: "quota_usage" }))],
     ["instagram_manage_insights", () => need(c.igUserId, () => g.get(`/${c.igUserId}/insights`, { metric: "reach", period: "day" }))],
     ["instagram_manage_messages", () => need(c.pageId, () => page.get(`/${c.pageId}/conversations`, { platform: "instagram", limit: 1 }))],
-    ["catalog_management", () => need(c.catalogId, () => g.get(`/${c.catalogId}/products`, { fields: "id", limit: 1 }), "no catalog chosen")],
+    [
+      "catalog_management",
+      async () => {
+        // The chosen catalog, or the first one the connection's businesses own.
+        const businesses = c.catalogId ? null : await g.get<{ data: { owned_product_catalogs?: { data: { id: string }[] } }[] }>("/me/businesses", { fields: "owned_product_catalogs{id}" });
+        const catalogId = c.catalogId ?? businesses?.data.flatMap((b) => b.owned_product_catalogs?.data ?? [])[0]?.id;
+        return need(catalogId, () => g.get(`/${catalogId}/products`, { fields: "id", limit: 1 }), "no product catalog in the business");
+      },
+    ],
   ];
 
   for (const [permission, call] of calls) {
