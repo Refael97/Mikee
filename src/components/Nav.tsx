@@ -23,6 +23,15 @@ export const LINKS = [
 
 type Who = { name: string; email: string; business: string };
 
+/** The name of a rail icon, shown half a second after the pointer rests on it (styles: .rail-tip). */
+function Tip({ label }: { label: string }) {
+  return (
+    <span role="tooltip" className="rail-tip">
+      {label}
+    </span>
+  );
+}
+
 function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: string; label: string; icon: typeof Store; active: boolean; compact?: boolean; dot?: boolean }) {
   // Desktop: an icon in the rail, its name on hover. Mobile sheet: icon and name in a row.
   return (
@@ -30,15 +39,14 @@ function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: stri
       href={href}
       aria-current={active ? "page" : undefined}
       aria-label={label}
-      title={compact ? label : undefined}
       className={
         compact
-          ? `relative flex h-12 w-12 items-center justify-center rounded-[14px] transition-colors ${active ? "bg-black/[.06] text-ink dark:bg-white/[.08]" : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"}`
+          ? `has-tip relative flex h-12 w-12 items-center justify-center rounded-[14px] transition-colors ${active ? "bg-black/[.06] text-ink dark:bg-white/[.08]" : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"}`
           : `flex h-[38px] items-center gap-3 rounded-[10px] px-2.5 text-[15px] transition-colors ${active ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`
       }
     >
       <Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={1.5} />
-      {!compact && <span>{label}</span>}
+      {compact ? <Tip label={label} /> : <span>{label}</span>}
       {dot && <span className={`h-2 w-2 rounded-full bg-blue ${compact ? "absolute end-2.5 top-2.5" : "ms-auto"}`} aria-label="ממתין לך" />}
     </Link>
   );
@@ -82,8 +90,9 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
     <>
       {/* Desktop: the icon rail on the ground, beside the panels */}
       <aside className="sticky top-[10px] z-40 hidden h-[calc(100dvh-20px)] w-[68px] shrink-0 flex-col items-center py-1 lg:flex">
-        <Link href="/mikee" className="mb-3 flex h-12 w-12 items-center justify-center rounded-[14px] hover:bg-black/[.04]" aria-label="מייקי" title={`מייקי · ${who.business}`}>
+        <Link href="/mikee" className="has-tip relative mb-3 flex h-12 w-12 items-center justify-center rounded-[14px] hover:bg-black/[.04]" aria-label="מייקי">
           <MikeeAvatar size={32} />
+          <Tip label={`מייקי · ${who.business}`} />
         </Link>
 
         <nav className="flex flex-col items-center gap-1" aria-label="ניווט ראשי">
@@ -95,11 +104,11 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
         <div className="mt-auto flex flex-col items-center gap-1">
           <button
             onClick={() => setHelp(true)}
-            title="עזרה"
             aria-label="עזרה"
-            className="flex h-12 w-12 items-center justify-center rounded-[14px] text-ink-2 transition-colors hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"
+            className="has-tip relative flex h-12 w-12 items-center justify-center rounded-[14px] text-ink-2 transition-colors hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"
           >
             <LifeBuoy className="h-[22px] w-[22px]" strokeWidth={1.5} />
+            <Tip label="עזרה" />
           </button>
           <NavLink href="/settings" label="הגדרות" icon={Settings} active={settingsActive} compact />
 
@@ -108,10 +117,10 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
               onClick={() => setMenu((m) => !m)}
               aria-expanded={menu}
               aria-label="החשבון שלי"
-              title={who.name}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
+              className="has-tip relative flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
             >
               {initial}
+              {!menu && <Tip label={who.name} />}
             </button>
             {menu && (
               <div className="pop-over rise absolute bottom-0 start-full z-50 ms-3 w-64 p-1.5">
