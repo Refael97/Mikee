@@ -13,6 +13,7 @@ import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
 import { remember } from "@/lib/ttl";
 import { SubmitButton } from "@/components/SubmitButton";
 import { SkillsEditor } from "@/components/SkillsEditor";
+import { MikeeLookPicker } from "@/components/MikeeLookPicker";
 import { listSkills } from "@/lib/skills";
 
 async function BudgetMeter({ workspaceId, tz }: { workspaceId: string; tz: string }) {
@@ -174,6 +175,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <Section id="limits" title="מגבלה במטא" hint="שכבת הגנה נוספת על תקציב הפרסום, ישירות בחשבון המודעות.">
         <Limits workspaceId={workspace.id} />
+      </Section>
+
+      <Section id="look" title="המראה של מייקי" hint="איך מייקי נראה בכל המסכים של העסק. אפשר להחליף בכל רגע.">
+        <MikeeLookPicker />
       </Section>
 
       <Section id="skills" title="סקילים" hint="דרכי עבודה שלך שמייקי והצוות פועלים לפיהן כשהמשימה מתאימה. כותבים כאן או מעלים קובץ SKILL.md.">

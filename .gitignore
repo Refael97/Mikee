@@ -19,3 +19,6 @@ public/demo
 railway-*.env
 .env.*
 !.env.example
+
+# Copied from @rive-app/canvas on install (scripts/copy-rive-wasm.mjs)
+public/rive/

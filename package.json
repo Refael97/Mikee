@@ -10,13 +10,16 @@
     "test": "vitest run",
     "create-user": "tsx scripts/create-user.ts",
     "add-credits": "tsx scripts/add-credits.ts",
-    "set-plan": "tsx scripts/set-plan.ts"
+    "set-plan": "tsx scripts/set-plan.ts",
+    "postinstall": "node scripts/copy-rive-wasm.mjs",
+    "prebuild": "node scripts/copy-rive-wasm.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@electric-sql/pglite": "^0.5.9",
     "@fontsource/heebo": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@rive-app/react-canvas": "4.35.0",
     "cheerio": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "gsap": "^3.15.0",

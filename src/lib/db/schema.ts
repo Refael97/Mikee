@@ -20,6 +20,8 @@ export type WorkspaceSettings = {
   plan?: string;
   /** What the business wants to focus on now, in its own words, kept by Mikee. */
   focus?: { text: string; since: string };
+  /** Mikee's look chosen by the business (src/lib/mikee-look.ts). */
+  mikeeLook?: string;
   /** The answers to the questions after signup (src/lib/intake.ts), read by Mikee in the brief. */
   intake?: Intake;
   /** ecommerce | services | local | content: shapes the marketing path and the results page. */
