@@ -318,7 +318,16 @@ export async function exchangeCode(code: string): Promise<{ token: string; expir
   return { token, expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null };
 }
 
-export type TokenInfo = { appId: string; valid: boolean; scopes: string[]; expiresAt: string | null; dataAccessExpiresAt: string | null; type?: string };
+export type TokenInfo = {
+  appId: string;
+  valid: boolean;
+  scopes: string[];
+  /** Which assets each permission was granted for (Login for Business); a scope without target_ids covers everything. */
+  granularScopes: { scope: string; target_ids?: string[] }[];
+  expiresAt: string | null;
+  dataAccessExpiresAt: string | null;
+  type?: string;
+};
 
 /**
  * Checks what a token really is, with the app's own credentials: which app issued it, whether it is valid,
@@ -331,11 +340,21 @@ export async function inspectToken(token: string): Promise<TokenInfo | null> {
   if (!appId || !secret) return null;
   // The documented form: the app token as access_token (server to server only; this URL is never logged).
   const res = await fetch(`${BASE}/debug_token?${new URLSearchParams({ input_token: token, access_token: `${appId}|${secret}` })}`, { cache: "no-store" });
-  const json = (await res.json().catch(() => ({}))) as { data?: { app_id?: string; is_valid?: boolean; scopes?: string[]; expires_at?: number; data_access_expires_at?: number; type?: string } };
+  const json = (await res.json().catch(() => ({}))) as {
+    data?: { app_id?: string; is_valid?: boolean; scopes?: string[]; granular_scopes?: { scope: string; target_ids?: string[] }[]; expires_at?: number; data_access_expires_at?: number; type?: string };
+  };
   const d = json.data;
   if (!d) throw new MetaError("Could not inspect the token");
   const when = (s?: number) => (s ? new Date(s * 1000).toISOString() : null);
-  return { appId: String(d.app_id ?? ""), valid: !!d.is_valid, scopes: d.scopes ?? [], expiresAt: when(d.expires_at), dataAccessExpiresAt: when(d.data_access_expires_at), type: d.type };
+  return {
+    appId: String(d.app_id ?? ""),
+    valid: !!d.is_valid,
+    scopes: d.scopes ?? [],
+    granularScopes: d.granular_scopes ?? [],
+    expiresAt: when(d.expires_at),
+    dataAccessExpiresAt: when(d.data_access_expires_at),
+    type: d.type,
+  };
 }
 
 /**

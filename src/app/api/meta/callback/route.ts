@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { saveConnection } from "@/lib/connections";
 import { discoverAssets } from "@/lib/meta/context";
 import { clientBusinessId, exchangeCode, Graph, inspectToken } from "@/lib/meta/graph";
+import { logConnectDiagnosis } from "@/lib/meta/diagnose";
 
 export async function GET(req: NextRequest) {
   const base = process.env.APP_URL ?? req.nextUrl.origin;
@@ -24,8 +25,10 @@ export async function GET(req: NextRequest) {
   try {
     const { token, expiresAt } = await exchangeCode(code);
     const info = await inspectToken(token);
+    const businessId = info?.type === "SYSTEM_USER" ? await clientBusinessId(token) : null;
+    // What Meta granted and what each asset read answers, in the log, whether or not the connection works.
+    await logConnectDiagnosis(token, info, businessId).catch((e) => console.warn("[meta] diagnosis failed", (e as Error).message));
     if (!info || !info.valid || info.appId !== process.env.META_APP_ID) return NextResponse.redirect(new URL(`${back}?error=meta_wrong_app`, base));
-    const businessId = info.type === "SYSTEM_USER" ? await clientBusinessId(token) : null;
     const { me } = await discoverAssets(new Graph(token));
     await saveConnection(
       session.workspace.id,
