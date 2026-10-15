@@ -14,12 +14,21 @@ async function main() {
   if (!filter) return console.log('Name the business whose connection works: npm run meta-review-calls -- "אדרט"');
   const d = await db();
   const rows = await d.select({ id: schema.workspaces.id, name: schema.workspaces.name }).from(schema.workspaces);
-  const w = rows.find((r) => r.name.includes(filter));
-  if (!w) return console.log(`No business named like "${filter}".`);
-  const meta = await getConnection<MetaConfig>(w.id, "meta");
-  if (!meta?.secret) return console.log(`${w.name}: no Facebook connection.`);
+  // The name may be the Mikee business, or the Page, ad account or Meta business it is connected to.
+  const all = await Promise.all(rows.map(async (r) => ({ ...r, meta: await getConnection<MetaConfig>(r.id, "meta").catch(() => null) })));
+  const names = (x: (typeof all)[number]) => [x.name, x.meta?.config.pageName, x.meta?.config.adAccountName, x.meta?.config.businessName, x.meta?.config.igUsername];
+  const w = all.find((x) => x.meta?.secret && names(x).some((n) => n?.includes(filter)));
+  if (!w) {
+    console.log(`No connected business named like "${filter}". The businesses in Mikee:`);
+    for (const x of all) {
+      const c = x.meta?.config;
+      console.log(`  ${x.name}: ${x.meta?.secret ? `connected (page ${c?.pageName ?? "none"}, ad account ${c?.adAccountName ?? "none"})` : "no Facebook connection"}`);
+    }
+    return;
+  }
+  const meta = w.meta!;
   const c = meta.config;
-  const g = new Graph(meta.secret);
+  const g = new Graph(meta.secret!);
   const page = c.pageId ? await g.forPage(c.pageId).catch(() => g) : g;
   console.log(`=== ${w.name} (ad account ${c.adAccountId ?? "none"}, page ${c.pageId ?? "none"}, Instagram ${c.igUserId ?? "none"})\n`);
 
