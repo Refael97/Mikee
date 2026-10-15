@@ -173,8 +173,12 @@ describe("one business never reaches another's data", () => {
     walk(root);
     // Public on purpose: health; the cron (its own secret); the username check at sign-up (read-only, limited per network);
     // Meta's webhook, which must verify Meta's signature on every delivery instead; the site's meeting booking
-    // (visitors have no account yet), which must check the origin and limit each network instead.
-    const PUBLIC = ["health", "cron/checkin", "username", "meta/webhook", "site/meeting"];
+    // (visitors have no account yet), which must check the origin and limit each network instead; Meta's data
+    // deletion and deauthorize callbacks, which must verify Meta's signed_request instead.
+    const PUBLIC = ["health", "cron/checkin", "username", "meta/webhook", "site/meeting", "meta/data-deletion", "meta/deauthorize"];
+    for (const r of ["meta/data-deletion", "meta/deauthorize"]) {
+      expect(readFileSync(join(root, `${r}/route.ts`), "utf8"), `${r} verifies Meta's signed_request`).toContain("parseSignedRequest(form?.get(\"signed_request\")");
+    }
     expect(readFileSync(join(root, "meta/webhook/route.ts"), "utf8"), "meta/webhook verifies Meta's signature").toContain("validSignature(raw, req.headers.get(\"x-hub-signature-256\"))");
     const booking = readFileSync(join(root, "site/meeting/route.ts"), "utf8");
     expect(booking, "site/meeting checks the origin").toContain("assertSameOrigin(req)");

@@ -48,6 +48,9 @@ export async function GET(req: NextRequest) {
       "meta",
       {
         userName: me.name,
+        // Who connected, so a deletion or deauthorize request from Meta finds this connection.
+        metaUserId: info.userId ?? me.id,
+        personId: me.id,
         tokenExpiresAt: info.expiresAt ?? expiresAt,
         dataAccessExpiresAt: info.dataAccessExpiresAt,
         scopes: info.scopes,

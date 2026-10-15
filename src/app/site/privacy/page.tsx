@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { sitePath } from "../links";
 
 export const metadata: Metadata = { title: "מדיניות פרטיות" };
 
@@ -22,7 +24,7 @@ export default function Privacy() {
       <p>ההרשאות לחשבונות שחיברתם נשמרות מוצפנות ואינן נשלחות לדפדפן. הגישה למידע מוגבלת למה שנדרש להפעלת השירות.</p>
 
       <h2>הזכויות שלכם</h2>
-      <p>אפשר לבקש לראות, לתקן או למחוק את המידע שלכם, ולנתק את החשבונות המחוברים בכל עת מתוך השירות.</p>
+      <p>אפשר לבקש לראות, לתקן או למחוק את המידע שלכם, ולנתק את החשבונות המחוברים בכל עת מתוך השירות. ההסבר המלא נמצא בעמוד <Link href={sitePath("/data-deletion")}>מחיקת מידע</Link>.</p>
     </main>
   );
 }

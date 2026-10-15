@@ -77,3 +77,36 @@ npm run meta-review-calls -- "אדרט"
 
 ## אחרי האישור
 לא צריך לשנות שום דבר בקוד. מבקשים מרחל להתחבר מחדש דרך הכפתור, מריצים `npm run meta-diagnose -- רחל`, ובודקים שארבע ההרשאות מופיעות. אחר כך בוחרים את חשבון המודעות בהגדרות.
+
+## הכנה לפרודקשן: הגדרות האפליקציה
+ב־App Dashboard ← Settings ← Basic (הכתובות לפי הדומיין של האתר והאפליקציה):
+
+| שדה | ערך |
+|---|---|
+| Privacy Policy URL | `https://mikee.co.il/privacy` |
+| Terms of Service URL | `https://mikee.co.il/terms` |
+| User data deletion | Data Deletion Callback URL: `https://app.mikee.co.il/api/meta/data-deletion` |
+| Deauthorize callback URL (Facebook Login for Business ← Settings) | `https://app.mikee.co.il/api/meta/deauthorize` |
+| App icon | 1024x1024, הדמות של מייקי |
+| Category | Business and pages |
+
+שתי הכתובות של הקריאות חוזרות בודקות את החתימה של מטא (`signed_request` עם ה־App Secret), מוחקות או מנתקות את החיבור של מי שביקש, ומחזירות קוד אישור ועמוד סטטוס (`/data-deletion?code=...`). הבדיקות ב־`tests/meta-data-deletion.test.ts`.
+
+## חשבון לבודקים
+ב־Railway shell: `npm run review-account -- mikee`. נוצר עסק בשם "Meta Review" עם החיבור לפייסבוק של העסק "mikee" ותקציב חודשי של 50, וסיסמה אקראית מודפסת פעם אחת. `--reset` נותן סיסמה חדשה.
+
+## Data handling
+- **Data processors:** Yes. Railway (hosting and database), Anthropic (AI processing of page content, results and Instagram messages; access tokens are never sent to it), Cloudflare (DNS and network), and the file storage bucket provider in use.
+- **Responsible entity:** Adrat Group Ltd., Israel.
+- **National security requests in the past 12 months:** No.
+- **Policies for requests from public authorities:** all four, according to `docs/GOVERNMENT-REQUESTS-POLICY.md` (only after it has actually been adopted).
+
+## Reviewer instructions (paste into App Review)
+> Mikee is a web app in Hebrew. Sign in at https://app.mikee.co.il/login with the credentials below. The test business is already connected to a Facebook Page, an Instagram professional account and an ad account through Facebook Login for Business; to see the login flow itself, open Settings ("הגדרות") and click "Connect Facebook" ("התחברות לפייסבוק").
+> 1. Results ("תוצאות", left menu): campaign insights (ads_read, read_insights, instagram_manage_insights).
+> 2. Chat ("שיחה חדשה"): type "Create a test campaign with 10 ILS a day". Mikee prepares a card; click approve ("לאשר"). The campaign is created PAUSED in the connected ad account (ads_management, business_management, pages_manage_ads). The monthly budget of this test business is capped at 50 ILS.
+> 3. Chat: type "Write a post for Facebook and Instagram". Approve the card; the post is published to the Page and to Instagram (pages_manage_posts, instagram_content_publish).
+> 4. Settings, Instagram auto reply: turn it on, then send a direct message to the connected Instagram account from another account. The reply arrives within a minute and appears in the Instagram inbox in Mikee (instagram_manage_messages, pages_manage_metadata, Business Asset User Profile Access).
+> 5. Results, leads: leads from the Page's lead forms (leads_retrieval).
+> 6. Settings, "Is this your business?": the Page, Instagram account, ad account, pixel and product catalog found for the business (pages_show_list, pages_read_engagement, catalog_management).
+> Nothing is published or spent without the business owner approving a card.
