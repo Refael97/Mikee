@@ -134,3 +134,22 @@ npm run meta-review-calls -- "אדרט"
 
 Reviewer instructions, step 7 (add after step 6):
 > 7. Comments: open Messages ("הודעות", left menu) and scroll to "תגובות על הפוסטים". Comments on the latest Facebook and Instagram posts are listed with buttons to reply, like, hide and delete; the trash icon next to an Instagram post deletes the post after a second click (instagram_manage_comments, pages_manage_engagement, instagram_manage_engagement, instagram_manage_contents). In Chats, type "Create an Instagram event reminder for our launch next Friday at 18:00" to create an upcoming event (instagram_manage_upcoming_events).
+
+## עדכון אחרי בדיקת הדרישות (16.10): הטקסטים הסופיים
+הטקסטים כאן מחליפים את הקודמים לאותן הרשאות. רשימת ההוכחות המלאה: `docs/META-REVIEW-PROOF.md`.
+
+- **business_management:** The business connects through Facebook Login for Business. Mikee reads the ad accounts, pixels and product catalogs of the business portfolio the owner connected, shows them under "Is this your business?" so the owner confirms which assets belong to the business, and uses only those assets afterwards.
+- **catalog_management:** Mikee reads the products in the business's own catalog and, when the owner asks, creates product sets (for example "evening dresses") used in dynamic product ads the owner approves. Mikee does not create or delete catalogs.
+- **read_insights:** When the owner asks how the Facebook Page is doing, Mikee reads the Page's insights (post engagements, page views, daily follows) and explains them in the chat, next to the paid results.
+- **pages_manage_posts:** The owner approves a post card and Mikee publishes it to the Page. Under Messages, "Posts and comments" lists the Page's latest posts: the pencil edits a post's text and the trash icon deletes it after a second click; the change appears on the Page.
+- **instagram_content_publish:** The owner approves a post card and Mikee publishes the approved photo (or carousel or Reel) to the business's Instagram feed.
+- **instagram_manage_engagement:** Under Messages, "Posts and comments", the owner likes or unlikes the business's Instagram posts and customers' comments on them.
+- **instagram_manage_upcoming_events:** Under Schedule, "Upcoming events on Instagram" lists the account's upcoming events, opens each event's details, and creates a new event (title, date and time) so followers can ask to be reminded and a reminder ad can point to it.
+- **instagram_manage_messages:** Under Messages, the owner reads customers' Instagram direct messages and replies from Mikee; the reply arrives in the customer's Instagram. With the auto reply turned on, Mikee answers only from facts the owner approved, within 24 hours of the customer's last message, every automatic reply starts with "Automated reply", and a customer who writes "stop" gets no more automatic replies.
+
+**הוסר מהבקשה:** Business Asset User Profile Access. מייקי לא קורא פרופילים של לקוחות.
+
+Reviewer instructions, replacing step 7:
+> 7. Posts and comments: open Messages ("הודעות") and scroll to "הפוסטים והתגובות". For a Facebook post: the pencil edits its text, the trash icon deletes it (second click confirms). For an Instagram post: the heart likes it, the trash icon deletes it. Under each post: reply, like, hide or delete a comment.
+> 8. Upcoming events: open Schedule ("תזמון") and scroll to "אירועים קרובים באינסטגרם". The list shows the account's events; click one for its details; fill in a name, date and time and click "ליצור אירוע" to create a new one.
+> 9. Page insights: in Chats, type "How did my Facebook Page do this week? Show the Page insights."

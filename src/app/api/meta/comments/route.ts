@@ -27,6 +27,8 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("like"), id: Id, liked: z.boolean() }),
   z.object({ action: z.literal("delete"), id: Id }),
   z.object({ action: z.literal("delete_post"), id: Id }),
+  z.object({ action: z.literal("edit_post"), id: Id, text: z.string().trim().min(1).max(5000) }),
+  z.object({ action: z.literal("like_post"), id: Id, liked: z.boolean() }),
 ]);
 
 /** The owner's own action on a comment (reply, hide, like, delete) or deleting an Instagram post: clicking it is the approval. */

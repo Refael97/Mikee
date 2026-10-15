@@ -417,10 +417,23 @@ export const TOOLS = [
     name: "read_organic_insights",
     effect: "read",
     untrusted: "social",
-    description: "Instagram account reach insights for the connected business (not paid-ad results). Returns Meta's actual metrics or its actual error; do not invent results when unavailable.",
-    input: z.object({ since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }),
+    description: "Organic insights (not paid-ad results): channel 'instagram' gives the Instagram account's reach; channel 'facebook' gives the Facebook Page's metrics (engagement, views, follows). Returns Meta's actual metrics or its actual error; do not invent results when unavailable.",
+    input: z.object({ channel: z.enum(["instagram", "facebook"]).default("instagram"), since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }),
     run: async (ctx, i) => {
       const meta = await metaContext(ctx.workspaceId);
+      if (i.channel === "facebook") {
+        if (!meta.pageId) throw new Error("Facebook Page not connected");
+        const page = await meta.graph.forPage(meta.pageId);
+        // Each metric on its own: Meta retires page metrics from time to time, and one retired name must not hide the rest.
+        const metrics = ["page_post_engagements", "page_views_total", "page_daily_follows_unique", "page_impressions_unique"];
+        const out: Record<string, unknown> = {};
+        await Promise.all(
+          metrics.map(async (m) => {
+            out[m] = await page.all(`/${meta.pageId}/insights`, { metric: m, period: "day", since: i.since, until: i.until }).catch((e: Error) => ({ error: e.message }));
+          }),
+        );
+        return out;
+      }
       if (!meta.igUserId) throw new Error("Instagram not connected");
       return meta.graph.all(`/${meta.igUserId}/insights`, { metric: "reach", period: "day", since: i.since, until: i.until });
     },

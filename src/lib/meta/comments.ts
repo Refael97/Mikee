@@ -6,7 +6,7 @@ import type { Graph } from "./graph";
 
 export type Platform = "facebook" | "instagram";
 export type Comment = { id: string; author: string; text: string; at: string; hidden: boolean; likes: number; liked: boolean; replies: { id: string; author: string; text: string; at: string; mine: boolean }[] };
-export type PostComments = { platform: Platform; postId: string; text: string; at: string; link?: string; image?: string; comments: Comment[] };
+export type PostComments = { platform: Platform; postId: string; text: string; at: string; link?: string; image?: string; liked?: boolean; comments: Comment[] };
 
 const POSTS = 8;
 const PER_POST = 25;
@@ -68,6 +68,7 @@ async function instagramComments(ctx: MetaContext, liked: Set<string>): Promise<
         at: m.timestamp,
         link: m.permalink,
         image: m.thumbnail_url ?? m.media_url,
+        liked: liked.has(m.id),
         comments: (list.data ?? []).map((c) => ({
           id: c.id,
           author: c.username ?? "",
@@ -88,7 +89,9 @@ export type CommentAction =
   | { action: "hide"; id: string; hidden: boolean }
   | { action: "like"; id: string; liked: boolean }
   | { action: "delete"; id: string }
-  | { action: "delete_post"; id: string };
+  | { action: "delete_post"; id: string }
+  | { action: "edit_post"; id: string; text: string }
+  | { action: "like_post"; id: string; liked: boolean };
 
 /**
  * Runs what the owner clicked. Every id is checked against this business's own posts and comments first, so
@@ -99,10 +102,21 @@ export async function actOnComment(workspaceId: string, a: CommentAction): Promi
   const posts = await listComments(workspaceId);
   const ctx = await metaContext(workspaceId);
   try {
-    if (a.action === "delete_post") {
-      const post = posts.find((p) => p.postId === a.id && p.platform === "instagram");
-      if (!post) throw new Error("not this business's Instagram post");
-      await ctx.graph.delete(`/${post.postId}`);
+    if (a.action === "delete_post" || a.action === "edit_post" || a.action === "like_post") {
+      const post = posts.find((p) => p.postId === a.id);
+      if (!post) throw new Error("not this business's post");
+      const fb = post.platform === "facebook";
+      if (a.action === "delete_post") {
+        await (fb ? await ctx.graph.forPage(ctx.pageId!) : ctx.graph).delete(`/${post.postId}`);
+      } else if (a.action === "edit_post") {
+        // Meta edits the text of a Page post; an Instagram caption cannot be changed through the API.
+        if (!fb) throw new Error("an Instagram caption cannot be edited");
+        await (await ctx.graph.forPage(ctx.pageId!)).post(`/${post.postId}`, { message: a.text });
+      } else {
+        if (fb) throw new Error("likes on Page posts are not offered");
+        await (a.liked ? ctx.graph.post(`/${ctx.igUserId}/likes`, { media_id: post.postId }) : ctx.graph.delete(`/${ctx.igUserId}/likes`, { media_id: post.postId }));
+        await rememberLiked(workspaceId, post.postId, a.liked);
+      }
       return;
     }
     const post = posts.find((p) => p.comments.some((c) => c.id === a.id || c.replies.some((r) => r.id === a.id && r.mine)));
@@ -122,13 +136,18 @@ export async function actOnComment(workspaceId: string, a: CommentAction): Promi
       case "like": {
         if (fb) await (a.liked ? g.post(`/${a.id}/likes`) : g.delete(`/${a.id}/likes`));
         else await (a.liked ? g.post(`/${ctx.igUserId}/likes`, { comment_id: a.id }) : g.delete(`/${ctx.igUserId}/likes`, { comment_id: a.id }));
-        const current = (await getSettings(workspaceId)).likedComments ?? [];
-        const next = a.liked ? [...current.filter((x) => x !== a.id), a.id].slice(-500) : current.filter((x) => x !== a.id);
-        await updateSettings(workspaceId, { likedComments: next });
+        await rememberLiked(workspaceId, a.id, a.liked);
         break;
       }
     }
   } finally {
     forgetBusiness(workspaceId);
   }
+}
+
+/** Meta does not say whether the business liked something, so Mikee keeps its own short list. */
+async function rememberLiked(workspaceId: string, id: string, liked: boolean) {
+  const current = (await getSettings(workspaceId)).likedComments ?? [];
+  const next = liked ? [...current.filter((x) => x !== id), id].slice(-500) : current.filter((x) => x !== id);
+  await updateSettings(workspaceId, { likedComments: next });
 }

@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { EyeOff, Eye, Heart, Reply, Trash2, ExternalLink } from "lucide-react";
+import { EyeOff, Eye, Heart, Reply, Trash2, ExternalLink, Pencil } from "lucide-react";
 
 type ReplyItem = { id: string; author: string; text: string; at: string; mine: boolean };
 type Comment = { id: string; author: string; text: string; at: string; hidden: boolean; likes: number; liked: boolean; replies: ReplyItem[] };
-type Post = { platform: "facebook" | "instagram"; postId: string; text: string; at: string; link?: string; image?: string; comments: Comment[] };
+type Post = { platform: "facebook" | "instagram"; postId: string; text: string; at: string; link?: string; image?: string; liked?: boolean; comments: Comment[] };
 
 const when = (iso: string) => new Date(iso).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -21,6 +21,8 @@ export function CommentsInbox({ connected }: { connected: boolean }) {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/meta/comments", { cache: "no-store" });
@@ -67,13 +69,12 @@ export function CommentsInbox({ connected }: { connected: boolean }) {
         <span className="skeleton block h-28 w-full !rounded-[18px]" />
       </div>
     );
-  const withComments = posts.filter((p) => p.comments.length > 0);
 
   return (
     <div className="space-y-4">
       {error && <p className="note note-bad">{error}</p>}
-      {withComments.length === 0 && <p className="card p-6 text-ink-3">אין תגובות חדשות על הפוסטים האחרונים.</p>}
-      {withComments.map((p) => (
+      {posts.length === 0 && <p className="card p-6 text-ink-3">עוד אין פוסטים בדף ובאינסטגרם.</p>}
+      {posts.map((p) => (
         <article key={p.postId} className="card overflow-hidden">
           <header className="flex items-center gap-3 border-b border-line px-5 py-3">
             {p.image && <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-[8px] object-cover" />}
@@ -88,17 +89,46 @@ export function CommentsInbox({ connected }: { connected: boolean }) {
                 <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
               </a>
             )}
-            {p.platform === "instagram" &&
-              (confirm === `post:${p.postId}` ? (
-                <button className="btn btn-sm bg-bad text-white" disabled={!!busy} onClick={() => void act(`post:${p.postId}`, { action: "delete_post", id: p.postId })}>
-                  למחוק את הפוסט
-                </button>
-              ) : (
-                <button className="btn btn-quiet btn-sm" aria-label="מחיקת הפוסט מאינסטגרם" onClick={() => setConfirm(`post:${p.postId}`)}>
-                  <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              ))}
+            {p.platform === "facebook" && (
+              <button className="btn btn-quiet btn-sm" aria-label="לערוך את הפוסט" disabled={!!busy} onClick={() => (setEditing(editing === p.postId ? null : p.postId), setDraft(p.text))}>
+                <Pencil className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            )}
+            {p.platform === "instagram" && (
+              <button className="btn btn-quiet btn-sm" aria-label={p.liked ? "לבטל לייק לפוסט" : "לייק לפוסט"} aria-pressed={!!p.liked} disabled={!!busy} onClick={() => void act(`likepost:${p.postId}`, { action: "like_post", id: p.postId, liked: !p.liked })}>
+                <Heart className={`h-4 w-4 ${p.liked ? "fill-coral text-coral" : ""}`} strokeWidth={1.5} />
+              </button>
+            )}
+            {confirm === `post:${p.postId}` ? (
+              <button className="btn btn-sm bg-bad text-white" disabled={!!busy} onClick={() => void act(`post:${p.postId}`, { action: "delete_post", id: p.postId })}>
+                למחוק את הפוסט
+              </button>
+            ) : (
+              <button className="btn btn-quiet btn-sm" aria-label={p.platform === "instagram" ? "מחיקת הפוסט מאינסטגרם" : "מחיקת הפוסט מהדף"} disabled={!!busy} onClick={() => setConfirm(`post:${p.postId}`)}>
+                <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            )}
           </header>
+          {editing === p.postId && (
+            <form
+              className="space-y-2 border-b border-line px-5 py-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (draft.trim() && (await act(`edit:${p.postId}`, { action: "edit_post", id: p.postId, text: draft }))) setEditing(null);
+              }}
+            >
+              <textarea dir="auto" rows={4} maxLength={5000} className="field resize-none" value={draft} onChange={(e) => setDraft(e.target.value)} />
+              <div className="flex gap-2">
+                <button className="btn btn-primary btn-sm" disabled={!draft.trim() || busy === `edit:${p.postId}`}>
+                  {busy === `edit:${p.postId}` ? "שומר…" : "לשמור בדף"}
+                </button>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => setEditing(null)}>
+                  ביטול
+                </button>
+              </div>
+            </form>
+          )}
+          {p.comments.length === 0 && <p className="px-5 py-3 text-[14.5px] text-ink-3">אין תגובות על הפוסט הזה.</p>}
           <ul className="divide-y divide-line">
             {p.comments.map((c) => (
               <li key={c.id} className={`px-5 py-3.5 ${c.hidden ? "opacity-60" : ""}`}>

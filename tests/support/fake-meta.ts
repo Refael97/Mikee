@@ -181,6 +181,10 @@ export class FakeMeta {
     }
 
     // Comments on Page posts and Instagram posts, with replies, likes, hiding and deleting.
+    if (root === "ig_1" && edge === "upcoming_events") {
+      if (method === "POST") return { id: this.add("igevent", { title: params.title, start_time: params.start_time, end_time: params.end_time }).id };
+      return { data: this.list("igevent").map((e) => ({ id: e.id, title: e.title, start_time: e.start_time, end_time: e.end_time })), paging: {} };
+    }
     if (root === "ig_1" && edge === "likes") {
       const target = this.nodes.get(params.comment_id ?? params.media_id);
       if (!target) return { __error: { message: "Object does not exist", code: 100 } };

@@ -16,7 +16,8 @@ const SCENARIOS: { ask: string; expect: string[]; proves: string }[] = [
   { ask: "Create a test campaign with 10 ILS a day", expect: ["propose_campaign"], proves: "ads_management, pages_manage_ads" },
   { ask: "Write a post for Facebook and Instagram", expect: ["propose_post"], proves: "pages_manage_posts, instagram_content_publish" },
   { ask: "Show me the latest leads from my lead forms", expect: ["meta_read"], proves: "leads_retrieval" },
-  { ask: "Create an Instagram event reminder for our launch next Friday at 18:00", expect: ["meta_write"], proves: "instagram_manage_upcoming_events" },
+  { ask: "How did my Facebook Page do this week? Show the Page insights.", expect: ["read_organic_insights"], proves: "read_insights" },
+  { ask: "Write an Instagram feed post with a photo of our new collection", expect: ["propose_post"], proves: "instagram_content_publish" },
 ];
 const REFUSAL = /(I (can't|cannot|am unable|don't have)|not able to|אין לי (אפשרות|גישה|יכולת)|לא יכול)/i;
 

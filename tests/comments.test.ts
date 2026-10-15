@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { actOnComment, listComments } from "@/lib/meta/comments";
 import { checkMetaWrite } from "@/lib/agent/tools";
+import { createEvent, eventDetails, listEvents } from "@/lib/meta/events";
 import { forgetBusiness } from "@/lib/ttl";
 import { FakeMeta } from "./support/fake-meta";
 import { createBusiness } from "./support/setup";
@@ -58,12 +59,35 @@ describe("comments on the business's posts", () => {
 
   it("deletes an Instagram post of the business, and nothing that is not its own", async () => {
     const ws = await createBusiness();
-    const { igPost, fbPost } = seed();
+    const { igPost } = seed();
     const stranger = meta.add("igcomment", { parent: "someone_elses_post", text: "x", username: "x" });
     await expect(actOnComment(ws, { action: "delete", id: stranger.id })).rejects.toThrow();
-    await expect(actOnComment(ws, { action: "delete_post", id: fbPost.id })).rejects.toThrow();
+    await expect(actOnComment(ws, { action: "delete_post", id: "123456789" })).rejects.toThrow();
     await actOnComment(ws, { action: "delete_post", id: igPost.id });
     expect(meta.calls.some((c) => c.method === "DELETE" && c.path.endsWith(`/${igPost.id}`))).toBe(true);
+  });
+
+  it("edits and deletes a Page post, and likes an Instagram post", async () => {
+    const ws = await createBusiness();
+    const { fbPost, igPost } = seed();
+    await actOnComment(ws, { action: "edit_post", id: fbPost.id, text: "קולקציית ערב חדשה, עכשיו גם במידות גדולות" });
+    expect(meta.calls.some((c) => c.method === "POST" && c.path.endsWith(`/${fbPost.id}`) && c.params.message?.includes("במידות גדולות"))).toBe(true);
+    await expect(actOnComment(ws, { action: "edit_post", id: igPost.id, text: "x" })).rejects.toThrow();
+    await actOnComment(ws, { action: "like_post", id: igPost.id, liked: true });
+    expect(meta.calls.some((c) => c.method === "POST" && c.path.endsWith("/ig_1/likes") && c.params.media_id === igPost.id)).toBe(true);
+    forgetBusiness(ws);
+    expect((await listComments(ws)).find((p) => p.postId === igPost.id)?.liked).toBe(true);
+    await actOnComment(ws, { action: "delete_post", id: fbPost.id });
+    expect(meta.calls.some((c) => c.method === "DELETE" && c.path.endsWith(`/${fbPost.id}`))).toBe(true);
+  });
+
+  it("lists, opens and creates Instagram upcoming events", async () => {
+    const ws = await createBusiness();
+    const id = await createEvent(ws, { title: "השקת קולקציית חורף", startTime: "2026-11-20T18:00:00+02:00" });
+    const list = await listEvents(ws);
+    expect(list).toEqual([expect.objectContaining({ id, title: "השקת קולקציית חורף", startTime: "2026-11-20T18:00:00+02:00" })]);
+    expect((await eventDetails(ws, id)).title).toBe("השקת קולקציית חורף");
+    await expect(eventDetails(ws, "999999999")).rejects.toThrow();
   });
 
   it("an upcoming event can be set up only on the business's own Instagram account", () => {

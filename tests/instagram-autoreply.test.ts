@@ -103,18 +103,31 @@ describe("automatic replies from approved facts", () => {
     await deliver(ig, { mid: "mid_1", from: "5550001", to: ig, text: "איפה החנות?" });
     await drainJobs();
     expect(sent()).toHaveLength(1);
-    expect(sent()[0]).toMatchObject({ recipient: "5550001", text: "החנות נמצאת בדיזנגוף 120, תל אביב." });
+    // Said plainly that the answer is automatic.
+    expect(sent()[0]).toMatchObject({ recipient: "5550001", text: "תשובה אוטומטית: החנות נמצאת בדיזנגוף 120, תל אביב." });
     expect(await row("mid_1")).toMatchObject({ status: "answered", replyMid: `m_${sent()[0].id}` });
     // One short call to the light model; the customer's text reaches it as data, not instructions.
     expect(claude.requests).toHaveLength(1);
     expect(claude.requests[0].messages[0].content[0].text).toMatch(/<untrusted source="instagram_message">/);
 
     // Meta echoes Mikee's own reply back: recognized, and the conversation stays with Mikee.
-    await deliver(ig, { mid: `m_${sent()[0].id}`, from: ig, to: "5550001", text: "החנות נמצאת בדיזנגוף 120, תל אביב.", echo: true });
+    await deliver(ig, { mid: `m_${sent()[0].id}`, from: ig, to: "5550001", text: "תשובה אוטומטית: החנות נמצאת בדיזנגוף 120, תל אביב.", echo: true });
     await drainJobs();
     const d = await db();
     const thread = await d.query.igThreads.findFirst({ where: eq(schema.igThreads.customerId, "5550001") });
     expect(thread?.humanAt).toBeNull();
+  });
+
+  it("a customer who writes 'stop' gets no more automatic replies; the conversation waits for the client", async () => {
+    const { ig } = await business();
+    decides((p) => ({ answer: true, factIds: [factId(p, "כתובת")], reply: "החנות נמצאת בדיזנגוף 120, תל אביב.", reason: "address" }))();
+    await deliver(ig, { mid: "mid_stop", from: "5550009", to: ig, text: "תפסיקו" });
+    await drainJobs();
+    expect(await row("mid_stop")).toMatchObject({ status: "pending" });
+    await deliver(ig, { mid: "mid_after", from: "5550009", to: ig, text: "איפה החנות?", at: Date.now() + 1000 });
+    await drainJobs();
+    expect(sent()).toHaveLength(0);
+    expect(await row("mid_after")).toMatchObject({ status: "human" });
   });
 
   it("sends nothing when the facts do not answer it; the message waits for the client", async () => {

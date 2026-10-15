@@ -114,6 +114,9 @@ async function isOurReply(row: Row): Promise<boolean> {
   return !!recent;
 }
 
+/** A message that asks the business to stop the automatic replies, in Hebrew or English. */
+export const OPT_OUT = /^\s*(stop|unsubscribe|תפסיק(?:ו)?|הפסק(?:ו)?|די|עצור|לא לשלוח|בלי הודעות אוטומטיות)\s*[.!]*\s*$/i;
+
 /** Runs once per received message (the worker's igreply job). */
 export async function handleInstagramMessage(id: string) {
   const d = await db();
@@ -130,6 +133,15 @@ export async function handleInstagramMessage(id: string) {
       .values({ workspaceId: row.workspaceId, customerId: row.customerId, humanAt: new Date() })
       .onConflictDoUpdate({ target: [schema.igThreads.workspaceId, schema.igThreads.customerId], set: { humanAt: new Date(), updatedAt: new Date() } });
     return setStatus(id, { status: "ignored", reason: "sent by a person from the business's account" });
+  }
+
+  // The customer asked to stop automatic replies: Mikee stops for this conversation and leaves it to the owner.
+  if (row.text && OPT_OUT.test(row.text)) {
+    await d
+      .insert(schema.igThreads)
+      .values({ workspaceId: row.workspaceId, customerId: row.customerId, humanAt: new Date() })
+      .onConflictDoUpdate({ target: [schema.igThreads.workspaceId, schema.igThreads.customerId], set: { humanAt: new Date(), updatedAt: new Date() } });
+    return setStatus(id, { status: "pending", reason: "the customer asked to stop automatic replies" });
   }
 
   const thread = await d.query.igThreads.findFirst({ where: and(eq(schema.igThreads.workspaceId, row.workspaceId), eq(schema.igThreads.customerId, row.customerId)) });
@@ -155,7 +167,8 @@ export async function handleInstagramMessage(id: string) {
   const check = groundedReply(decision, allowed);
   if (!check.ok) return setStatus(id, { status: "pending", reason: check.why.slice(0, 300) });
 
-  const reply = norm(decision.reply);
+  // Said plainly that the answer is automatic (Meta's messaging policy recommends it, and some laws require it).
+  const reply = `${/[\u0590-\u05FF]/.test(row.text) || !/[A-Za-z]/.test(row.text) ? "תשובה אוטומטית: " : "Automated reply: "}${norm(decision.reply)}`;
   if (!(await claim(id, reply))) return;
   const sent = await sendInstagramMessage(row.workspaceId, row.customerId, reply);
   if (sent.status !== "sent") {
