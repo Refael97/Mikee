@@ -25,7 +25,6 @@ export async function GET() {
     purchasedLeft: q.purchasedLeft,
     renewsOn: q.renewsOn,
     cycle: q.cycle,
-    used: { conversations: q.byKind.conversations, media: q.byKind.media },
     plan: planOf(s).name,
     guidance: s.guidance ? GUIDANCE[s.guidance].name : null,
     notice: await dueNotice(ws.id, q),

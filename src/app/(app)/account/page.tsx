@@ -108,20 +108,6 @@ export default async function AccountPage() {
               )}
             </div>
           </div>
-          <dl className="divide-y divide-line border-y border-line text-[15px]">
-            <div className="flex justify-between gap-4 py-2.5">
-              <dt className="text-ink-2">שיחות ועבודה של הצוות</dt>
-              <dd className="num">{n(q.byKind.conversations)} קרדיטים</dd>
-            </div>
-            <div className="flex justify-between gap-4 py-2.5">
-              <dt className="text-ink-2">תמונות וסרטונים שנוצרו</dt>
-              <dd className="num">{n(q.byKind.media)} קרדיטים</dd>
-            </div>
-            <div className="flex justify-between gap-4 py-2.5">
-              <dt className="text-ink-2">עריכת סרטונים</dt>
-              <dd className="text-ink-3">כלולה</dd>
-            </div>
-          </dl>
           <Meter label="אחסון בספרייה" used={storage.used} limit={storage.limit} show={size} />
           <UsageRequests />
         </div>
