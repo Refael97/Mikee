@@ -3,6 +3,7 @@ import { CalendarClock, Check, Clapperboard, Globe, ImagePlus, Megaphone, Messag
 import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { appPath, sitePath } from "./links";
 import { SiteMikee } from "./SiteMikee";
+import { GUIDANCE, PLANS as PLAN_DATA } from "@/lib/plans";
 
 const ICON = { size: 18, strokeWidth: 1.5 };
 
@@ -44,10 +45,12 @@ const QUOTES = [
 
 const FEATURES = ["ניהול קמפיינים מלא במטא (פייסבוק ואינסטגרם)", "חיבור לאתר", "יצירת תמונות וסרטונים", "עריכת וידאו", "תזמון ואוטומציות"];
 
+// Prices and storage come from src/lib/plans.ts, so the site always says what the app enforces.
+// The AI quota is not shown in numbers: the plus plan simply includes more work.
 const PLANS = [
-  { id: "ai_299", name: "מייקי AI", price: 299, storage: "5GB אחסון", tokens: "100,000 טוקנים ל-AI", note: "לעסק שמתחיל לשווק באופן קבוע", featured: false },
-  { id: "ai_499", name: "מייקי AI פלוס", price: 499, storage: "30GB אחסון", tokens: "250,000 טוקנים ל-AI", note: "למי שעובד עם מייקי הרבה", featured: true },
-];
+  { id: "ai_299", extra: "שימוש ב-AI לעבודה שוטפת", note: "לעסק שמתחיל לשווק באופן קבוע", featured: false },
+  { id: "ai_499", extra: "פי 2.5 יותר שימוש ב-AI", note: "למי שעובד עם מייקי הרבה", featured: true },
+] as const;
 
 const FAQ = [
   { q: "צריך לדעת שיווק כדי לעבוד עם מייקי?", a: "לא. מספרים לו מה רוצים בשפה פשוטה, והוא מציע תוכנית, כותב, מעצב ומעלה. אתה מאשר." },
@@ -55,7 +58,7 @@ const FAQ = [
   { q: "תקציב המודעות כלול במחיר?", a: "לא. המנוי הוא על מייקי. הכסף שמוציאים על מודעות משולם ישירות למטא, מחשבון המודעות שלך." },
   { q: "מה צריך כדי להתחיל?", a: "עמוד עסקי בפייסבוק, חשבון אינסטגרם עסקי וחשבון מודעות במטא. החיבור לוקח כמה דקות." },
   { q: "מה ההבדל בין המסלולים?", a: "בשניהם יש את כל היכולות. במסלול פלוס יש יותר אחסון ויותר שימוש ב-AI, למי שנותן למייקי הרבה עבודה." },
-  { q: "מה כולל הליווי האישי?", a: "פגישת הקמה שבה מחברים את הכול ומגדירים יעדים, פגישה חודשית על התוצאות והצעדים הבאים, ותמיכה דרך האתר." },
+  { q: "מה כולל הליווי האישי?", a: `פגישת הקמה שבה מחברים את הכול ומגדירים יעדים, ואחריה שיחות קבועות על התוצאות, האסטרטגיה והצעדים הבאים: בליווי החודשי שיחה של ${GUIDANCE.monthly.callMinutes} דקות בחודש (₪${GUIDANCE.monthly.priceIls}), בליווי השבועי ${GUIDANCE.weekly.callsPerMonth} שיחות של ${GUIDANCE.weekly.callMinutes} דקות בחודש (₪${GUIDANCE.weekly.priceIls}). בין השיחות עונים לשאלות בכתב.` },
 ];
 
 export default function SiteHome() {
@@ -195,16 +198,16 @@ export default function SiteHome() {
           <p className="s-sub">שני מסלולים עם כל היכולות. ההבדל הוא בכמה עבודה נותנים למייקי.</p>
         </header>
         <div className="s-prices">
-          {PLANS.map((p) => (
+          {PLANS.map((p) => ({ ...p, ...PLAN_DATA()[p.id] })).map((p) => (
             <article key={p.id} className={`s-price ${p.featured ? "is-featured" : ""}`}>
               <div className="s-price-head">
                 <h3>{p.name}</h3>
                 {p.featured && <span className="s-badge s-badge-mint"><i />הכי משתלם</span>}
               </div>
               <p className="s-price-note">{p.note}</p>
-              <p className="s-price-num"><span className="s-num">₪{p.price}</span><small>לחודש</small></p>
+              <p className="s-price-num"><span className="s-num">₪{p.priceIls}</span><small>לחודש</small></p>
               <ul className="s-checks">
-                {[...FEATURES, p.storage, p.tokens].map((f) => (
+                {[...FEATURES, `${p.storageGb}GB אחסון`, p.extra].map((f) => (
                   <li key={f}><Check size={17} strokeWidth={1.5} />{f}</li>
                 ))}
               </ul>
@@ -217,9 +220,14 @@ export default function SiteHome() {
               <span className="s-badge s-badge-violet"><i />תוספת לכל מסלול</span>
             </div>
             <p className="s-price-note">מייקי עושה את העבודה, ואנחנו לצידך</p>
-            <p className="s-price-num"><span className="s-num">+₪400</span><small>לחודש</small></p>
+            <p className="s-price-num"><small>החל מ־</small><span className="s-num">+₪{GUIDANCE.monthly.priceIls}</span><small>לחודש</small></p>
             <ul className="s-checks">
-              {["פגישת הקמה: מחברים את הכול ומגדירים יעדים", "פגישה חודשית על התוצאות והצעדים הבאים", "תמיכה דרך האתר"].map((f) => (
+              {[
+                `${GUIDANCE.monthly.name}: שיחה של ${GUIDANCE.monthly.callMinutes} דקות בחודש, ₪${GUIDANCE.monthly.priceIls}`,
+                `${GUIDANCE.weekly.name}: ${GUIDANCE.weekly.callsPerMonth} שיחות של ${GUIDANCE.weekly.callMinutes} דקות בחודש, ₪${GUIDANCE.weekly.priceIls}`,
+                "פגישת הקמה: מחברים את הכול ומגדירים יעדים",
+                "מענה לשאלות בכתב בין השיחות",
+              ].map((f) => (
                 <li key={f}><Check size={17} strokeWidth={1.5} />{f}</li>
               ))}
             </ul>

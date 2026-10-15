@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GUIDANCE } from "@/lib/plans";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
 
 type Day = { date: string; label: string; slots: string[] };
@@ -94,7 +95,7 @@ export function MeetingForm({ days }: { days: Day[] }) {
             </button>
           ))}
         </div>
-        <p className="s-hint">ובנוסף ליווי אישי, ₪400 לחודש. אפשר להחליט סופית בפגישה.</p>
+        <p className="s-hint">ובנוסף ליווי אישי, חודשי ב־₪{GUIDANCE.monthly.priceIls} או שבועי ב־₪{GUIDANCE.weekly.priceIls}. אפשר להחליט סופית בפגישה.</p>
       </fieldset>
 
       <fieldset className="s-fs s-fields">
