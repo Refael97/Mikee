@@ -7,6 +7,7 @@
  */
 import { db, schema } from "../src/lib/db";
 import { getConnection, type MetaConfig } from "../src/lib/connections";
+import { detectBusiness } from "../src/lib/meta/detect";
 import { Graph } from "../src/lib/meta/graph";
 
 async function main() {
@@ -27,8 +28,21 @@ async function main() {
     return;
   }
   const meta = w.meta!;
-  const c = meta.config;
   const g = new Graph(meta.secret!);
+  // When the business has not confirmed its assets yet, use what the login reaches (nothing is saved).
+  let c: MetaConfig = meta.config;
+  if (!c.adAccountId || !c.pageId) {
+    const found = await detectBusiness(g, w.name).catch(() => null);
+    const page = found?.pages.find((p) => p.id === found.guess.pageId) ?? found?.pages[0];
+    c = {
+      ...c,
+      adAccountId: c.adAccountId ?? found?.guess.adAccountId ?? found?.adAccounts[0]?.id,
+      pageId: c.pageId ?? page?.id,
+      igUserId: c.igUserId ?? page?.ig?.id ?? found?.pages.find((p) => p.ig)?.ig?.id,
+      catalogId: c.catalogId ?? found?.catalogs[0]?.id,
+    };
+    if (found) console.log("Assets not confirmed in Mikee yet, using the first ones the login reaches.");
+  }
   const page = c.pageId ? await g.forPage(c.pageId).catch(() => g) : g;
   console.log(`=== ${w.name} (ad account ${c.adAccountId ?? "none"}, page ${c.pageId ?? "none"}, Instagram ${c.igUserId ?? "none"})\n`);
 
