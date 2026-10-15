@@ -307,9 +307,41 @@ Instagram account was published to during development.
 
 `propose_story({title, media: {type, url}})` is available directly to
 Mikee. The social specialist uses propose_post with format=story. Both create the same approval-gated post
-proposal, with the Story format set on the server. Unknown parameters (including
-`scheduleAt`) are rejected, never discarded and published immediately instead.
-The shared publishing guidance explicitly distinguishes immediate Instagram
-publishing from Facebook scheduling: timed Instagram publishing and timed card
-delivery are not implemented. The health endpoint reports the Railway commit
+proposal, with the Story format set on the server. Unknown parameters are rejected. `scheduleAt` supports an approved future publication.
+The shared publishing guidance distinguishes immediate publishing from scheduled jobs. Instagram uses the persistent Mikee queue; Facebook-only uses Meta scheduling. The health endpoint reports the Railway commit
 SHA when available and a Story capability marker to verify deployed code.
+
+## Scheduled Instagram publishing
+
+Mikee and the social agent accept `scheduleAt` on a post or Story (ISO 8601 with
+an explicit offset, 10 minutes to 30 days ahead). The card shows the date in the
+business timezone. Approval atomically stores the approved state and an execute
+job in `waiting` state with `jobs.not_before` (ignored by older workers during rolling deploys); no Meta containers are created before the due time.
+The Railway worker polls the database and claims due jobs atomically with a
+lease. Scheduling survives restarts and deployments; no cron or AI wake-up is
+needed. Mixed Instagram/Facebook posts are published together by the server.
+
+Provider/CDN media is copied into this business's storage when preparing the
+scheduled card, so a temporary link need not survive until the scheduled time.
+Own library media is validated against the current business. Deleting a selected
+file before publication may prevent the post from publishing.
+
+After approval the card says **מתוזמן** and has a cancel button. Mikee can also
+cancel a schedule when asked, using `cancel_scheduled_post`. Cancellation and
+starting the publication compete atomically: cancellation succeeds only while
+it is still scheduled. To change a time, cancel and approve a new card. Approval
+after the chosen time is rejected. Jobs more than 30 minutes late stop and report
+a failure instead of unexpectedly publishing old content. A published media ID
+and existing checkpoints prevent repeat publications after retries; unknown
+publishing outcomes still require reconciliation.
+
+The scheduled execution and its short success/failure receipt make no model
+calls. Receipt messages are stored in the conversation and marked unread.
+`/api/health` reports `scheduledInstagramPublishing: true` after deployment.
+The server must remain available; polling and Meta processing mean publishing is
+not guaranteed to the second. Startup runs the idempotent SQL migration for
+`jobs.not_before` and its partial due-job index for queued/waiting jobs.
+
+Verified with simulated Meta and real embedded PostgreSQL in
+`tests/scheduled-publishing.test.ts`. UI approval, scheduled status and cancellation
+were checked in desktop and mobile Chrome against a temporary local fixture.

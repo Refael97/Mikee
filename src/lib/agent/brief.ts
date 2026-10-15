@@ -35,11 +35,13 @@ export async function businessBrief(workspaceId: string, tz: string): Promise<st
     .join("\n");
   const by = (agent: string | null) => (agent && agent !== "mikee" ? `, made by ${agent}` : "");
   const open = cards.filter((c) => c.status === "pending");
-  const recent = cards.filter((c) => c.status !== "pending").slice(0, 12);
+  const scheduled = cards.filter((c) => c.status === "scheduled");
+  const recent = cards.filter((c) => !["pending", "scheduled"].includes(c.status)).slice(0, 12);
   const cardLines = [
     open.length ? "Waiting for the client (do not suggest these again; refer to them):" : "No cards are waiting for the client.",
     ...open.map((c) => `- [${c.kind}] "${c.card.title}" id ${c.id}, since ${c.createdAt.toISOString().slice(0, 16)}${by(c.agent)}`),
-    ...(recent.length ? ["Recently decided:", ...recent.map((c) => `- [${c.kind}] "${c.card.title}": ${c.status} ${c.decidedAt?.toISOString().slice(0, 10) ?? ""}${by(c.agent)}`)] : []),
+    ...(scheduled.length ? ["Approved future publications (not live yet; use list_scheduled_posts for all):", ...scheduled.map((c) => `- "${c.card.title}" id ${c.id}, publish at ${String(c.action.scheduleAt)}`)] : []),
+    ...(recent.length ? ["Recently decided:", ...recent.map((c) => `- [${c.kind}] "${c.card.title}": ${c.status}${c.status === "scheduled" ? ` for ${String(c.action.scheduleAt)} (approved, not yet published)` : ""} ${c.decidedAt?.toISOString().slice(0, 10) ?? ""}${by(c.agent)}`)] : []),
   ].join("\n");
   const creditLine = credits
     ? `${credits.percent}% of this cycle's included quota used${credits.percent >= 80 ? " (LOW)" : ""}; enough left for ${credits.available > 0 ? "more work" : "nothing more: stop and tell her she can add credits or upgrade"}. Renews on ${credits.renewsOn}.`

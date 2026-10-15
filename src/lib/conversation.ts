@@ -92,6 +92,7 @@ export type CardView = {
   card: ProposalCard;
   error?: string;
   retryable?: boolean;
+  scheduleAt?: string;
   /** What execution produced that the client should see, e.g. the created images. */
   output?: { url: string; type: "image" | "video" }[];
   /** After a failure: Meta's own error fields and what exists at Meta, to pass on to support (never tokens). */
@@ -136,7 +137,7 @@ function technical(r: Record<string, any>): CardView["technical"] {
 }
 
 /** The client-facing view of one proposal row. */
-export function cardView(p: { id: string; status: string; versionHash: string; card: unknown; result: unknown }): CardView {
+export function cardView(p: { id: string; status: string; versionHash: string; card: unknown; result: unknown; action?: unknown }): CardView {
   const r = (p.result ?? {}) as { error?: string; retryable?: boolean; media?: CardView["output"]; autoActivated?: boolean };
   return {
     id: p.id,
@@ -145,6 +146,7 @@ export function cardView(p: { id: string; status: string; versionHash: string; c
     card: p.card as ProposalCard,
     error: r.error,
     retryable: r.retryable,
+    scheduleAt: (p.action as { scheduleAt?: string } | undefined)?.scheduleAt,
     output: r.media,
     technical: p.status === "failed" ? technical(r as Record<string, any>) : undefined,
     needsIdentity: p.status === "failed" && (r as Record<string, any>).meta?.error_subcode === 3858634,

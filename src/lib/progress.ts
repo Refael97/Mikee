@@ -56,6 +56,8 @@ const ACTIONS: Record<string, string> = {
   propose_story: "מכין לך את הסטורי לאישור",
   propose_adset: "מכין לך סדרה חדשה בקמפיין הקיים",
   propose_adset_copy: "מכין לך שכפול של הסדרה",
+  list_scheduled_posts: "בודק מה מתוזמן לפרסום",
+  cancel_scheduled_post: "מבטל את התזמון שביקשת לבטל",
   withdraw_card: "מבטל הצעה שלא הייתה נכונה",
   propose_post: "מכין לך את הפוסט לאישור",
   propose_media: "מכין לך את התמונה לאישור",

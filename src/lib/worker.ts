@@ -4,11 +4,13 @@ import { db, schema } from "./db";
 import { type AgentEvent, type Row, runMikee } from "./agent/run";
 import { CHECKIN_KICKOFF, OUTCOME_KICKOFF, SCAN_KICKOFF } from "./agent/prompt";
 import { deleteIfEmpty, markUnread } from "./conversations";
+import { finishProposal } from "./proposals";
+import { instagramPublishAt } from "./post-schedule";
 import { executeProposal } from "./executor";
 import { describeMedia } from "./library";
 import { handleInstagramMessage } from "./instagram/autoreply";
 import { ensureTitle } from "./titles";
-import { claimNext, finishJob, heartbeat, type Job, type JobKind, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
+import { deferJob, claimNext, finishJob, heartbeat, type Job, type JobKind, MAX_ATTEMPTS, pushEvent, saveState } from "./jobs";
 import { newTask, runInTask, TaskLimit, type TaskScope, taskMetrics } from "./telemetry";
 import { CREDIT_CONFIG, NOT_ENOUGH, release, reserve } from "./credits";
 
@@ -31,13 +33,23 @@ async function runJobIn(job: Job, task: TaskScope) {
   );
   try {
     if (job.attempts > MAX_ATTEMPTS) {
+      if (job.kind === "execute") {
+        const p = await (await db()).query.proposals.findFirst({ where: eq(schema.proposals.id, String(job.input.proposalId)) });
+        if (p && ["scheduled", "executing"].includes(p.status) && instagramPublishAt(p.kind, p.action)) {
+          await finishProposal(p, false, { error: "הפרסום המתוזמן נעצר אחרי כמה תקלות. צריך לבדוק את הכרטיס לפני ניסיון נוסף.", retryable: false });
+        }
+      }
       await pushEvent(job.id, { t: "error", message: "המשימה נכשלה כמה פעמים ונעצרה." });
       await pushEvent(job.id, { t: "done" });
       await finishJob(job.id, "failed", "too many attempts");
       return;
     }
     if (job.kind === "execute") {
-      await executeProposal(String(job.input.proposalId), { cleanup: !!job.input.cleanup });
+      const outcome = await executeProposal(String(job.input.proposalId), { cleanup: !!job.input.cleanup });
+      if (outcome?.deferredUntil) {
+        await deferJob(job, outcome.deferredUntil);
+        return;
+      }
     } else if (job.kind === "igreply") {
       await handleInstagramMessage(String(job.input.messageId));
     } else if (job.kind === "describe") {

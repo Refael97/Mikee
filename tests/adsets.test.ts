@@ -239,7 +239,7 @@ describe("saying it straight", () => {
     await expect(approveProposal(ws, p.id, p.versionHash)).rejects.toThrow(/לא תבוצע/);
     expect(MIKEE_TOOLS.map((t) => t.name)).toEqual(expect.arrayContaining(["propose_adset", "propose_adset_copy", "withdraw_card"]));
     expect(MIKEE_CONSTITUTION).toContain("ביקשת סדרה באותו קמפיין; הכנתי קמפיין נפרד. זו טעות, וההצעה הזאת לא תבוצע.");
-    expect(MIKEE_CONSTITUTION).toContain("היכולת עדיין לא מחוברת אצלי");
+    expect(MIKEE_CONSTITUTION).toContain("answer plainly in one short sentence");
     expect(MIKEE_CONSTITUTION).toContain('without hedging or "את לא צודקת לגמרי"');
   });
 });

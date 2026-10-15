@@ -161,6 +161,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status, created_at);
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS lease text;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS metrics jsonb;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS not_before timestamptz NOT NULL DEFAULT now();
+CREATE INDEX IF NOT EXISTS jobs_due_idx ON jobs (not_before, created_at) WHERE status IN ('queued', 'waiting');
 CREATE TABLE IF NOT EXISTS model_calls (
   id serial PRIMARY KEY,
   workspace_id uuid NOT NULL REFERENCES workspaces(id),
@@ -244,6 +246,7 @@ ALTER TABLE media ADD COLUMN IF NOT EXISTS tags jsonb;
 ALTER TABLE media ADD COLUMN IF NOT EXISTS folder text;
 ALTER TABLE media ADD COLUMN IF NOT EXISTS in_library boolean NOT NULL DEFAULT true;
 ALTER TABLE media ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+CREATE INDEX IF NOT EXISTS scheduled_media_ref_idx ON media (workspace_id, source_ref) WHERE source = 'scheduled' AND deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS media_ws_idx ON media (workspace_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS agent_runs (
   id serial PRIMARY KEY,

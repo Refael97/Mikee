@@ -76,7 +76,7 @@ export async function claimNext(kinds?: JobKind[]): Promise<Job | null> {
     UPDATE jobs SET status = 'running', heartbeat_at = now(), attempts = attempts + 1, lease = gen_random_uuid()::text
     WHERE id = (
       SELECT id FROM jobs
-      WHERE (status = 'queued' OR (status = 'running' AND heartbeat_at < now() - make_interval(secs => ${STALE_AFTER_MS / 1000})))
+      WHERE ((status IN ('queued', 'waiting') AND not_before <= now()) OR (status = 'running' AND heartbeat_at < now() - make_interval(secs => ${STALE_AFTER_MS / 1000})))
       ${kindFilter}
       ORDER BY created_at
       LIMIT 1
@@ -135,4 +135,11 @@ export async function eventsSince(jobId: string, after = 0) {
 export async function getJob(workspaceId: string, jobId: string) {
   const d = await db();
   return d.query.jobs.findFirst({ where: and(eq(schema.jobs.id, jobId), eq(schema.jobs.workspaceId, workspaceId)) });
+}
+
+/** Defer a job claimed under clock skew; never mark its future action as completed. */
+export async function deferJob(job: Job, until: Date) {
+  const d = await db();
+  await d.update(schema.jobs).set({ status: "waiting", notBefore: new Date(until.getTime() + 1000), heartbeatAt: null })
+    .where(and(eq(schema.jobs.id, job.id), eq(schema.jobs.status, "running"), job.lease ? eq(schema.jobs.lease, job.lease) : sql`true`));
 }

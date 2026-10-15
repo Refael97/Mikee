@@ -47,12 +47,12 @@ it("exposes the direct Story tool to Mikee and the general publisher to social",
   expect(SPECIALISTS.find(s => s.id === "social")?.tools).toContain("propose_post");
 });
 
-it("rejects an unsupported schedule instead of silently publishing immediately", async () => {
+it("rejects a past schedule instead of silently publishing immediately", async () => {
   const { runTool } = await import("@/lib/agent/tools");
   const meta = new FakeMeta(); uninstall = meta.install();
   const ws = await createBusiness();
   const result = await runTool({ workspaceId: ws, tz: TZ }, "propose_story", {
-    title: "למחר", media: { type: "image", url: "https://cdn.example/a.jpg" }, scheduleAt: new Date(Date.now() + 86400_000).toISOString(),
+    title: "למחר", media: { type: "image", url: "https://cdn.example/a.jpg" }, scheduleAt: new Date(Date.now() - 86400_000).toISOString(),
   });
   expect(result.isError).toBe(true);
   const d = await db();

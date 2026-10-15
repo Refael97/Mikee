@@ -238,6 +238,8 @@ export const jobs = pgTable("jobs", {
   error: text("error"),
   attempts: integer("attempts").notNull().default(0),
   heartbeatAt: ts("heartbeat_at"),
+  /** Earliest time a queued job can run; persisted across deploys. */
+  notBefore: ts("not_before").notNull().defaultNow(),
   /** Set on every claim; only the worker holding it may keep running the job (see heartbeat). */
   lease: text("lease"),
   /** Totals for the task: model calls, Meta requests, cost and time (see src/lib/telemetry.ts). */

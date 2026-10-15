@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { assertWithinBudget, BudgetExceeded, dailyCommit, syncMetaSpendCap } from "./budget";
 import { mediaGenerator } from "./higgsfield";
@@ -11,6 +11,7 @@ import { resolveIdentity } from "./meta/identities";
 import { activateCampaign, addAdset, applyChange, buildCampaign, cleanupAdset, copyAdset, CopyUncertain, describeBuild, OwnershipProblem, reviewAds, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
 import { approveProposal, createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, adsetsOf, AdsetAddSpec, AdsetCopySpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, totalDaily, VideoSpec } from "./specs";
+import { instagramPublishAt, SCHEDULE_LATE_MS } from "./post-schedule";
 import { friendlyError } from "./errors";
 import { CTA_HE } from "./cards";
 import { recordUsage } from "./usage";
@@ -37,7 +38,7 @@ function checkpoint(p: Proposal): Checkpoint {
  */
 export async function executeProposal(proposalId: string, opts: { cleanup?: boolean } = {}) {
   const d = await db();
-  const p = await d.query.proposals.findFirst({ where: eq(schema.proposals.id, proposalId) });
+  let p = await d.query.proposals.findFirst({ where: eq(schema.proposals.id, proposalId) });
   if (!p) return;
   const ws = await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, p.workspaceId) });
   const tz = ws?.timezone ?? "Asia/Jerusalem";
@@ -49,9 +50,22 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
     if ((p.kind === "adset" || p.kind === "adset_copy") && p.status === "cancelled") await cleanupAdset(await metaContext(p.workspaceId), cp).catch(() => undefined);
     return;
   }
+  if (!["scheduled", "executing"].includes(p.status)) return;
+  const scheduledAt = instagramPublishAt(p.kind, p.action);
+  // Guard the executor as well as the queue: direct calls cannot publish early.
+  if (scheduledAt && scheduledAt.getTime() > Date.now()) return { deferredUntil: scheduledAt };
+  if (p.status === "scheduled") {
+    const [started] = await d.update(schema.proposals).set({ status: "executing" })
+      .where(and(eq(schema.proposals.id, p.id), eq(schema.proposals.status, "scheduled"))).returning();
+    if (!started) return; // cancelled while this worker was claiming the job
+    p = started;
+  }
   if (p.status !== "executing") return; // already finished by an earlier run of this job
 
   try {
+    if (scheduledAt && Date.now() - scheduledAt.getTime() > SCHEDULE_LATE_MS && !cp.data.instagram) {
+      throw new NotRetryable(`מועד הפרסום עבר לפני יותר מחצי שעה, ולכן המשך הפרסום נעצר. אפשר לבחור מועד חדש.${cp.data.facebook ? " הפרסום בפייסבוק כבר בוצע." : ""}`);
+    }
     let result: Record<string, unknown> = {};
     switch (p.kind) {
       case "budget": {
@@ -164,7 +178,8 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
       }
       case "post": {
         const spec = PostSpec.parse(p.action);
-        result = await publishPost(await metaContext(p.workspaceId), spec, cp, p.attempts > 1, p.workspaceId);
+        // The queue handles the schedule. At execution both channels publish now.
+        result = await publishPost(await metaContext(p.workspaceId), scheduledAt ? { ...spec, scheduleAt: undefined } : spec, cp, p.attempts > 1, p.workspaceId);
         break;
       }
       case "media": {

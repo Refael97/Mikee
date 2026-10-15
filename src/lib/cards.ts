@@ -28,8 +28,8 @@ export const CTA_HE: Record<string, string> = {
   DOWNLOAD: "להורדה",
 };
 
-const dateHe = (iso?: string) =>
-  iso ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" }).format(new Date(iso)) : undefined;
+const dateHe = (iso?: string, timeZone = "Asia/Jerusalem") =>
+  iso ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso)) : undefined;
 
 const host = (url: string) => {
   try {
@@ -43,7 +43,7 @@ const host = (url: string) => {
  * The card is rendered only from the exact action that will run, so what the client approves
  * is what executes: every material detail (media, texts, link, audience, budget, dates) is on it.
  */
-export function renderCard(kind: ProposalKind, action: any, currency = "ILS", extra: { credits?: number } = {}): ProposalCard {
+export function renderCard(kind: ProposalKind, action: any, currency = "ILS", extra: { credits?: number; timezone?: string } = {}): ProposalCard {
   switch (kind) {
     case "campaign": {
       const s = action as CampaignSpec;
@@ -196,7 +196,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         why: "",
         rows: [
           { label: "איפה", value: s.format === "story" ? "סטורי באינסטגרם" : s.channels.map((c) => (c === "facebook" ? "פייסבוק" : "אינסטגרם")).join(" + ") },
-          { label: "מתי", value: s.scheduleAt ? dateHe(s.scheduleAt)! : "מיד באישור" },
+          { label: "מתי", value: s.scheduleAt ? `${dateHe(s.scheduleAt, extra.timezone)} (${new Intl.DateTimeFormat("he-IL", { timeZone: extra.timezone ?? "Asia/Jerusalem", timeZoneName: "long" }).formatToParts(new Date(s.scheduleAt)).find((p) => p.type === "timeZoneName")?.value})` : "מיד באישור" },
           ...(s.link ? [{ label: "קישור", value: host(s.link) }] : []),
         ],
         media: s.media.length

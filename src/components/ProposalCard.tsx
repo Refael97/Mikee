@@ -26,6 +26,7 @@ const KIND: Record<Card["kind"], { label: string; done: string; icon: typeof Meg
 
 const STATUS: Record<string, { label: string; tag: string }> = {
   pending: { label: "מחכה לך", tag: "tag tag-brand" },
+  scheduled: { label: "מתוזמן", tag: "tag tag-brand" },
   executing: { label: "מייקי על זה", tag: "tag tag-brand" },
   done: { label: "", tag: "tag tag-good" },
   failed: { label: "לא הצליח", tag: "tag tag-bad" },
@@ -337,12 +338,12 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
 
   // While the platform executes in the background, follow the card until it finishes.
   useEffect(() => {
-    if (view.status !== "executing") return;
+    if (!["executing", "scheduled"].includes(view.status)) return;
     const t = setInterval(async () => {
       const res = await fetch(`/api/proposals/${view.id}`, { cache: "no-store" });
       if (res.ok) {
         const next = await res.json();
-        if (next.status !== "executing") {
+        if (next.status !== view.status) {
           setView((v) => ({ ...v, ...next }));
           // A built campaign opens its activation card: let the conversation pick it up.
           if (next.status === "done") window.dispatchEvent(new CustomEvent("mikee:timeline"));
@@ -350,7 +351,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
           if (next.status === "failed") cueMikee("concern");
         }
       }
-    }, 2000);
+    }, view.status === "scheduled" ? 30_000 : 2000);
     return () => clearInterval(t);
   }, [view.status, view.id]);
 
@@ -380,7 +381,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
         // activation (or a budget or change card) is just a no: nothing is said on her behalf.
         if (data.status === "declined" && ["campaign", "post", "media", "video"].includes(card.kind)) onChange(card.title);
       } else {
-        setView((v) => ({ ...v, status: "executing", error: undefined }));
+        setView((v) => ({ ...v, status: data.status ?? "executing", error: undefined }));
       }
     } catch {
       // No answer at all: the card goes back to how it was, and says so. Nothing ran.
@@ -439,6 +440,12 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
         )}
         {view.status === "pending" && finalOnly && (
           <p className="mt-2 text-[13.5px] text-ink-3">זה האישור היחיד: הקמפיין ייבנה, ייבדק ויעלה לאוויר. אם מטא תמצא בעיה הוא יישאר מושהה, ויגיע אלייך כרטיס הפעלה.</p>
+        )}
+        {view.status === "scheduled" && (
+          <div className="space-y-3">
+            <p className="text-[14.5px] text-ink-2">מתוזמן לפרסום במועד שאישרת. אפשר לסגור את המסך.</p>
+            <button className="btn btn-quiet" disabled={busy} onClick={() => decide("decline")}>לבטל את התזמון</button>
+          </div>
         )}
         {view.status === "executing" && (
           <p className="text-[14.5px] text-ink-2">

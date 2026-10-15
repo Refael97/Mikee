@@ -7,6 +7,8 @@ import { renderCard } from "./cards";
 import { appendMessage } from "./conversation";
 import { enqueue } from "./jobs";
 import type { ProposalKind } from "./specs";
+import { markUnread } from "./conversations";
+import { instagramPublishAt, postScheduleProblem } from "./post-schedule";
 import { forgetBusiness } from "./ttl";
 
 export type Proposal = typeof schema.proposals.$inferSelect;
@@ -82,6 +84,7 @@ export async function createProposal(opts: {
 }): Promise<Proposal> {
   const d = await db();
   const key = dedupeKey(opts.kind, opts.action);
+  const workspace = opts.kind === "post" ? await d.query.workspaces.findFirst({ where: eq(schema.workspaces.id, opts.workspaceId) }) : undefined;
 
   if (opts.replaces) {
     const old = await d.query.proposals.findFirst({
@@ -91,8 +94,11 @@ export async function createProposal(opts: {
   }
 
   const pending = await d.query.proposals.findFirst({
-    where: and(eq(schema.proposals.workspaceId, opts.workspaceId), eq(schema.proposals.dedupeKey, key), eq(schema.proposals.status, "pending")),
+    where: and(eq(schema.proposals.workspaceId, opts.workspaceId), eq(schema.proposals.dedupeKey, key), inArray(schema.proposals.status, ["pending", "scheduled"])),
   });
+  if (pending?.status === "scheduled") {
+    throw new ProposalConflict(`This exact publication is already approved and scheduled for ${String(pending.action.scheduleAt)}. Refer to its card; do not prepare or publish it again.`, pending);
+  }
   if (pending && pending.id !== opts.replaces) {
     throw new ProposalConflict(
       `A card for this is already waiting for the client ("${pending.card.title}", ${pending.createdAt.toISOString()}). Do not suggest it again; refer to it, or pass replaces: "${pending.id}" if she asked for a change.`,
@@ -138,7 +144,7 @@ export async function createProposal(opts: {
           dedupeKey: key,
           month: opts.month,
           reserved: opts.reserved ?? 0,
-          card: renderCard(opts.kind, opts.action, opts.currency, { credits: opts.credits }) as unknown as Record<string, unknown>,
+          card: renderCard(opts.kind, opts.action, opts.currency, { credits: opts.credits, timezone: workspace?.timezone }) as unknown as Record<string, unknown>,
           action: opts.action,
           agent: opts.agent ?? null,
         })
@@ -162,33 +168,36 @@ export class ApprovalRejected extends Error {}
  */
 export async function approveProposal(workspaceId: string, id: string, versionHash: string, opts: { auto?: boolean } = {}) {
   const d = await db();
-  const claimed = await d
-    .update(schema.proposals)
-    .set({ status: "executing", attempts: sql`${schema.proposals.attempts} + 1`, decidedAt: sql`coalesce(${schema.proposals.decidedAt}, now())` })
-    .where(
-      and(
-        eq(schema.proposals.id, id),
-        eq(schema.proposals.workspaceId, workspaceId),
-        eq(schema.proposals.versionHash, versionHash),
-        sql`(${schema.proposals.status} = 'pending' OR (${schema.proposals.status} = 'failed' AND coalesce((${schema.proposals.result}->>'retryable')::boolean, true)))`,
-      ),
-    )
-    .returning();
+  // The approved state and durable job are committed together: a crash cannot strand an approved card.
+  const { claimed, job, scheduled } = await d.transaction(async (tx) => {
+    const current = await tx.query.proposals.findFirst({ where: and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId)) });
+    const at = current ? instagramPublishAt(current.kind, current.action) : undefined;
+    if (current?.versionHash === versionHash && ["pending", "failed"].includes(current.status) && at) {
+      const problem = postScheduleProblem(at.toISOString());
+      if (problem) throw new ApprovalRejected(problem);
+    }
+    const rows = await tx.update(schema.proposals)
+      .set({ status: at ? "scheduled" : "executing", attempts: sql`${schema.proposals.attempts} + 1`, decidedAt: sql`coalesce(${schema.proposals.decidedAt}, now())` })
+      .where(and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId), eq(schema.proposals.versionHash, versionHash),
+        sql`(${schema.proposals.status} = 'pending' OR (${schema.proposals.status} = 'failed' AND coalesce((${schema.proposals.result}->>'retryable')::boolean, true)))`)).returning();
+    if (!rows.length) return { claimed: rows, job: undefined, scheduled: !!at };
+    const [queued] = await tx.insert(schema.jobs).values({ workspaceId, kind: "execute", input: { proposalId: id }, ...(at ? { notBefore: at, status: "waiting" } : {}) }).returning();
+    return { claimed: rows, job: queued, scheduled: !!at };
+  });
 
   if (!claimed.length) {
     const p = await d.query.proposals.findFirst({ where: and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId)) });
     if (!p) throw new ApprovalRejected("הכרטיס לא נמצא");
     if (p.versionHash !== versionHash) throw new ApprovalRejected("ההצעה עודכנה מאז שהוצגה. צריך לאשר את הגרסה החדשה.");
-    if (p.status === "executing" || p.status === "done") return { status: p.status, duplicate: true as const };
+    if (p.status === "executing" || p.status === "scheduled" || p.status === "done") return { status: p.status, duplicate: true as const };
     if (p.status === "superseded") throw new ApprovalRejected("מייקי החליף את ההצעה הזאת בגרסה חדשה.");
     if (p.status === "declined" || p.status === "cancelled") throw new ApprovalRejected("ההצעה הזאת כבר נדחתה.");
     if (p.status === "withdrawn") throw new ApprovalRejected("מייקי ביטל את ההצעה הזאת, והיא לא תבוצע.");
     throw new ApprovalRejected("אי אפשר לאשר את ההצעה הזאת כרגע.");
   }
 
-  const job = await enqueue(workspaceId, "execute", { proposalId: id });
   await logActivity(workspaceId, "approval", `${opts.auto ? "אושר אוטומטית" : "אושר"}: ${String(claimed[0].card.title)}`, { proposalId: id, version: versionHash });
-  return { status: "executing" as const, jobId: job.id };
+  return { status: scheduled ? "scheduled" as const : "executing" as const, jobId: job!.id };
 }
 
 /** Declines a waiting card, or cancels a failed one (the executor's cleanup removes half-built objects). */
@@ -196,12 +205,28 @@ export async function declineProposal(workspaceId: string, id: string) {
   const d = await db();
   const [row] = await d
     .update(schema.proposals)
-    .set({ status: sql`case when ${schema.proposals.status} = 'failed' then 'cancelled' else 'declined' end`, decidedAt: new Date() })
-    .where(and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId), inArray(schema.proposals.status, ["pending", "failed"])))
+    .set({ status: sql`case when ${schema.proposals.status} IN ('failed', 'scheduled') then 'cancelled' else 'declined' end`, decidedAt: new Date() })
+    .where(and(eq(schema.proposals.id, id), eq(schema.proposals.workspaceId, workspaceId), inArray(schema.proposals.status, ["pending", "failed", "scheduled"])))
     .returning();
   if (!row) throw new ApprovalRejected("ההצעה כבר טופלה");
-  if (row.status === "cancelled") await enqueue(workspaceId, "execute", { proposalId: id, cleanup: true });
+  if (row.status === "cancelled" && row.kind === "post") await retireScheduledJob(workspaceId, id);
+  if (row.status === "cancelled" && row.kind !== "post") await enqueue(workspaceId, "execute", { proposalId: id, cleanup: true });
   return row;
+}
+
+async function retireScheduledJob(workspaceId: string, id: string) {
+  await (await db()).update(schema.jobs).set({ status: "done", finishedAt: new Date() })
+    .where(and(eq(schema.jobs.workspaceId, workspaceId), eq(schema.jobs.kind, "execute"), inArray(schema.jobs.status, ["queued", "waiting"]), sql`${schema.jobs.input}->>'proposalId' = ${id}`));
+}
+
+/** Stops an approved future post, but cannot race a publishing action already in progress. */
+export async function cancelScheduledPost(workspaceId: string, id: string) {
+  const d = await db();
+  const [row] = await d.update(schema.proposals).set({ status: "cancelled", decidedAt: new Date() })
+    .where(and(eq(schema.proposals.workspaceId, workspaceId), eq(schema.proposals.id, id), eq(schema.proposals.kind, "post"), eq(schema.proposals.status, "scheduled"))).returning();
+  if (row) await retireScheduledJob(workspaceId, id);
+  if (row) await logActivity(workspaceId, "post", `בוטל התזמון: ${String(row.card.title)}`, { proposalId: id });
+  return row ?? null;
 }
 
 /**
@@ -247,6 +272,15 @@ export async function finishProposal(p: Proposal, ok: boolean, result: Record<st
         : `[Platform event, not typed by the client] "${title}" failed: ${String(result.detail ?? result.error)}. ${result.retryable === false ? "It cannot be retried automatically." : "The client can retry from the card; progress is kept, nothing is duplicated."} Explain simply if she asks.`,
     },
   ]);
+  if (instagramPublishAt(p.kind, p.action)) {
+    // A scheduled publication and its receipt need no second model call.
+    const label = p.action.format === "story" ? "הסטורי" : "הפוסט";
+    await appendMessage(p.workspaceId, conversationId, "assistant", "chat", [{ type: "text", text: ok
+      ? `${label} פורסם.`
+      : `הפרסום המתוזמן דורש בדיקה. אפשר לפתוח את הכרטיס לפרטים ולבחור איך להמשיך.` }]);
+    await markUnread(conversationId);
+    return;
+  }
   // Mikee tells her the outcome himself, in one line, so "I'll update you when it is confirmed" is kept. If a turn
   // is already running in this conversation, it is skipped: the card itself shows the result.
   if (process.env.MIKEE_REPORT_OUTCOMES !== "off") {
@@ -261,8 +295,8 @@ export async function openAndRecent(workspaceId: string) {
   const rows = await d
     .select()
     .from(schema.proposals)
-    .where(and(eq(schema.proposals.workspaceId, workspaceId), sql`(${schema.proposals.status} = 'pending' OR ${schema.proposals.decidedAt} > ${since.toISOString()})`))
-    .orderBy(desc(schema.proposals.createdAt))
+    .where(and(eq(schema.proposals.workspaceId, workspaceId), sql`(${schema.proposals.status} IN ('pending', 'scheduled') OR ${schema.proposals.decidedAt} > ${since.toISOString()})`))
+    .orderBy(sql`case when ${schema.proposals.status} IN ('pending', 'scheduled') then 0 else 1 end`, desc(schema.proposals.createdAt))
     .limit(30);
   return rows;
 }

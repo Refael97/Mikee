@@ -1,12 +1,14 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../db";
 import { remember as rememberFact, setFact, TOPICS, type Topic } from "../brain";
 import { assertWithinBudget, budgetStatus, BudgetExceeded, dailyCommit, monthKey } from "../budget";
 import { getConnection, type WebsiteConfig } from "../connections";
 import { logActivity } from "../activity";
+import { preserveScheduledMedia } from "../scheduled-media";
+import { postScheduleProblem } from "../post-schedule";
 import { metaContext, money, requireAdAccount } from "../meta/context";
 import { copyPlan, currentDailyBudget, describeError, ownedCampaign, OwnershipProblem } from "../meta/actions";
 import { insights, readCampaigns } from "../meta/performance";
@@ -16,7 +18,7 @@ import { listIdentities } from "../meta/identities";
 import { campaignContext } from "../meta/campaignContext";
 import { fileConversation, isGenericTitle } from "../conversations";
 import { mediaGenerator } from "../higgsfield";
-import { approveProposal, createProposal, ProposalConflict, withdrawProposal } from "../proposals";
+import { cancelScheduledPost, approveProposal, createProposal, ProposalConflict, withdrawProposal } from "../proposals";
 import { AdsetAddSpec, AdsetCopySpec, CampaignSpec, ChangeSpec, Media, MediaSpec, PostSpec, totalDaily } from "../specs";
 import { totalSeconds, VideoSpecBase } from "../video/spec";
 import { videoMedia, videoRenderer, VideoProblem } from "../video/render";
@@ -135,16 +137,14 @@ export function postProblem(spec: z.infer<typeof PostSpec>): string | null {
     if ((spec.text.match(/#[\p{L}\p{N}_]+/gu) ?? []).length > 30) return "Instagram allows at most 30 hashtags.";
     if ((spec.text.match(/@[A-Za-z0-9._]+/g) ?? []).length > 20) return "Instagram allows at most 20 @mentions.";
     if (!spec.media.length) return "Instagram posts need an image or a video.";
-    if (spec.scheduleAt) return "Automatic Instagram publishing at a future time is not implemented in Mikee. A card with an hour is not a scheduled job. Do not promise timed card delivery, a reminder or delegation as a workaround. Facebook-only scheduling is supported.";
+
   }
   if (spec.channels.includes("facebook")) {
     const videos = spec.media.filter((m) => m.type === "video").length;
     if (videos > 1 || (videos === 1 && spec.media.length > 1)) return "A Facebook post is either one video or photos only. Split it into separate posts.";
   }
-  if (spec.scheduleAt) {
-    const t = new Date(spec.scheduleAt).getTime();
-    if (!Number.isFinite(t) || t < Date.now() + 15 * 60_000 || t > Date.now() + 30 * 86400_000) return "Schedule between 15 minutes and 30 days from now.";
-  }
+  const scheduleError = postScheduleProblem(spec.scheduleAt);
+  if (scheduleError) return scheduleError;
   return null;
 }
 
@@ -720,6 +720,30 @@ export const TOOLS = [
   }),
 
   tool({
+    name: "list_scheduled_posts",
+    effect: "read",
+    description: "List this business's approved future Instagram publishing jobs, with exact time and card ID, for status questions, cancellation or rescheduling. An empty page is not a publishing permission error. Use offset to read more if count equals limit.",
+    input: z.object({ limit: z.number().int().min(1).max(50).default(25), offset: z.number().int().min(0).max(10000).default(0) }),
+    run: async (ctx, i) => {
+      const rows = await (await db()).select().from(schema.proposals)
+        .where(and(eq(schema.proposals.workspaceId, ctx.workspaceId), eq(schema.proposals.kind, "post"), eq(schema.proposals.status, "scheduled")))
+        .orderBy(asc(schema.proposals.createdAt)).limit(i.limit).offset(i.offset);
+      return { items: rows.map(p => ({ proposalId: p.id, title: p.card.title, scheduleAt: p.action.scheduleAt, format: p.action.format })), count: rows.length };
+    },
+  }),
+
+  tool({
+    name: "cancel_scheduled_post",
+    effect: "memory",
+    description: "Cancel an approved future Instagram publishing job in Mikee, ONLY when the client asks to cancel or reschedule it. Use the scheduled card ID from the brief. Nothing is published; cannot cancel once publishing has started. For a new time, cancel this schedule and prepare a fresh approval card.",
+    input: z.object({ proposalId: z.string().uuid() }),
+    run: async (ctx, i) => {
+      const row = await cancelScheduledPost(ctx.workspaceId, i.proposalId);
+      return row ? { cancelled: true, proposalId: row.id } : { error: "לא נמצא פרסום מתוזמן שאפשר לבטל. ייתכן שהפרסום כבר התחיל; צריך לבדוק את מצב הכרטיס." };
+    },
+  }),
+
+  tool({
     name: "withdraw_card",
     effect: "memory",
     description:
@@ -772,13 +796,13 @@ export const TOOLS = [
     effect: "proposal",
     description:
       "Publish a ready image or video as an Instagram Story, as a card she approves: the direct way when the file already exists (the library, Meta media, a generated or edited video), with no need to delegate. " +
-      "One file, no caption, Instagram only. It goes through the same publishing path as propose_post with format=story. Published means the card reports a media id, not before.",
-    input: z.object({ title: z.string().describe("Friendly card headline, e.g. 'סטורי לסרטון החדש'"), media: Media }).extend(proposalOptions).strict(),
-    run: async (ctx, { replaces, clientAsked, title, media }) => {
-      const spec = PostSpec.parse({ title, channels: ["instagram"], format: "story", text: "", media: [media] });
+      "One file, no caption, Instagram only. Optional scheduleAt schedules publication in Mikee after approval (10 minutes to 30 days ahead, explicit timezone offset). It goes through the same publishing path as propose_post with format=story. Published means the card reports a media id, not before.",
+    input: z.object({ title: z.string().describe("Friendly card headline, e.g. 'סטורי לסרטון החדש'"), media: Media, scheduleAt: PostSpec.shape.scheduleAt }).extend(proposalOptions).strict(),
+    run: async (ctx, { replaces, clientAsked, title, media, scheduleAt }) => {
+      const spec = PostSpec.parse({ title, channels: ["instagram"], format: "story", text: "", media: [media], scheduleAt });
       const problem = postProblem(spec);
       if (problem) return { status: "error", error: problem };
-      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: await preserveScheduledMedia(ctx.workspaceId, spec), month: monthKey(ctx.tz), replaces, clientAsked });
       return { proposalId: p.id, shown: "The Story card is in front of the client; it is published when she approves." };
     },
   }),
@@ -786,12 +810,12 @@ export const TOOLS = [
   tool({
     name: "propose_post",
     effect: "proposal",
-    description: "Prepare an organic post or Instagram Story and show a card before publishing. For Stories set format=story, exactly one image/video, text empty, Instagram only. Reuse ready media; no new render is needed merely to publish it. Other posts use format=auto.",
+    description: "Prepare an organic post or Instagram Story and show a card before publishing. For Stories set format=story, exactly one image/video, text empty, Instagram only. Reuse ready media; no new render is needed merely to publish it. Optional scheduleAt schedules an approved future publication. Other posts use format=auto.",
     input: PostSpec.extend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
       const problem = postProblem(spec);
       if (problem) return { error: problem };
-      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: spec, month: monthKey(ctx.tz), replaces, clientAsked });
+      const p = await createProposal({ workspaceId: ctx.workspaceId, conversationId: ctx.conversationId, agent: ctx.agent, kind: "post", action: await preserveScheduledMedia(ctx.workspaceId, spec), month: monthKey(ctx.tz), replaces, clientAsked });
       return { proposalId: p.id, shown: "The post preview is in front of the client." };
     },
   }),
