@@ -5,6 +5,7 @@ import { Nav } from "@/components/Nav";
 import { MikeeToast } from "@/components/MikeeToast";
 import { getConnection } from "@/lib/connections";
 import { pendingCount } from "@/lib/instagram/inbox";
+import { hasUnread } from "@/lib/conversations";
 import { connectedAssets } from "@/lib/meta/assets";
 import { ConnectedAccount } from "@/components/ConnectedAccount";
 import { NavScroll } from "@/components/NavScroll";
@@ -15,11 +16,11 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, workspace } = await requireSession();
   if (workspace.stage === "connect") redirect("/onboarding");
-  const [meta, pending, assets] = await Promise.all([getConnection(workspace.id, "meta"), pendingCount(workspace.id), connectedAssets(workspace.id, workspace.name)]);
+  const [meta, pending, assets, unread] = await Promise.all([getConnection(workspace.id, "meta"), pendingCount(workspace.id), connectedAssets(workspace.id, workspace.name), hasUnread(workspace.id)]);
   return (
     // Desktop: a 10px frame and 10px gaps around the rail and the panels. Mobile: full width, no frame.
     <div className="flex min-h-dvh flex-col lg:flex-row lg:gap-[10px] lg:p-[10px]">
-      <Nav who={{ name: user.name, email: user.email, business: workspace.name }} support={{ email: process.env.SUPPORT_EMAIL, whatsapp: process.env.SUPPORT_WHATSAPP }} waiting={{ "/inbox": pending > 0 }} assets={assets} />
+      <Nav who={{ name: user.name, email: user.email, business: workspace.name }} support={{ email: process.env.SUPPORT_EMAIL, whatsapp: process.env.SUPPORT_WHATSAPP }} waiting={{ "/inbox": pending > 0, "/mikee": unread }} assets={assets} />
       {/* Desktop: the connected account, at the top corner of the main panel on every page. */}
       <div className="fixed end-[26px] top-[22px] z-30 hidden lg:block">
         <ConnectedAccount initial={assets} />

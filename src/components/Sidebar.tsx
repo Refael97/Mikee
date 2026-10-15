@@ -42,6 +42,12 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const [announced, setAnnounced] = useState<string | null>(null);
   const activeId = params.id ?? announced;
 
+  // The conversations button in the mobile top bar shows a blue dot while something here is new.
+  useEffect(() => {
+    if (!items) return;
+    window.dispatchEvent(new CustomEvent("mikee:unread", { detail: items.some((c) => c.unread && c.id !== activeId) }));
+  }, [items, activeId]);
+
   const load = useCallback(async () => {
     const res = await fetch("/api/conversations", { cache: "no-store" });
     if (res.ok) setItems((await res.json()).conversations);

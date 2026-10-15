@@ -81,6 +81,17 @@ export async function listConversations(workspaceId: string, limit = 200) {
     .limit(limit);
 }
 
+/** Whether any open conversation has something new from Mikee (the blue dot on the conversations button). */
+export async function hasUnread(workspaceId: string) {
+  const d = await db();
+  const [row] = await d
+    .select({ id: schema.conversations.id })
+    .from(schema.conversations)
+    .where(and(eq(schema.conversations.workspaceId, workspaceId), eq(schema.conversations.archived, false), eq(schema.conversations.unread, true)))
+    .limit(1);
+  return !!row;
+}
+
 export async function touchConversation(id: string) {
   const d = await db();
   await d.update(schema.conversations).set({ updatedAt: new Date() }).where(eq(schema.conversations.id, id));

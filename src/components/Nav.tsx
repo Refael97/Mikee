@@ -54,6 +54,15 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
   const [menu, setMenu] = useState(false);
   const [help, setHelp] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // New in a conversation: first from the server, then live from the conversations list when it is on screen.
+  const unreadAtLoad = !!waiting["/mikee"];
+  const [unread, setUnread] = useState(unreadAtLoad);
+  useEffect(() => setUnread(unreadAtLoad), [unreadAtLoad]);
+  useEffect(() => {
+    const h = (e: Event) => setUnread(!!(e as CustomEvent<boolean>).detail);
+    window.addEventListener("mikee:unread", h);
+    return () => window.removeEventListener("mikee:unread", h);
+  }, []);
 
   useEffect(() => {
     setSheet(false);
@@ -130,21 +139,21 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
         </div>
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="glass sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line px-4 lg:hidden" style={{ background: "color-mix(in srgb, var(--bg) 92%, transparent)" }}>
-        <Link href="/mikee" aria-label="מייקי" className="flex items-center gap-2">
-          <MikeeAvatar size={28} />
-        </Link>
-        <div className="min-w-0">
+      {/* Mobile and tablet top bar (RTL): the menu on the right, where its sheet opens; the business in the middle; help and the conversations on the left. */}
+      <header className="glass sticky top-0 z-40 grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-line px-3 lg:hidden" style={{ background: "color-mix(in srgb, var(--bg) 92%, transparent)" }}>
+        <div className="flex items-center">
+          <button onClick={() => setSheet(true)} className="btn btn-ghost btn-sm h-10 w-10 px-0" aria-label="תפריט">
+            <Menu className="h-[22px] w-[22px]" strokeWidth={1.5} />
+          </button>
+        </div>
+        <div className="min-w-0 max-w-[52vw] justify-self-center">
           <ConnectedAccount initial={assets} compact />
         </div>
-        <div className="ms-auto flex items-center gap-1">
-          <button onClick={() => setHelp(true)} className="btn btn-ghost btn-sm px-2" aria-label="עזרה">
-            <LifeBuoy className="h-5 w-5" strokeWidth={1.5} />
+        <div className="flex items-center justify-end gap-0.5">
+          <button onClick={() => setHelp(true)} className="btn btn-ghost btn-sm h-10 w-10 px-0" aria-label="עזרה">
+            <LifeBuoy className="h-[22px] w-[22px]" strokeWidth={1.5} />
           </button>
-          <button onClick={() => setSheet(true)} className="btn btn-ghost btn-sm px-2" aria-label="תפריט">
-            <Menu className="h-5 w-5" strokeWidth={1.5} />
-          </button>
+          <ConversationsButton onMikee={path.startsWith("/mikee")} unread={unread} />
         </div>
       </header>
 
@@ -187,6 +196,37 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
 
       <HelpPanel open={help} onClose={() => setHelp(false)} support={support} />
     </>
+  );
+}
+
+/** Two speech bubbles, thin like the other icons. */
+function ChatsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M14.5 9.5a5.5 5.5 0 1 0-10.3 2.7L3.5 15l2.9-.7a5.5 5.5 0 0 0 8.1-4.8Z" />
+      <path d="M9.3 16.4a5.5 5.5 0 0 0 8.3 1.9l2.9.7-.7-2.8a5.5 5.5 0 0 0-3.9-8" />
+    </svg>
+  );
+}
+
+/** Opens the conversations list: in place on the conversations page, otherwise it goes there with the list open. */
+function ConversationsButton({ onMikee, unread }: { onMikee: boolean; unread: boolean }) {
+  const label = unread ? "שיחות, יש חדש" : "שיחות";
+  const inner = (
+    <>
+      <ChatsIcon className="h-[22px] w-[22px]" />
+      {unread && <span className="pop absolute start-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-bg bg-blue" aria-hidden />}
+    </>
+  );
+  const cls = "btn btn-ghost btn-sm relative h-10 w-10 px-0";
+  return onMikee ? (
+    <button type="button" className={cls} aria-label={label} onClick={() => window.dispatchEvent(new Event("mikee:conversations"))}>
+      {inner}
+    </button>
+  ) : (
+    <Link href="/mikee#conversations" className={cls} aria-label={label}>
+      {inner}
+    </Link>
   );
 }
 
