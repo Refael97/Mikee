@@ -16,6 +16,8 @@ export type WorkspaceSettings = {
   /** Mirror the monthly budget onto the ad account's spending limit at Meta (hard stop on charges). */
   metaSpendCap?: boolean;
   metaSpendCapStatus?: { ok: boolean; at: string; detail: string };
+  /** Comments the business liked from Mikee (Meta does not say who liked a comment), newest last, capped. */
+  likedComments?: string[];
   /** Subscription plan (set by us, not by the client): storage and cost ceilings. */
   plan?: string;
   /** What the business wants to focus on now, in its own words, kept by Mikee. */

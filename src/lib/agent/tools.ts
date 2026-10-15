@@ -70,11 +70,13 @@ const Period = z.enum(["today", "yesterday", "last_7d", "last_14d", "last_30d", 
  * meta_write may only create these things, on the business's own assets, with these fields. It is an allowlist:
  * anything not listed (budgets, statuses, ads, posts, the batch API, query strings smuggled in the path) is refused.
  */
-type Asset = "adAccount" | "catalog" | "page" | "pixel";
+type Asset = "adAccount" | "catalog" | "page" | "pixel" | "instagram";
 export const META_WRITES: { path: RegExp; asset: Asset; params: string[] }[] = [
   { path: /^\/(act_\d+)\/customaudiences$/, asset: "adAccount", params: ["name", "description", "subtype", "rule", "retention_days", "prefill", "lookalike_spec", "origin_audience_id", "customer_file_source", "event_source_group", "pixel_id", "claim_objective", "content_type"] },
   { path: /^\/(act_\d+)\/customconversions$/, asset: "adAccount", params: ["name", "description", "rule", "event_source_id", "custom_event_type", "default_conversion_value"] },
   { path: /^\/(\d+)\/product_sets$/, asset: "catalog", params: ["name", "filter"] },
+  // An Instagram upcoming event (a launch, a sale) for a reminder ad; the ad itself still goes through a card.
+  { path: /^\/(\d+)\/upcoming_events$/, asset: "instagram", params: ["title", "start_time", "end_time", "notification_subtypes", "notification_target_time"] },
   { path: /^\/(\d+)\/leadgen_forms$/, asset: "page", params: ["name", "questions", "privacy_policy", "follow_up_action_url", "thank_you_page", "context_card", "locale", "block_display_for_non_targeted_viewer", "is_optimized_for_quality", "question_page_custom_headline"] },
 ];
 /** Kept for the approval tests: these must never be reachable through meta_write. */
@@ -602,7 +604,7 @@ export const TOOLS = [
   tool({
     name: "meta_write",
     effect: "setup",
-    description: "Set things up on Meta that do not spend money and are not public (Graph API POST): custom and lookalike audiences, product sets, catalog items, lead forms, pixel custom conversions. Anything that spends, changes budgets or status, or publishes must use the propose_* tools instead.",
+    description: "Set things up on Meta that do not spend money and are not public (Graph API POST): custom and lookalike audiences, product sets, catalog items, lead forms, pixel custom conversions, and Instagram upcoming events for reminder ads ('/{ig_user_id}/upcoming_events' with title and start_time as ISO 8601; only when the client asked for an event reminder). Anything that spends, changes budgets or status, or publishes must use the propose_* tools instead.",
     input: z.object({
       path: z.string().startsWith("/"),
       params: z.record(z.string(), z.unknown()).default({}),
@@ -611,7 +613,7 @@ export const TOOLS = [
     run: async (ctx, i) => {
       const params = i.params as Record<string, unknown>;
       const meta = await metaContext(ctx.workspaceId);
-      const problem = checkMetaWrite(i.path, params, { adAccount: meta.adAccountId, catalog: meta.catalogId, page: meta.pageId, pixel: meta.pixelId });
+      const problem = checkMetaWrite(i.path, params, { adAccount: meta.adAccountId, catalog: meta.catalogId, page: meta.pageId, pixel: meta.pixelId, instagram: meta.igUserId });
       if (problem) return { error: problem };
       // Page objects (instant forms) need the page's own token; account objects use the user token.
       const graph = /leadgen_forms$/.test(i.path) && meta.pageId ? await meta.graph.forPage(meta.pageId) : meta.graph;

@@ -385,6 +385,12 @@ export const NEEDED_SCOPES = [
   "pages_manage_metadata",
   "leads_retrieval",
   "catalog_management",
+  "read_insights",
+  "instagram_manage_comments",
+  "instagram_manage_engagement",
+  "instagram_manage_contents",
+  "instagram_manage_upcoming_events",
+  "pages_manage_engagement",
 ];
 
 /**

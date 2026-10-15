@@ -110,3 +110,27 @@ npm run meta-review-calls -- "אדרט"
 > 5. Results, leads: leads from the Page's lead forms (leads_retrieval).
 > 6. Settings, "Is this your business?": the Page, Instagram account, ad account, pixel and product catalog found for the business (pages_show_list, pages_read_engagement, catalog_management).
 > Nothing is published or spent without the business owner approving a card.
+
+## הגשה ראשונה: 22 הרשאות
+17 ההרשאות שבטבלה למעלה, ועוד חמש שנוספו עם ניהול התגובות והאירועים:
+
+| הרשאה | בשביל מה במייקי |
+|---|---|
+| `instagram_manage_comments` | קריאת התגובות על פוסטים באינסטגרם, מענה, הסתרה ומחיקה (עמוד "הודעות", "תגובות על הפוסטים") |
+| `pages_manage_engagement` | מענה, לייק, הסתרה ומחיקה של תגובות על פוסטים בדף הפייסבוק |
+| `instagram_manage_engagement` | לייק לתגובה של לקוחה באינסטגרם |
+| `instagram_manage_contents` | מחיקת פוסט מאינסטגרם, אחרי אישור נוסף בלחיצה |
+| `instagram_manage_upcoming_events` | יצירת אירוע קרוב באינסטגרם (השקה, מבצע) למודעת תזכורת, כשהלקוחה מבקשת בצ'אט |
+
+הוסרו מהבקשה: ההרשאות של משפיענים ותוכן ממומן (`instagram_creator_marketplace_discovery`, `instagram_branded_content_brand`, `instagram_branded_content_ads_brand`, `facebook_branded_content_ads_brand`, `instagram_branded_content_creator`) ו־`instagram_shopping_tag_products` (לא זמין בישראל).
+
+את חמש החדשות צריך גם לסמן בקונפיגורציה של Facebook Login for Business, ולהתחבר מחדש.
+
+- **instagram_manage_comments:** Mikee shows the comments on the business's latest Instagram posts under Messages, so the owner can reply, hide or delete them in one place. Mikee only acts when the owner clicks.
+- **pages_manage_engagement:** On the same screen the owner replies to, likes, hides or deletes comments on the business's Facebook Page posts.
+- **instagram_manage_engagement:** The owner can like a customer's comment on the business's Instagram post from Mikee, to acknowledge it without writing a reply.
+- **instagram_manage_contents:** The owner can delete one of the business's Instagram posts from Mikee. The delete button asks for a second confirmation before anything is removed.
+- **instagram_manage_upcoming_events:** When the owner asks in the chat for a reminder about an upcoming launch or sale, Mikee creates an Instagram upcoming event with its title and start time, used in a reminder ad that the owner approves on a separate card.
+
+Reviewer instructions, step 7 (add after step 6):
+> 7. Comments: open Messages ("הודעות", left menu) and scroll to "תגובות על הפוסטים". Comments on the latest Facebook and Instagram posts are listed with buttons to reply, like, hide and delete; the trash icon next to an Instagram post deletes the post after a second click (instagram_manage_comments, pages_manage_engagement, instagram_manage_engagement, instagram_manage_contents). In Chats, type "Create an Instagram event reminder for our launch next Friday at 18:00" to create an upcoming event (instagram_manage_upcoming_events).

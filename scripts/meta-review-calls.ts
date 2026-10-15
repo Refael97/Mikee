@@ -74,6 +74,15 @@ async function main() {
     ["instagram_manage_insights", () => need(c.igUserId, () => g.get(`/${c.igUserId}/insights`, { metric: "reach", period: "day" }))],
     ["instagram_manage_messages", () => need(c.pageId, () => page.get(`/${c.pageId}/conversations`, { platform: "instagram", limit: 1 }))],
     [
+      "instagram_manage_comments",
+      () =>
+        need(c.igUserId, async () => {
+          const media = await g.get<{ data: { id: string }[] }>(`/${c.igUserId}/media`, { fields: "id", limit: 1 });
+          return need(media.data[0]?.id, () => g.get(`/${media.data[0].id}/comments`, { fields: "id,text", limit: 1 }), "no Instagram post yet");
+        }),
+    ],
+    ["instagram_manage_upcoming_events", () => need(c.igUserId, () => g.get(`/${c.igUserId}/upcoming_events`, { limit: 1 }))],
+    [
       "catalog_management",
       async () => {
         // The chosen catalog, or the first one the connection's businesses own.
@@ -92,7 +101,7 @@ async function main() {
       console.log(`failed   ${permission}: ${(e as Error).message}`);
     }
   }
-  console.log("\nMeta counts the calls within about a day. Write permissions (posting, creating ads) also count when Mikee does them after an approved card.");
+  console.log("\nMeta counts the calls within about a day. Write permissions (posting, creating ads) also count when Mikee does them after an approved card.\npages_manage_engagement, instagram_manage_engagement and instagram_manage_contents count when you reply to, like or hide a comment and delete an Instagram post under Messages in Mikee.");
 }
 
 function need<T>(id: string | undefined, run: () => Promise<T>, why = "not chosen in this business"): Promise<T> {

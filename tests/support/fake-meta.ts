@@ -180,6 +180,36 @@ export class FakeMeta {
       }
     }
 
+    // Comments on Page posts and Instagram posts, with replies, likes, hiding and deleting.
+    if (root === "ig_1" && edge === "likes") {
+      const target = this.nodes.get(params.comment_id ?? params.media_id);
+      if (!target) return { __error: { message: "Object does not exist", code: 100 } };
+      target.liked = method === "POST";
+      return { success: true };
+    }
+    {
+      const n = this.nodes.get(root);
+      if (n && (n.type === "fbpost" || n.type === "igpost") && edge === "comments" && method === "GET") {
+        const fb = n.type === "fbpost";
+        const list = this.list(fb ? "fbcomment" : "igcomment").filter((c) => c.parent === root && !c.deleted);
+        const replies = (id: string) => this.list(fb ? "fbreply" : "igreply").filter((r) => r.parent === id && !r.deleted);
+        return {
+          data: list.map((c) =>
+            fb
+              ? { id: c.id, message: c.message, from: c.from, created_time: c.created_time, is_hidden: !!c.is_hidden && c.is_hidden !== "false", like_count: c.liked ? 1 : 0, comments: { data: replies(c.id).map((r) => ({ id: r.id, message: r.message, from: r.from, created_time: r.created_time })) } }
+              : { id: c.id, text: c.text, username: c.username, timestamp: c.created_time, hidden: !!c.hide && c.hide !== "false", like_count: c.liked ? 1 : 0, replies: { data: replies(c.id).map((r) => ({ id: r.id, text: r.text, username: r.username, timestamp: r.created_time })) } },
+          ),
+          paging: {},
+        };
+      }
+      if (n?.type === "fbcomment" && edge === "comments" && method === "POST") return { id: this.add("fbreply", { parent: root, message: params.message, from: { id: "page_1", name: "Studio Noa" } }).id };
+      if (n?.type === "igcomment" && edge === "replies" && method === "POST") return { id: this.add("igreply", { parent: root, text: params.message, username: "studio.noa" }).id };
+      if (n?.type === "fbcomment" && edge === "likes") {
+        n.liked = method === "POST";
+        return { success: true };
+      }
+    }
+
     const node = this.nodes.get(root);
     // Ad set copies, answered like Meta's real /copies (copied_adset_id, then ad_object_ids with the ad set and each ad).
     if (node && node.type === "adset" && edge === "copies" && method === "POST") {
