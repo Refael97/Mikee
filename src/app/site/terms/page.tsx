@@ -5,8 +5,8 @@ export const metadata: Metadata = { title: "תנאי שימוש" };
 // A first version to build on; the final text needs a lawyer's review before launch.
 export default function Terms() {
   return (
-    <main className="s-wrap s-section s-narrow s-legal">
-      <h1 className="s-h1 s-h1-sm">תנאי שימוש</h1>
+    <main className="s-page s-legal">
+      <h1 className="s-page-h1">תנאי שימוש</h1>
       <p className="s-legal-meta">גרסה ראשונה, עודכנה באוקטובר 2026</p>
 
       <h2>1. השירות</h2>
