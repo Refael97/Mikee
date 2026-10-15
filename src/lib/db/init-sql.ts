@@ -76,6 +76,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFA
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at timestamptz;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_hash text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mikee_theme text NOT NULL DEFAULT 'ice_blue';
 CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower ON users (lower(username));
 CREATE TABLE IF NOT EXISTS rate_limits (
   key text NOT NULL,

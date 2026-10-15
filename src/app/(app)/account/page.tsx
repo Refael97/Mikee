@@ -11,6 +11,7 @@ import { getSettings } from "@/lib/settings";
 import { quota } from "@/lib/credits";
 import { UsageBar, UsageRequests } from "@/components/Usage";
 import { Section } from "@/components/ConnectionForms";
+import { MikeeLookPicker } from "@/components/MikeeLookPicker";
 import { PasswordForm, ProfileForm } from "@/components/AccountForms";
 import { Page, PageHeader } from "@/components/Page";
 
@@ -69,6 +70,10 @@ export default async function AccountPage() {
 
       <Section title="הפרטים שלי">
         <ProfileForm name={user.name} email={user.email} username={user.username} />
+      </Section>
+
+      <Section id="mikee" title="הצבע של מייקי" hint="איך מייקי נראה בכל המסכים שלך. אפשר להחליף בכל רגע.">
+        <MikeeLookPicker />
       </Section>
 
       <Section id="usage" title="המנוי והשימוש" hint="המכסה החודשית לכל מה שמייקי והצוות שלו עושים. תקציב הפרסום משולם ישירות למטא ולא נספר כאן.">

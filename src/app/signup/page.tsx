@@ -13,7 +13,7 @@ export default async function SignupPage() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-shell px-4 py-12">
       <div className="mb-8 flex items-center gap-2.5">
-        <MikeeAvatar size={32} />
+        <MikeeAvatar size={64} />
         <span className="text-[20px] font-semibold">מייקי</span>
       </div>
       <div className="card-float w-full max-w-[440px] p-7">

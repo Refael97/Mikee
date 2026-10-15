@@ -22,7 +22,7 @@ import { shopifyDomain } from "./store";
 import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 import { forgetBusiness } from "./ttl";
 import { businessTypeOf, intakeSchema } from "./intake";
-import { isLook } from "./mikee-look";
+import { setUserTheme } from "./mikee-theme";
 
 /** Every form value is capped and cleaned before use. */
 const str = (form: FormData, key: string, max = 500) => cleanClientText(String(form.get(key) ?? ""), max);
@@ -172,11 +172,13 @@ export async function saveIntake(answers: unknown): Promise<{ error: string } | 
   revalidatePath("/onboarding");
 }
 
-/** The business picks one of Mikee's looks; every screen of this business shows it. */
-export async function setMikeeLook(look: string): Promise<{ error: string } | void> {
-  const { workspace } = await requireSession();
-  if (!isLook(look)) return { error: "המראה הזה לא קיים." };
-  await updateSettings(workspace.id, { mikeeLook: look });
+/** The user picks Mikee's colour; every screen they open shows it. */
+export async function updateMikeeTheme(theme: string): Promise<{ error: string } | void> {
+  const { user } = await requireSession();
+  const rate = await hit(`mikee-theme:${user.id}`, 30, 3600);
+  if (!rate.ok) return { error: "יותר מדי שינויים בזמן קצר. נסי שוב בעוד כמה דקות." };
+  const r = await setUserTheme(user.id, theme);
+  if (!r.ok) return { error: r.error };
   revalidatePath("/", "layout");
 }
 

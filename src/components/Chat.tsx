@@ -356,7 +356,7 @@ export function Chat({
       <div ref={list} className="flex-1 pb-10 pt-8 sm:pt-12">
         {empty ? (
           <div className="mx-auto max-w-[640px] pt-[6vh]">
-            <MikeeAvatar size={40} state={typing ? "listening" : "idle"} cues />
+            <MikeeAvatar size={96} state={typing ? "listening" : "idle"} cues />
             <h1 className="display mt-5">היי {firstName}, מה עושים היום?</h1>
             <p className="lead mt-2">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
 

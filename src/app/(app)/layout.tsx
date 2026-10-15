@@ -11,7 +11,6 @@ import { ConnectedAccount } from "@/components/ConnectedAccount";
 import { NavScroll } from "@/components/NavScroll";
 import { UsageWatcher } from "@/components/Usage";
 import { MikeeLookProvider } from "@/components/MikeeLook";
-import { getSettings } from "@/lib/settings";
 import { lookOf } from "@/lib/mikee-look";
 
 export const dynamic = "force-dynamic";
@@ -23,17 +22,17 @@ export default async function AppLayout({
 }) {
   const { user, workspace } = await requireSession();
   if (workspace.stage === "connect") redirect("/onboarding");
-  const [meta, pending, assets, unread, settings] = await Promise.all([
+  const [meta, pending, assets, unread] = await Promise.all([
     getConnection(workspace.id, "meta"),
     pendingCount(workspace.id),
     connectedAssets(workspace.id, workspace.name),
     hasUnread(workspace.id),
-    getSettings(workspace.id),
   ]);
+  const theme = lookOf(user.mikeeTheme);
   return (
     // Desktop: a 10px frame and 10px gaps around the rail and the panels. Mobile: full width, no frame.
-    <MikeeLookProvider look={lookOf(settings)}>
-      <div className="flex min-h-dvh flex-col lg:flex-row lg:gap-[10px] lg:p-[10px]">
+    <MikeeLookProvider look={theme}>
+      <div data-mikee-theme={theme} className="flex min-h-dvh flex-col lg:flex-row lg:gap-[10px] lg:p-[10px]">
         <Nav
           who={{ name: user.name, email: user.email, business: workspace.name }}
           support={{

@@ -86,7 +86,7 @@ export function MikeeAvatar({
         draggable={false}
         className={`absolute inset-0 h-full w-full select-none transition-opacity duration-200 ${moving && ready ? "opacity-0" : "opacity-100"}`}
       />
-      {moving && <MikeeRive key={l} look={l} state={state} cue={cue} greet={greet} interactive={size >= 28} onReady={() => setReady(true)} />}
+      {moving && <MikeeRive key={l} look={l} state={state} cue={cue} greet={greet} interactive={size >= 28} track={size >= 32} onReady={() => setReady(true)} />}
     </span>
   );
 }

@@ -20,8 +20,6 @@ export type WorkspaceSettings = {
   plan?: string;
   /** What the business wants to focus on now, in its own words, kept by Mikee. */
   focus?: { text: string; since: string };
-  /** Mikee's look chosen by the business (src/lib/mikee-look.ts). */
-  mikeeLook?: string;
   /** The answers to the questions after signup (src/lib/intake.ts), read by Mikee in the brief. */
   intake?: Intake;
   /** ecommerce | services | local | content: shapes the marketing path and the results page. */
@@ -67,6 +65,8 @@ export const users = pgTable("users", {
   passwordChangedAt: ts("password_changed_at"),
   /** One-time recovery code (hashed), shown to the user once; resets the password without email. */
   recoveryHash: text("recovery_hash"),
+  /** Mikee's colour for this user (src/lib/mikee-look.ts): one of the view model instances in mikee.riv. */
+  mikeeTheme: text("mikee_theme").notNull().default("ice_blue"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 

@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
-import { setMikeeLook } from "@/lib/actions";
-import { MIKEE_LOOKS, type MikeeLook } from "@/lib/mikee-look";
+import { updateMikeeTheme } from "@/lib/actions";
+import { MIKEE_LOOKS, THEME_EVENT, type MikeeLook } from "@/lib/mikee-look";
 import { MikeeAvatar } from "./MikeeAvatar";
 import { useMikeeLook } from "./MikeeLook";
 
-/** Four looks side by side, each one alive; a tap saves it for every screen of the business. */
+/** The four colours side by side, each Mikee alive in his own; a tap saves it and changes every Mikee at once. */
 export function MikeeLookPicker() {
   const router = useRouter();
   const current = useMikeeLook();
@@ -21,10 +21,12 @@ export function MikeeLookPicker() {
     const before = picked;
     setPicked(look);
     setError(null);
+    window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: look }));
     start(async () => {
-      const r = await setMikeeLook(look).catch(() => ({ error: "השמירה לא הצליחה. נסי שוב." }));
+      const r = await updateMikeeTheme(look).catch(() => ({ error: "השמירה לא הצליחה. נסי שוב." }));
       if (r?.error) {
         setPicked(before);
+        window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: before }));
         setError(r.error);
       } else router.refresh();
     });
@@ -32,7 +34,7 @@ export function MikeeLookPicker() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" role="radiogroup" aria-label="המראה של מייקי">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" role="radiogroup" aria-label="הצבע של מייקי">
         {MIKEE_LOOKS.map((l) => {
           const on = l.id === picked;
           return (
