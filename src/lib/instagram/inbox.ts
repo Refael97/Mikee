@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { MetaError } from "../meta/graph";
 import { messagingAccess } from "../meta/messages";
-import { setAutoReply, type AutoReply } from "./facts";
+import { autoReplySettings, setAutoReply, type AutoReply } from "./facts";
 import { sendInstagramMessage, type SendResult } from "./send";
 
 /** What the client sees: messages waiting for her, what Mikee answered, and conversations a person took over. */
@@ -33,6 +33,9 @@ export async function inbox(workspaceId: string) {
 /** Switching it on also subscribes the business's page to message events, so Meta starts sending them. */
 export async function switchAutoReply(workspaceId: string, enabled: boolean, topics: AutoReply["topics"]): Promise<AutoReply> {
   if (!enabled) return setAutoReply(workspaceId, { enabled, topics });
+  // Only the topics changed: Meta was already set up, so nothing to ask it again.
+  const current = await autoReplySettings(workspaceId);
+  if (current.enabled && current.subscription?.ok) return setAutoReply(workspaceId, { enabled, topics });
   const a = await messagingAccess(workspaceId);
   if (!a.ok) return setAutoReply(workspaceId, { enabled, topics, subscription: { ok: false, at: new Date().toISOString(), detail: a.error } });
   let subscription: AutoReply["subscription"];

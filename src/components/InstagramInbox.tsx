@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, Plus, X } from "lucide-react";
 
 type Topic = "address" | "hours" | "phone" | "website" | "other";
 type Fact = { topic: Topic; label: string | null; value: string };
@@ -45,6 +45,9 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The topics change on the screen at once; the save goes out quietly a moment later.
+  const [topics, setTopics] = useState<Topic[] | null>(null);
+  const saveTopics = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/instagram", { cache: "no-store" });
@@ -82,10 +85,29 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
       </div>
     );
   const s = data.settings;
+  const shown = topics ?? s.topics;
+  const savedTopics = new Set(data.facts.map((f) => f.topic));
+  const missing = shown.filter((t) => !savedTopics.has(t));
+
+  function toggleTopic(id: Topic) {
+    const on = shown.includes(id);
+    const next = on ? shown.filter((x) => x !== id) : [...shown, id];
+    setTopics(next);
+    setError(null);
+    setSaved(null);
+    // A new topic with nothing written for it gets an empty line below, ready to fill.
+    if (!on && !facts.some((f) => f.topic === id)) setFacts((x) => [...x, { topic: id, label: "", value: "" }]);
+    if (saveTopics.current) clearTimeout(saveTopics.current);
+    saveTopics.current = setTimeout(() => {
+      post({ action: "settings", enabled: s.enabled, topics: next }).catch((e) => {
+        setTopics(null);
+        setError((e as Error).message);
+      });
+    }, 500);
+  }
   const pending = data.messages.filter((m) => m.status === "pending" || m.status === "sending");
   const answered = data.messages.filter((m) => m.status === "answered");
   const mine = data.messages.filter((m) => m.status === "handled" || m.status === "human");
-  const factTopics = new Set(facts.map((f) => f.topic));
 
   return (
     <div className="space-y-[28px]">
@@ -103,29 +125,36 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
             className="switch mt-1"
             checked={s.enabled}
             disabled={busy || !connected}
-            onChange={(e) => void run({ action: "settings", enabled: e.target.checked, topics: s.topics }, e.target.checked ? "המענה האוטומטי פעיל." : "המענה האוטומטי כבוי.")}
+            onChange={(e) => void run({ action: "settings", enabled: e.target.checked, topics: shown }, e.target.checked ? "המענה האוטומטי פעיל." : "המענה האוטומטי כבוי.")}
           />
         </label>
         <div className="mt-5">
-          <p className="mb-2 text-[15px] text-ink-2">נושאים שמייקי עונה עליהם</p>
-          <div className="flex flex-wrap gap-1">
+          <p className="text-[15px] text-ink">נושאים שמייקי עונה עליהם</p>
+          <p className="mb-3 text-[13.5px] text-ink-3">לחיצה מוסיפה או מסירה נושא. אפשר לבחור כמה.</p>
+          <div className="flex flex-wrap gap-2">
             {TOPICS.map((t) => {
-              const on = s.topics.includes(t.id);
+              const on = shown.includes(t.id);
               return (
                 <button
                   key={t.id}
                   type="button"
                   aria-pressed={on}
-                  disabled={busy}
-                  className="tab tab-sm"
-                  onClick={() => void run({ action: "settings", enabled: s.enabled, topics: on ? s.topics.filter((x) => x !== t.id) : [...s.topics, t.id] })}
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-[15px] transition-[background-color,border-color,transform] duration-150 active:scale-[.97] ${
+                    on ? "border-ink bg-surface text-ink" : "border-line bg-surface text-ink-2 hover:bg-surface-2"
+                  }`}
+                  onClick={() => toggleTopic(t.id)}
                 >
+                  {on ? <Check className="h-4 w-4" strokeWidth={1.75} /> : <Plus className="h-4 w-4 text-ink-3" strokeWidth={1.5} />}
                   {t.label}
-                  {on && !factTopics.has(t.id) && <span className="text-[13.5px] text-warn">אין מידע</span>}
                 </button>
               );
             })}
           </div>
+          {missing.length > 0 && (
+            <p className="note note-warn mt-4 text-[14.5px]">
+              על {missing.map(topicLabel).join(", ")} מייקי עוד לא יענה, כי אין עליהם מידע מאושר. כתבי אותו למטה ולחצי על שמירה ואישור.
+            </p>
+          )}
         </div>
         {s.enabled && s.subscription && !s.subscription.ok && (
           <div className="note note-warn mt-4 text-[14.5px]">
@@ -215,7 +244,7 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
           </div>
         </section>
       )}
-      <p className="meta">הנושאים: {s.topics.length ? s.topics.map(topicLabel).join(", ") : "לא נבחרו"}.</p>
+      <p className="meta">הנושאים: {shown.length ? shown.map(topicLabel).join(", ") : "לא נבחרו"}.</p>
     </div>
   );
 }
