@@ -1,76 +1,57 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import "@fontsource-variable/rubik/wght.css";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { appPath, sitePath } from "./links";
-import { Reveal } from "./parts";
 import "./site.css";
 
 export const metadata: Metadata = {
-  title: { default: "מייקי · מנהל השיווק של העסק שלך", template: "%s · מייקי" },
-  description: "מייקי מנהל עבורך את השיווק הדיגיטלי: קמפיינים במטא, תוכן, וידאו, סושיאל ושיחות עם לקוחות. הכול בצ׳אט אחד, בעזרת AI, ושום דבר לא יוצא בלי האישור שלך.",
-  openGraph: { title: "מייקי · מנהל השיווק של העסק שלך", description: "העסק שלך משווק את עצמו. אתה רק מאשר.", locale: "he_IL", type: "website" },
+  title: { default: "מייקי · מנהל צוות השיווק שלך", template: "%s · מייקי" },
+  description: "מייקי מנהל עבורך את השיווק הדיגיטלי: קמפיינים במטא, תוכן, וידאו, סושיאל ושיחות עם לקוחות. הכול במקום אחד, בעזרת AI, ושום דבר לא יוצא בלי האישור שלך.",
+  openGraph: { title: "מייקי · מנהל צוות השיווק שלך", description: "העסק שלך משווק את עצמו. אתה מתמקד בלצמוח.", locale: "he_IL", type: "website" },
 };
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   const home = sitePath("/");
-  const email = process.env.SUPPORT_EMAIL;
-  const year = new Date().getFullYear();
   return (
-    <div className="s-root" id="top">
+    <div className="s-root">
       <header className="s-nav">
-        <Link href={home} className="s-brand" aria-label="מייקי, לדף הבית">
-          <MikeeAvatar size={28} animate={false} />
-          <span>מייקי</span>
-        </Link>
-        <nav className="s-nav-links" aria-label="ניווט">
-          <a href={`${home}#try`}>לנסות</a>
-          <a href={`${home}#what`}>הצוות</a>
-          <a href={`${home}#how`}>איך זה עובד</a>
-          <a href={`${home}#pricing`}>מחירים</a>
-          <a href={`${home}#faq`}>שאלות</a>
-        </nav>
-        <div className="s-nav-end">
-          <a href={appPath("/login")} className="s-link">כניסה</a>
-          <a href={appPath("/signup")} className="s-btn s-btn-accent s-btn-sm">להתחיל</a>
+        <div className="s-nav-in">
+          <Link href={home} className="s-brand" aria-label="מייקי, לדף הבית">
+            <MikeeAvatar size={30} animate={false} />
+            <span>מייקי</span>
+          </Link>
+          <nav className="s-nav-links" aria-label="ניווט">
+            <a href={`${home}#what`}>מה מייקי עושה</a>
+            <a href={`${home}#how`}>איך זה עובד</a>
+            <a href={`${home}#pricing`}>מחירים</a>
+            <a href={`${home}#faq`}>שאלות</a>
+          </nav>
+          <div className="s-nav-end">
+            <a href={appPath("/login")} className="btn btn-ghost">כניסה</a>
+            <a href={appPath("/signup")} className="btn btn-primary">להתחיל</a>
+          </div>
         </div>
       </header>
 
       {children}
 
       <footer className="s-foot">
-        <div className="s-foot-top">
-          <div className="s-foot-notes">
-            <span className="s-brand">
-              <MikeeAvatar size={24} animate={false} />
-              <span>מייקי</span>
-            </span>
-            <p>מנהל השיווק של העסק שלך, בצ׳אט אחד.</p>
-            <p>שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך.</p>
+        <div className="s-wrap s-foot-in">
+          <div className="s-brand">
+            <MikeeAvatar size={26} animate={false} />
+            <span>מייקי</span>
           </div>
-          <a href="#top" className="s-link">חזרה למעלה</a>
-        </div>
-        {email ? (
-          <a href={`mailto:${email}`} className="s-foot-contact" dir="ltr">
-            {email}
-          </a>
-        ) : (
-          <Link href={sitePath("/meeting")} className="s-foot-contact">
-            לקבוע פגישת היכרות
-          </Link>
-        )}
-        <div className="s-foot-meta">
-          <nav aria-label="קישורים">
+          <p className="s-foot-line">מנהל צוות השיווק של העסק שלך, בעזרת AI.</p>
+          <nav className="s-foot-links" aria-label="קישורים">
+            <a href={`${home}#pricing`}>מחירים</a>
             <Link href={sitePath("/meeting")}>פגישת היכרות</Link>
             <Link href={sitePath("/terms")}>תנאי שימוש</Link>
             <Link href={sitePath("/privacy")}>מדיניות פרטיות</Link>
             <a href={appPath("/login")}>כניסה לחשבון</a>
           </nav>
-          <span>התמונות באתר הן דוגמאות להמחשה.</span>
-          <span>ישראל · {year}</span>
+          <p className="s-foot-small">© {new Date().getFullYear()} מייקי</p>
         </div>
       </footer>
-      <Reveal />
     </div>
   );
 }

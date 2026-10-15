@@ -22,6 +22,3 @@ railway-*.env
 
 # Copied from @rive-app/canvas on install (scripts/copy-rive-wasm.mjs)
 public/rive/
-
-# Design inspector working files
-.taste-skill/

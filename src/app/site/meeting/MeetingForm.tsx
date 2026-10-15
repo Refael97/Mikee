@@ -22,9 +22,9 @@ export function MeetingForm({ days }: { days: Day[] }) {
 
   if (done) {
     return (
-      <div className="s-done">
+      <div className="s-done card">
         <MikeeAvatar size={72} greet />
-        <h2 className="s-head">הפגישה נרשמה</h2>
+        <h2 className="s-h2">הפגישה נרשמה</h2>
         <p className="s-sub">שמרנו לכם את {done}. נחזור אליכם בטלפון או בוואטסאפ לאישור, ונשלח קישור לזום.</p>
       </div>
     );
@@ -66,7 +66,7 @@ export function MeetingForm({ days }: { days: Day[] }) {
   }
 
   return (
-    <form className="s-book" onSubmit={submit} noValidate>
+    <form className="s-book card" onSubmit={submit} noValidate>
       <fieldset className="s-fs">
         <legend>מתי נוח לכם?</legend>
         <div className="s-days" role="radiogroup" aria-label="יום">
@@ -110,7 +110,7 @@ export function MeetingForm({ days }: { days: Day[] }) {
 
       {error && <p className="s-error" role="alert">{error}</p>}
       <div className="s-book-end">
-        <button type="submit" className="s-btn s-btn-accent" disabled={busy}>
+        <button type="submit" className="btn btn-primary s-btn-lg" disabled={busy}>
           {busy ? "קובעים…" : slot ? `לקבוע ל${current?.label} בשעה ${slot.slice(11)}` : "לקבוע פגישה"}
         </button>
       </div>
