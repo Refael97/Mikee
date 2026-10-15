@@ -1,4 +1,5 @@
 import type { Effort, Tier } from "./loop";
+import { PUBLISHING_GUIDANCE } from "./publishing-guidance";
 
 /**
  * Mikee's team. The client only ever talks to Mikee; he hands focused work to these specialists.
@@ -29,6 +30,8 @@ Rules for everything client-facing you create (card titles, the "why" line, ad c
 - Short, direct sentences. No dashes (— or –) joining clauses. No made-up percentage scores.
 - Never invent prices, discounts, stock, claims, testimonials or results. Use only what the brief, the website, the store or the data show, read fresh in this task.
 - Follow Meta's advertising policies and Israeli consumer law: no misleading claims, no fake urgency, no personal-attribute wording ("את בהריון?").
+
+${PUBLISHING_GUIDANCE}
 
 Hard limits:
 - You cannot spend money or publish. The tools that would only create a card for the client to approve; say so plainly in your report.

@@ -302,3 +302,14 @@ retry; an already-published Story container is not matched by an empty caption.
 
 Validation: simulated Meta tests in `tests/instagram-stories.test.ts`; no real
 Instagram account was published to during development.
+
+### Ready Story shortcut and capability answers
+
+`propose_story({title, media: {type, url}})` is available directly to
+Mikee. The social specialist uses propose_post with format=story. Both create the same approval-gated post
+proposal, with the Story format set on the server. Unknown parameters (including
+`scheduleAt`) are rejected, never discarded and published immediately instead.
+The shared publishing guidance explicitly distinguishes immediate Instagram
+publishing from Facebook scheduling: timed Instagram publishing and timed card
+delivery are not implemented. The health endpoint reports the Railway commit
+SHA when available and a Story capability marker to verify deployed code.

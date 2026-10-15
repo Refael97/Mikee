@@ -135,7 +135,7 @@ export function postProblem(spec: z.infer<typeof PostSpec>): string | null {
     if ((spec.text.match(/#[\p{L}\p{N}_]+/gu) ?? []).length > 30) return "Instagram allows at most 30 hashtags.";
     if ((spec.text.match(/@[A-Za-z0-9._]+/g) ?? []).length > 20) return "Instagram allows at most 20 @mentions.";
     if (!spec.media.length) return "Instagram posts need an image or a video.";
-    if (spec.scheduleAt) return "Instagram posts cannot be scheduled through Meta; publish on approval, or schedule for Facebook only.";
+    if (spec.scheduleAt) return "Automatic Instagram publishing at a future time is not implemented in Mikee. A card with an hour is not a scheduled job. Do not promise timed card delivery, a reminder or delegation as a workaround. Facebook-only scheduling is supported.";
   }
   if (spec.channels.includes("facebook")) {
     const videos = spec.media.filter((m) => m.type === "video").length;
@@ -773,7 +773,7 @@ export const TOOLS = [
     description:
       "Publish a ready image or video as an Instagram Story, as a card she approves: the direct way when the file already exists (the library, Meta media, a generated or edited video), with no need to delegate. " +
       "One file, no caption, Instagram only. It goes through the same publishing path as propose_post with format=story. Published means the card reports a media id, not before.",
-    input: z.object({ title: z.string().describe("Friendly card headline, e.g. 'סטורי לסרטון החדש'"), media: Media }).extend(proposalOptions),
+    input: z.object({ title: z.string().describe("Friendly card headline, e.g. 'סטורי לסרטון החדש'"), media: Media }).extend(proposalOptions).strict(),
     run: async (ctx, { replaces, clientAsked, title, media }) => {
       const spec = PostSpec.parse({ title, channels: ["instagram"], format: "story", text: "", media: [media] });
       const problem = postProblem(spec);
