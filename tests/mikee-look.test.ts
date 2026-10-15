@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from "fs";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db, schema } from "@/lib/db";
-import { DEFAULT_LOOK, MIKEE_LOOKS, lookOf } from "@/lib/mikee-look";
+import { createHash } from "crypto";
+import { DEFAULT_LOOK, MIKEE_ASSET_VERSION, MIKEE_LOOKS, lookOf } from "@/lib/mikee-look";
 import { setUserTheme } from "@/lib/mikee-theme";
 import { createBusiness } from "./support/setup";
 
@@ -24,6 +25,11 @@ describe("Mikee's colours", () => {
       expect(existsSync(`public/mikee/${l.id}.png`)).toBe(true);
     }
     for (const name of ["listening", "thinking", "talking", "surprised", "hello", "celebrate", "concern", "lookX", "lookY"]) expect(riv).toContain(name);
+  });
+
+  it("the asset version matches the file, so a swapped character is never served from an old cache", () => {
+    const md5 = createHash("md5").update(readFileSync("public/mikee/mikee.riv")).digest("hex");
+    expect(MIKEE_ASSET_VERSION).toBe(md5.slice(0, 8));
   });
 
   it("a new user starts with ice blue, and a saved colour is kept", async () => {

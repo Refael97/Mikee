@@ -14,7 +14,7 @@ import {
   useViewModelInstanceTrigger,
 } from "@rive-app/react-canvas";
 import type { MikeeCue, MikeeState } from "./MikeeAvatar";
-import type { MikeeLook } from "@/lib/mikee-look";
+import { MIKEE_ASSET_VERSION, type MikeeLook } from "@/lib/mikee-look";
 
 // Served from our own origin (scripts/copy-rive-wasm.mjs): the CSP allows no external scripts.
 RuntimeLoader.setWasmUrl("/rive/rive.wasm");
@@ -114,7 +114,7 @@ export default function MikeeRive({
   onReady: () => void;
 }) {
   const { rive, canvas, RiveComponent } = useRive({
-    src: "/mikee/mikee.riv",
+    src: `/mikee/mikee.riv?v=${MIKEE_ASSET_VERSION}`,
     artboard: "Mikee",
     stateMachine: "Mikee",
     layout: LAYOUT,

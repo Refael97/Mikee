@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useMikeeLook } from "./MikeeLook";
-import type { MikeeLook } from "@/lib/mikee-look";
+import { MIKEE_ASSET_VERSION, type MikeeLook } from "@/lib/mikee-look";
 
 export type MikeeState = "idle" | "listening" | "thinking" | "talking";
 export type MikeeCue = "celebrate" | "concern" | "hello";
@@ -79,7 +79,7 @@ export function MikeeAvatar({
     <span aria-hidden className={`relative inline-block shrink-0 ${className}`} style={{ width: size, height: size }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`/mikee/${l}.png`}
+        src={`/mikee/${l}.png?v=${MIKEE_ASSET_VERSION}`}
         alt=""
         width={size}
         height={size}
