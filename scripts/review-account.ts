@@ -13,6 +13,7 @@ import { hashPassword } from "../src/lib/crypto";
 const EMAIL = "meta-review@mikee.co.il";
 const NAME = "Meta Review";
 const BUDGET = 50; // a month, in the source account's currency: the hard ceiling for anything the reviewer approves
+const CREDITS = 5000; // AI credits a cycle, so the reviewers never meet an exhausted quota
 
 async function main() {
   const from = (process.argv[2] ?? "").trim();
@@ -34,14 +35,14 @@ async function main() {
   const meta = conns.find((c) => c.provider === "meta");
   if (!meta?.secret) return console.log(`${source.name} has no Facebook connection to copy.`);
 
-  const [ws] = await d.insert(schema.workspaces).values({ name: NAME, stage: "active", timezone: source.timezone }).returning();
+  const [ws] = await d.insert(schema.workspaces).values({ name: NAME, stage: "active", timezone: source.timezone, settings: { credits: CREDITS } }).returning();
   for (const c of conns.filter((c) => c.provider === "meta" || c.provider === "website")) {
     await d.insert(schema.connections).values({ workspaceId: ws.id, provider: c.provider, config: c.config, secret: c.secret, status: c.status });
   }
   const currency = String((meta.config as { currency?: string }).currency ?? "ILS");
   await d.insert(schema.budgets).values({ workspaceId: ws.id, monthlyLimit: BUDGET, currency });
   await d.insert(schema.users).values({ workspaceId: ws.id, email: EMAIL, name: NAME, passwordHash: hashPassword(password) });
-  console.log(`Created "${NAME}" with the Facebook connection of "${source.name}" and a monthly budget of ${BUDGET} ${currency}.`);
+  console.log(`Created "${NAME}" with the Facebook connection of "${source.name}", a monthly budget of ${BUDGET} ${currency} and ${CREDITS} AI credits a cycle.`);
   print(password);
 }
 

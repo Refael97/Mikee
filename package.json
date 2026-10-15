@@ -16,7 +16,8 @@
     "prebuild": "node scripts/copy-rive-wasm.mjs",
     "meta-diagnose": "tsx --conditions=react-server scripts/meta-diagnose.ts",
     "meta-review-calls": "tsx --conditions=react-server scripts/meta-review-calls.ts",
-    "review-account": "tsx --conditions=react-server scripts/review-account.ts"
+    "review-account": "tsx --conditions=react-server scripts/review-account.ts",
+    "review-rehearsal": "tsx --conditions=react-server scripts/review-rehearsal.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
