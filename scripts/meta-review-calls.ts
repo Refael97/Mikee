@@ -22,7 +22,7 @@ async function main() {
     console.log(`No connected business named like "${filter}". The businesses in Mikee:`);
     for (const x of all) {
       const c = x.meta?.config;
-      console.log(`  ${x.name}: ${x.meta?.secret ? `connected (page ${c?.pageName ?? "none"}, ad account ${c?.adAccountName ?? "none"})` : "no Facebook connection"}`);
+      console.log(`  ${x.name}: ${x.meta?.secret ? `connected (page ${c?.pageName ?? c?.pageId ?? "none"}, ad account ${c?.adAccountName ?? c?.adAccountId ?? "none"})` : "no Facebook connection"}`);
     }
     return;
   }
