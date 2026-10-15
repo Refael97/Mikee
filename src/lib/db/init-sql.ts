@@ -354,6 +354,21 @@ CREATE TABLE IF NOT EXISTS skills (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS skills_ws ON skills (workspace_id);
+-- Intro meetings booked from the site (mikee.co.il/meeting), before the business has an account.
+CREATE TABLE IF NOT EXISTS meeting_requests (
+  id serial PRIMARY KEY,
+  name text NOT NULL,
+  business text NOT NULL,
+  phone text NOT NULL,
+  email text NOT NULL,
+  link text,
+  plan text NOT NULL,
+  slot text NOT NULL,
+  notes text,
+  status text NOT NULL DEFAULT 'new',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS meeting_requests_slot ON meeting_requests (slot) WHERE status <> 'cancelled';
 -- Messages from before conversations existed move into one first conversation per business.
 INSERT INTO conversations (workspace_id, title, category)
   SELECT w.id, 'השיחה הראשונה', 'general' FROM workspaces w

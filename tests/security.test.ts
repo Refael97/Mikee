@@ -172,9 +172,13 @@ describe("one business never reaches another's data", () => {
     const walk = (dir: string) => readdirSync(dir).forEach((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : f === "route.ts" && files.push(join(dir, f))));
     walk(root);
     // Public on purpose: health; the cron (its own secret); the username check at sign-up (read-only, limited per network);
-    // Meta's webhook, which must verify Meta's signature on every delivery instead.
-    const PUBLIC = ["health", "cron/checkin", "username", "meta/webhook"];
+    // Meta's webhook, which must verify Meta's signature on every delivery instead; the site's meeting booking
+    // (visitors have no account yet), which must check the origin and limit each network instead.
+    const PUBLIC = ["health", "cron/checkin", "username", "meta/webhook", "site/meeting"];
     expect(readFileSync(join(root, "meta/webhook/route.ts"), "utf8"), "meta/webhook verifies Meta's signature").toContain("validSignature(raw, req.headers.get(\"x-hub-signature-256\"))");
+    const booking = readFileSync(join(root, "site/meeting/route.ts"), "utf8");
+    expect(booking, "site/meeting checks the origin").toContain("assertSameOrigin(req)");
+    expect(booking, "site/meeting limits each network").toContain("limit(`meeting:${clientIp(req)}`");
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       const rel = f.slice(root.length + 1, -"/route.ts".length);

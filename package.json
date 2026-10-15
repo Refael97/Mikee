@@ -11,6 +11,7 @@
     "create-user": "tsx scripts/create-user.ts",
     "add-credits": "tsx scripts/add-credits.ts",
     "set-plan": "tsx scripts/set-plan.ts",
+    "meetings": "tsx scripts/meetings.ts",
     "postinstall": "node scripts/copy-rive-wasm.mjs",
     "prebuild": "node scripts/copy-rive-wasm.mjs"
   },

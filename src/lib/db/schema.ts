@@ -494,3 +494,20 @@ export const skills = pgTable("skills", {
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+/** Intro meetings booked from the site (mikee.co.il/meeting), before the business has an account. */
+export const meetingRequests = pgTable("meeting_requests", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  business: text("business").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email").notNull(),
+  link: text("link"),
+  /** "ai_299" | "ai_499" */
+  plan: text("plan").notNull(),
+  /** "YYYY-MM-DD HH:MM", Israel time (src/lib/meetings.ts). */
+  slot: text("slot").notNull(),
+  notes: text("notes"),
+  status: text("status").$type<"new" | "confirmed" | "cancelled">().notNull().default("new"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
