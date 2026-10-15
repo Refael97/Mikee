@@ -8,6 +8,7 @@ import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/co
 import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { Intake } from "@/components/Intake";
 import { getSettings } from "@/lib/settings";
+import { budgetRange } from "@/lib/intake";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         </Section>
 
         <Section step={4} title="תקציב השיווק החודשי" hint="זו התקרה. לעולם לא אעבור אותה בלי לבקש ולקבל אישור." done={!!budget}>
-          <BudgetForm workspaceId={workspace.id} suggested={settings.intake.adBudget || undefined} />
+          <BudgetForm workspaceId={workspace.id} suggested={budgetRange(settings.intake).max || undefined} />
         </Section>
       </div>
 

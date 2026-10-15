@@ -59,7 +59,9 @@ export const intakeSchema = z
     businessOther: other,
     help: z.array(z.enum(ids(HELP))).min(1).max(HELP.length),
     helpOther: other,
-    adBudget: z.number().int().min(0).max(BUDGET_MAX),
+    adBudget: z
+      .object({ min: z.number().int().min(0).max(BUDGET_MAX), max: z.number().int().min(0).max(BUDGET_MAX) })
+      .refine((b) => b.min <= b.max, { message: "הטווח לא תקין" }),
     state: z.enum(ids(STATE)),
     goals: z.array(z.enum(ids(GOALS))).min(1).max(GOALS.length),
     knowledge: z.enum(ids(KNOWLEDGE)),
@@ -72,6 +74,17 @@ export type Intake = IntakeAnswers & { at: string };
 
 const title = <T extends readonly { id: string; title: string }[]>(list: T, id: string) => list.find((o) => o.id === id)?.title ?? id;
 const ils = (n: number) => `${n.toLocaleString("en-US")} ILS`;
+
+/** The budget range she gave; answers saved before the range was a single number. */
+export function budgetRange(i: Pick<Intake, "adBudget"> | { adBudget: unknown }): { min: number; max: number } {
+  const b = i.adBudget as { min?: unknown; max?: unknown } | number | undefined;
+  if (typeof b === "number") return { min: b, max: b };
+  const min = Number(b?.min) || 0;
+  return { min, max: Math.max(min, Number(b?.max) || 0) };
+}
+
+const budgetText = ({ min, max }: { min: number; max: number }) =>
+  !max ? "none yet" : min === max ? ils(max) : !min ? `up to ${ils(max)}` : `${ils(min)} to ${ils(max)}`;
 
 /** For the brief: what she told us at signup, in plain lines. Her own words are quoted and kept short. */
 export function intakeAsText(i: Intake | undefined): string {
@@ -87,7 +100,7 @@ export function intakeAsText(i: Intake | undefined): string {
     `What she told us when she signed up (${i.at.slice(0, 10)}; her answers, update with what you learn since):`,
     `- Business: ${title(BUSINESS, i.businessType)}${own(i.businessOther)}`,
     `- Wants help with: ${i.help.map((h) => title(HELP, h)).join(", ")}${own(i.helpOther)}`,
-    `- Monthly budget in mind for paid ads: ${i.adBudget ? ils(i.adBudget) : "none yet"} (a starting point only; the approved ceiling is the budget in the platform settings)`,
+    `- Monthly budget in mind for paid ads: ${budgetText(budgetRange(i))} (a starting point only; the approved ceiling is the budget in the platform settings)`,
     `- Marketing today: ${title(STATE, i.state)}, ${STATE.find((s) => s.id === i.state)?.sub}`,
     `- Most important to achieve: ${i.goals.map((g) => title(GOALS, g)).join(", ")}`,
     `- Marketing knowledge: ${knowledge[i.knowledge]}`,

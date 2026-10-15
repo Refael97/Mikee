@@ -939,3 +939,57 @@ body {
     transform: translateY(-8px) scale(0.98);
   }
 }
+
+/* Two native range inputs on one track (the budget range): only the thumbs take the pointer. */
+.range-dual {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+  outline: none;
+}
+.range-dual::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 100%;
+}
+.range-dual::-moz-range-track {
+  background: transparent;
+}
+.range-dual::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 24px;
+  height: 24px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1.5px solid var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: grab;
+  transition: transform 150ms var(--ease);
+}
+.range-dual::-moz-range-thumb {
+  pointer-events: auto;
+  width: 21px;
+  height: 21px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1.5px solid var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: grab;
+}
+.range-dual:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.08);
+}
+.range-dual:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 30%, transparent);
+}
+.range-dual:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 30%, transparent);
+}

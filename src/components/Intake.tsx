@@ -67,7 +67,8 @@ type Answers = {
   businessOther: string;
   help: string[];
   helpOther: string;
-  budgetStop: number;
+  low: number;
+  high: number;
   state?: string;
   goals: string[];
   knowledge?: string;
@@ -87,13 +88,55 @@ const STEPS: Step[] = [
   { id: "knowledge", kind: "single", question: "מה הידע שלך בשיווק?", options: KNOWLEDGE },
 ];
 
-const ils = (n: number) => `${n.toLocaleString("he-IL")} ₪`;
+const ils = (n: number) => `${n.toLocaleString("he-IL")}\u00a0₪`;
+const rangeText = (lo: number, hi: number) => (!hi ? "עדיין אין תקציב" : lo === hi ? ils(hi) : !lo ? `עד ${ils(hi)}` : `${ils(lo)} עד ${ils(hi)}`);
+
+/**
+ * Two handles on one track: the right one is the bottom of the range, the left one the top (RTL). Two native
+ * range inputs share the track, so the keyboard and screen readers work as usual; only their thumbs take the pointer.
+ */
+function RangeSlider({ stops, low, high, onChange, format }: { stops: readonly number[]; low: number; high: number; onChange: (low: number, high: number) => void; format: (n: number) => string }) {
+  const last = stops.length - 1;
+  const pct = (n: number) => (n / last) * 100;
+  // When the handles meet, the one that can still move away stays on top.
+  const lowOnTop = low === high && high === last;
+  return (
+    <div className="relative mt-6 h-11">
+      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" aria-hidden />
+      <div className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-ink" style={{ insetInlineStart: `${pct(low)}%`, insetInlineEnd: `${100 - pct(high)}%` }} aria-hidden />
+      <input
+        type="range"
+        min={0}
+        max={last}
+        step={1}
+        value={low}
+        onChange={(e) => onChange(Math.min(Number(e.target.value), high), high)}
+        aria-label="תקציב מינימלי"
+        aria-valuetext={format(stops[low])}
+        className="range-dual"
+        style={{ zIndex: lowOnTop ? 2 : 1 }}
+      />
+      <input
+        type="range"
+        min={0}
+        max={last}
+        step={1}
+        value={high}
+        onChange={(e) => onChange(low, Math.max(Number(e.target.value), low))}
+        aria-label="תקציב מקסימלי"
+        aria-valuetext={format(stops[high])}
+        className="range-dual"
+        style={{ zIndex: lowOnTop ? 1 : 2 }}
+      />
+    </div>
+  );
+}
 
 /** One question at a time in a large card, answers as tiles. Saved once at the end, then the connections screen opens. */
 export function Intake() {
   const router = useRouter();
   const [i, setI] = useState(0);
-  const [a, setA] = useState<Answers>({ businessOther: "", help: [], helpOther: "", budgetStop: BUDGET_STOPS.indexOf(3000), goals: [] });
+  const [a, setA] = useState<Answers>({ businessOther: "", help: [], helpOther: "", low: BUDGET_STOPS.indexOf(2000), high: BUDGET_STOPS.indexOf(5000), goals: [] });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,7 +162,7 @@ export function Intake() {
         businessOther: a.businessOther,
         help: a.help,
         helpOther: a.helpOther,
-        adBudget: BUDGET_STOPS[a.budgetStop],
+        adBudget: { min: BUDGET_STOPS[a.low], max: BUDGET_STOPS[a.high] },
         state: a.state,
         goals: a.goals,
         knowledge: a.knowledge,
@@ -163,7 +206,7 @@ export function Intake() {
                 <span key={s.id} className={`h-[3px] w-5 rounded-full transition-colors duration-300 ${n < i || (n === i && pending) ? "bg-ink" : n === i ? "bg-ink-3" : "bg-line"}`} />
               ))}
             </div>
-            <p className="meta num">
+            <p className="meta num whitespace-nowrap">
               שאלה {i + 1} מתוך {STEPS.length}
             </p>
           </div>
@@ -183,20 +226,16 @@ export function Intake() {
 
           {step.kind === "budget" ? (
             <div className="mt-8">
-              <p className="num text-[30px] font-normal leading-tight" aria-live="polite">
-                {BUDGET_STOPS[a.budgetStop] === 0 ? "עדיין אין תקציב" : ils(BUDGET_STOPS[a.budgetStop])}
-                {BUDGET_STOPS[a.budgetStop] > 0 && <span className="ms-2 text-[17px] text-ink-2">לחודש</span>}
+              <p className="num text-[24px] font-normal leading-tight sm:text-[30px]" aria-live="polite">
+                <span className="whitespace-nowrap">{rangeText(BUDGET_STOPS[a.low], BUDGET_STOPS[a.high])}</span>
+                {BUDGET_STOPS[a.high] > 0 && <span className="ms-2 text-[17px] text-ink-2">לחודש</span>}
               </p>
-              <input
-                type="range"
-                min={0}
-                max={BUDGET_STOPS.length - 1}
-                step={1}
-                value={a.budgetStop}
-                onChange={(e) => setA((p) => ({ ...p, budgetStop: Number(e.target.value) }))}
-                aria-label="תקציב חודשי לקמפיינים ממומנים"
-                aria-valuetext={ils(BUDGET_STOPS[a.budgetStop])}
-                className="mt-6 h-11 w-full cursor-pointer accent-[var(--ink)]"
+              <RangeSlider
+                stops={BUDGET_STOPS}
+                low={a.low}
+                high={a.high}
+                onChange={(low, high) => setA((p) => ({ ...p, low, high }))}
+                format={ils}
               />
               <div className="num flex justify-between text-[13.5px] text-ink-3">
                 <span>{ils(0)}</span>
