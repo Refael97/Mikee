@@ -4,7 +4,7 @@ import Link from "next/link";
 import { UsageMenuItem } from "./Usage";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Images, Inbox, LifeBuoy, LogOut, Megaphone, Menu, MessagesSquare, Settings, Store, User, X } from "lucide-react";
+import { BarChart3, Clock, Images, Inbox, LifeBuoy, LogOut, Megaphone, Menu, MessagesSquare, Settings, Store, User, X } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { HelpPanel } from "./HelpPanel";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
@@ -13,6 +13,7 @@ import type { ConnectedAssets } from "@/lib/meta/assets";
 
 export const LINKS = [
   { href: "/mikee", label: "שיחות", icon: MessagesSquare },
+  { href: "/schedule", label: "תזמון", icon: Clock },
   { href: "/results", label: "תוצאות", icon: BarChart3 },
   { href: "/campaigns", label: "קמפיינים", icon: Megaphone },
   { href: "/library", label: "ספרייה", icon: Images },
