@@ -229,7 +229,7 @@ function ConversationsButton({ onMikee, unread }: { onMikee: boolean; unread: bo
   );
   const cls = "btn btn-ghost btn-sm relative h-10 w-10 px-0";
   return onMikee ? (
-    <button type="button" className={cls} aria-label={label} onClick={() => window.dispatchEvent(new Event("mikee:conversations"))}>
+    <button type="button" className={cls} aria-label={label} onClick={() => window.dispatchEvent(new Event("mikee:open-conversations"))}>
       {inner}
     </button>
   ) : (

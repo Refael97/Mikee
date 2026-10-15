@@ -12,12 +12,12 @@ export function MikeeShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const show = () => setOpen(true);
-    window.addEventListener("mikee:conversations", show);
+    window.addEventListener("mikee:open-conversations", show);
     if (window.location.hash === "#conversations") {
       setOpen(true);
       history.replaceState(null, "", window.location.pathname + window.location.search);
     }
-    return () => window.removeEventListener("mikee:conversations", show);
+    return () => window.removeEventListener("mikee:open-conversations", show);
   }, []);
   return (
     <div className="flex w-full flex-1 lg:gap-[10px]">
