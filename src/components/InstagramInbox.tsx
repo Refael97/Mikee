@@ -90,7 +90,7 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
   return (
     <div className="space-y-[28px]">
       {error && <p className="note note-bad">{error}</p>}
-      {saved && <p className="note note-good">{saved}</p>}
+      {saved && !(data?.settings.enabled && data.settings.subscription && !data.settings.subscription.ok) && <p className="note note-good">{saved}</p>}
 
       <section className="card p-6">
         <label className="flex items-start justify-between gap-4">
@@ -128,7 +128,15 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
           </div>
         </div>
         {s.enabled && s.subscription && !s.subscription.ok && (
-          <p className="note note-warn mt-4 text-[14.5px]">מטא עוד לא שולחת למייקי הודעות חדשות מהעמוד: {s.subscription.detail}</p>
+          <div className="note note-warn mt-4 text-[14.5px]">
+            <p>המענה עוד לא פעיל: מטא לא אישרה למייקי לקבל את ההודעות החדשות מהעמוד. אפשר לכבות ולהדליק שוב כדי לנסות מחדש.</p>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[13.5px]">פרטים טכניים</summary>
+              <p className="mt-1 break-words text-[13px]" dir="ltr">
+                {s.subscription.detail}
+              </p>
+            </details>
+          </div>
         )}
       </section>
 

@@ -7,7 +7,7 @@ import { getConnection, saveConnection } from "@/lib/connections";
 import { db, schema } from "@/lib/db";
 import { groundedReply } from "@/lib/instagram/autoreply";
 import { saveFacts, setAutoReply } from "@/lib/instagram/facts";
-import { replyFromOwner } from "@/lib/instagram/inbox";
+import { replyFromOwner, switchAutoReply } from "@/lib/instagram/inbox";
 import { sendInstagramMessage } from "@/lib/instagram/send";
 import { FakeMeta } from "./support/fake-meta";
 import { createBusiness, drainJobs, fakeClaude, NOW } from "./support/setup";
@@ -205,5 +205,12 @@ describe("send_instagram_message", () => {
     // Another business cannot act on this message.
     const stranger = await createBusiness();
     expect(await replyFromOwner(stranger, r.id, "היי")).toMatchObject({ status: "error" });
+  });
+
+  it("switching it on installs the app on the page without asking for Messenger's pages_messaging", async () => {
+    const { ws } = await business();
+    const r = await switchAutoReply(ws, true, ["address"]);
+    expect(r.subscription?.ok).toBe(true);
+    expect(meta.list("pagesub").map((x) => x.fields)).toEqual(["feed"]);
   });
 });

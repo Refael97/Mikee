@@ -150,7 +150,13 @@ export class FakeMeta {
         const sent = this.add("sentdm", { recipient: recipient.id, text: message.text });
         return { recipient_id: recipient.id, message_id: `m_${sent.id}` };
       }
-      if (method === "POST" && edge === "subscribed_apps") return { success: true };
+      if (method === "POST" && edge === "subscribed_apps") {
+        // As at Meta: the page's "messages" field is Messenger's and needs pages_messaging, which Mikee's token lacks.
+        if (String(params.subscribed_fields).split(",").includes("messages"))
+          return { __error: { message: "(#200) To subscribe to the messages field, one of these permissions is needed: pages_messaging", code: 200 } };
+        this.add("pagesub", { fields: params.subscribed_fields });
+        return { success: true };
+      }
       if (method === "GET" && edge === "conversations") {
         const convs = params.platform === "instagram" ? this.list("igconv") : [];
         return { data: convs.map((c) => ({ id: c.id, updated_time: c.updated_time, participants: { data: c.participants } })), paging: {} };

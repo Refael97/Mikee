@@ -37,7 +37,10 @@ export async function switchAutoReply(workspaceId: string, enabled: boolean, top
   if (!a.ok) return setAutoReply(workspaceId, { enabled, topics, subscription: { ok: false, at: new Date().toISOString(), detail: a.error } });
   let subscription: AutoReply["subscription"];
   try {
-    await a.page.post(`/${a.access.page!.id}/subscribed_apps`, { subscribed_fields: "messages" });
+    // Instagram's own "messages" webhook is chosen in the app's settings; the page only has to install the app,
+    // with any page field. The page's "messages" field is Messenger's and needs pages_messaging, which Mikee
+    // does not ask for, so "feed" is used (its events are ignored: the webhook reads only Instagram objects).
+    await a.page.post(`/${a.access.page!.id}/subscribed_apps`, { subscribed_fields: "feed" });
     subscription = { ok: true, at: new Date().toISOString(), detail: "subscribed" };
   } catch (err) {
     subscription = { ok: false, at: new Date().toISOString(), detail: err instanceof MetaError ? err.describe() : (err as Error).message };
