@@ -6,6 +6,8 @@ import { db, schema } from "@/lib/db";
 import { startMikee } from "@/lib/actions";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
+import { Intake } from "@/components/Intake";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,20 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   const { user, workspace } = await requireSession();
   if (workspace.stage !== "connect") redirect("/mikee");
   const { error } = await searchParams;
+
+  const settings = await getSettings(workspace.id);
+  // First the questions about the business, then the connections.
+  if (!settings.intake)
+    return (
+      <main className="mx-auto max-w-[760px] px-4 py-10 sm:px-8 sm:py-14">
+        <header className="mb-8">
+          <MikeeAvatar size={40} />
+          <h1 className="display mt-5">נעים מאוד, {user.name.split(" ")[0]}.</h1>
+          <p className="lead mt-2 max-w-xl">לפני שמתחברים, שש שאלות קצרות כדי שאכיר את העסק ואדע איך לעזור הכי טוב.</p>
+        </header>
+        <Intake />
+      </main>
+    );
 
   const d = await db();
   const [meta, site, budget] = await Promise.all([
@@ -50,7 +66,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         </Section>
 
         <Section step={4} title="תקציב השיווק החודשי" hint="זו התקרה. לעולם לא אעבור אותה בלי לבקש ולקבל אישור." done={!!budget}>
-          <BudgetForm workspaceId={workspace.id} />
+          <BudgetForm workspaceId={workspace.id} suggested={settings.intake.adBudget || undefined} />
         </Section>
       </div>
 

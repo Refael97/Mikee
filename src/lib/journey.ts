@@ -3,6 +3,7 @@ import { and, count, eq, gte, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getConnection, type MetaConfig, type StoreConfig } from "./connections";
 import { getSettings, updateSettings } from "./settings";
+import { intakeAsText } from "./intake";
 
 /**
  * The marketing path of a small business, the way an experienced marketer thinks about it: first the
@@ -128,6 +129,7 @@ export async function journeyStatus(workspaceId: string) {
   return {
     businessType: type ?? null,
     focus: settings.focus ?? null,
+    intake: settings.intake,
     relationship: rel,
     currentPhase,
     phases: PHASES.map((p) => {
@@ -153,6 +155,7 @@ export async function journeyAsText(workspaceId: string) {
   return [
     `Business type: ${j.businessType ?? "unknown (find out and save it with update_journey)"}`,
     `Client's current focus: ${j.focus ? `"${j.focus.text}" (since ${j.focus.since.slice(0, 10)})` : "not set yet (ask what matters most now)"}`,
+    intakeAsText(j.intake),
     `Relationship: ${relation} Conversations: ${r.conversations}, campaigns launched through Mikee: ${r.campaignsLaunched}, posts published: ${r.postsPublished}, last client message: ${r.lastClientMessage ?? "never"}.`,
     `Current phase: ${PHASES.find((p) => p.id === j.currentPhase)?.title} (${j.currentPhase})`,
     "Done: " + (j.phases.flatMap((p) => p.items.filter((i) => i.status === "done").map((i) => i.id)).join(", ") || "nothing yet"),

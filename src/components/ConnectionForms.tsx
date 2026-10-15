@@ -212,7 +212,7 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-export async function BudgetForm({ workspaceId }: { workspaceId: string }) {
+export async function BudgetForm({ workspaceId, suggested }: { workspaceId: string; suggested?: number }) {
   const d = await db();
   const row = await d.query.budgets.findFirst({ where: eq(schema.budgets.workspaceId, workspaceId) });
   const meta = await getConnection<MetaConfig>(workspaceId, "meta");
@@ -225,7 +225,7 @@ export async function BudgetForm({ workspaceId }: { workspaceId: string }) {
           inputMode="decimal"
           className="field num pe-10 font-medium"
           placeholder="3,000"
-          defaultValue={row ? String(row.monthlyLimit) : undefined}
+          defaultValue={row ? String(row.monthlyLimit) : suggested ? String(suggested) : undefined}
           required
         />
         <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-ink-2">{currency === "ILS" ? "₪" : currency}</span>

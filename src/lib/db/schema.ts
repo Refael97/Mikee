@@ -1,3 +1,4 @@
+import type { Intake } from "../intake";
 import { bigint, boolean, customType, integer, jsonb, numeric, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -19,6 +20,8 @@ export type WorkspaceSettings = {
   plan?: string;
   /** What the business wants to focus on now, in its own words, kept by Mikee. */
   focus?: { text: string; since: string };
+  /** The answers to the questions after signup (src/lib/intake.ts), read by Mikee in the brief. */
+  intake?: Intake;
   /** ecommerce | services | local | content: shapes the marketing path and the results page. */
   businessType?: "ecommerce" | "services" | "local" | "content";
   /** The results page Mikee chose for this kind of business. */

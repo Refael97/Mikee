@@ -21,6 +21,7 @@ import { checkUrl } from "./net";
 import { shopifyDomain } from "./store";
 import { cleanUsername, usernameProblem, usernameTaken } from "./username";
 import { forgetBusiness } from "./ttl";
+import { businessTypeOf, intakeSchema } from "./intake";
 
 /** Every form value is capped and cleaned before use. */
 const str = (form: FormData, key: string, max = 500) => cleanClientText(String(form.get(key) ?? ""), max);
@@ -146,6 +147,28 @@ export async function saveLimits(form: FormData) {
     if (ctx?.adAccountId) await syncMetaSpendCap(workspace.id, workspace.timezone, ctx);
   }
   revalidatePath("/settings");
+}
+
+/** The questions after signup. Answered once, before connecting; the screen moves on to the connections. */
+export async function saveIntake(answers: unknown): Promise<{ error: string } | void> {
+  const { workspace } = await requireSession();
+  if (workspace.stage !== "connect") return { error: "השאלון כבר מאחורינו." };
+  const raw = (answers ?? {}) as Record<string, unknown>;
+  const clean = (v: unknown) => (typeof v === "string" ? cleanClientText(v, 120) || undefined : undefined);
+  const parsed = intakeSchema.safeParse({ ...raw, businessOther: clean(raw.businessOther), helpOther: clean(raw.helpOther) });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "חסרה תשובה." };
+  const a = parsed.data;
+  const intake = {
+    ...a,
+    businessOther: a.businessType === "other" ? a.businessOther : undefined,
+    helpOther: a.help.includes("other") ? a.helpOther : undefined,
+    help: [...new Set(a.help)],
+    goals: [...new Set(a.goals)],
+    at: new Date().toISOString(),
+  };
+  const type = businessTypeOf(intake);
+  await updateSettings(workspace.id, { intake, ...(type ? { businessType: type } : {}) });
+  revalidatePath("/onboarding");
 }
 
 export async function startMikee() {
