@@ -32,6 +32,11 @@ describe("connecting Facebook", () => {
     expect(found.guess.pageId).toBeDefined();
   });
 
+  it("finds a catalog assigned to the system user even when no business lists it", async () => {
+    const found = await detectBusiness(new Graph("system-user-token"), "Noa");
+    expect(found.catalogs.map((k) => k.id)).toContain("cat_9");
+  });
+
   it("the window always asks again for what was declined, so an old grant is not reused silently", () => {
     process.env.META_APP_ID = "1";
     process.env.META_LOGIN_CONFIG_ID = "2";

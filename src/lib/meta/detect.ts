@@ -45,11 +45,15 @@ export async function detectBusiness(graph: Graph, businessName: string, website
       blocked[key] = e.message;
       return [] as any[];
     });
-  const [me, rawAccounts, rawPages, businesses] = await Promise.all([
+  const [me, rawAccounts, rawPages, businesses, assignedCatalogs] = await Promise.all([
     graph.get<{ id: string; name: string }>("/me", { fields: "id,name" }),
     soft("adAccounts", graph.all<any>("/me/adaccounts", { fields: "id,name,currency,account_status,amount_spent" })),
     soft("pages", graph.all<any>("/me/accounts", { fields: "id,name,website,instagram_business_account{id,username}" })),
-    graph.all<any>("/me/businesses", { fields: "id,name,owned_product_catalogs{id,name}" }).catch(() => []),
+    graph.all<any>("/me/businesses", { fields: "id,name,owned_product_catalogs{id,name},client_product_catalogs{id,name}" }).catch(() =>
+      graph.all<any>("/me/businesses", { fields: "id,name,owned_product_catalogs{id,name}" }).catch(() => []),
+    ),
+    // A system user (Login for Business) sees the catalogs assigned to it, even when /me/businesses lists none.
+    graph.all<any>("/me/assigned_product_catalogs", { fields: "id,name" }).catch(() => []),
   ]);
   if (blocked.adAccounts && blocked.pages) throw new Error(blocked.adAccounts);
   const adAccounts = rawAccounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency, active: a.account_status === 1, spent: Number(a.amount_spent ?? 0) }));
@@ -59,7 +63,12 @@ export async function detectBusiness(graph: Graph, businessName: string, website
     website: p.website,
     ig: p.instagram_business_account ? { id: p.instagram_business_account.id, username: p.instagram_business_account.username } : undefined,
   }));
-  const catalogs = businesses.flatMap((b: any) => b.owned_product_catalogs?.data ?? []);
+  const catalogs = [
+    ...businesses.flatMap((b: any) => [...(b.owned_product_catalogs?.data ?? []), ...(b.client_product_catalogs?.data ?? [])]),
+    ...assignedCatalogs,
+  ]
+    .filter((k: any, i: number, all: any[]) => k?.id && all.findIndex((x) => x.id === k.id) === i)
+    .map((k: any) => ({ id: k.id, name: k.name ?? k.id }));
 
   const site = host(websiteUrl);
   const scorePage = (p: Detected["pages"][number]) =>

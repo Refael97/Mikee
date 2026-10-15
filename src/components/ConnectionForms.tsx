@@ -8,6 +8,7 @@ import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { remember } from "@/lib/ttl";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Picker } from "@/components/Picker";
 
 /** A settings group: title and explanation on the start side, the controls in a card beside them. */
 export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
@@ -114,6 +115,7 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
   const page = found.pages.find((p) => p.id === chosen.pageId);
   const account = found.adAccounts.find((a) => a.id === chosen.adAccountId);
   const pixel = found.pixels.find((p) => p.id === chosen.pixelId);
+  const catalog = found.catalogs.find((k) => k.id === chosen.catalogId);
   const saved = !!(c.adAccountId || c.pageId);
   const adsBlocked = !account && !!found.blocked.adAccounts;
 
@@ -140,6 +142,11 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
             </li>
           )}
           {adsBlocked && <li className="text-ink-3">חשבון המודעות: פייסבוק לא נתן לי גישה אליו בחיבור הזה</li>}
+          {catalog && (
+            <li>
+              קטלוג המוצרים <strong>{catalog.name}</strong>
+            </li>
+          )}
           {pixel && <li>המעקב באתר פעיל{pixel.lastFired ? ` (נראה לאחרונה ${new Date(pixel.lastFired).toLocaleDateString("he-IL")})` : ""}</li>}
         </ul>
       </div>
@@ -183,16 +190,10 @@ function Hidden({ chosen }: { chosen: Record<string, string | undefined> }) {
 
 function Select({ label, name, value, options }: { label: string; name: string; value?: string; options: [string, string][] }) {
   return (
-    <label className="space-y-1.5">
+    <div className="space-y-1.5">
       <span className="text-ink-2">{label}</span>
-      <select name={name} className="field" defaultValue={value}>
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Picker name={name} label={label} defaultValue={value ?? options[0]?.[0]} options={options} />
+    </div>
   );
 }
 

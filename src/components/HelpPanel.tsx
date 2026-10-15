@@ -1,5 +1,6 @@
 "use client";
 
+import { Picker } from "@/components/Picker";
 import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { ChevronDown, Mail, MessageCircle, X } from "lucide-react";
@@ -64,13 +65,18 @@ export function HelpPanel({ open, onClose, support }: { open: boolean; onClose: 
             <h3 className="font-semibold">לדבר עם בן אדם</h3>
             <p className="mt-1 text-[14.5px] text-ink-2">משהו לא עובד, או שיש שאלה על החשבון? כתבי לנו כאן, ואנחנו חוזרים תוך יום עסקים.</p>
             <form action={action} className="mt-4 space-y-3">
-              <select name="topic" className="field" defaultValue="general">
-                <option value="general">שאלה כללית</option>
-                <option value="bug">משהו לא עובד</option>
-                <option value="billing">מנוי וחיוב</option>
-                <option value="connections">חיבור חשבונות</option>
-                <option value="privacy">פרטיות ומידע</option>
-              </select>
+              <Picker
+                name="topic"
+                label="נושא"
+                defaultValue="general"
+                options={[
+                  ["general", "שאלה כללית"],
+                  ["bug", "משהו לא עובד"],
+                  ["billing", "מנוי וחיוב"],
+                  ["connections", "חיבור חשבונות"],
+                  ["privacy", "פרטיות ומידע"],
+                ]}
+              />
               <textarea name="body" rows={4} maxLength={4000} required placeholder="מה קרה? כמה שיותר פרטים עוזרים לנו" className="field resize-none" />
               {state?.error && <p className="note note-bad text-[15px]">{state.error}</p>}
               {state?.ok && <p className="note text-[15px]">{state.ok}</p>}

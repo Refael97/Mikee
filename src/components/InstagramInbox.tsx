@@ -1,5 +1,6 @@
 "use client";
 
+import { Picker } from "@/components/Picker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 
@@ -176,13 +177,7 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
           {facts.length === 0 && <p className="p-5 text-ink-3">עוד אין מידע מאושר.</p>}
           {facts.map((f, i) => (
             <div key={i} className="grid gap-2 p-4 sm:grid-cols-[150px_150px_1fr_auto] sm:items-center">
-              <select className="field" value={f.topic} onChange={(e) => setFacts((x) => x.map((y, j) => (j === i ? { ...y, topic: e.target.value as Topic } : y)))}>
-                {TOPICS.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <Picker label="נושא" value={f.topic} options={TOPICS.map((t) => [t.id, t.label])} onChange={(v) => setFacts((x) => x.map((y, j) => (j === i ? { ...y, topic: v as Topic } : y)))} />
               <input className="field" placeholder={f.topic === "other" ? "נושא" : "סניף (לא חובה)"} maxLength={60} value={f.label ?? ""} onChange={(e) => setFacts((x) => x.map((y, j) => (j === i ? { ...y, label: e.target.value } : y)))} />
               <input className="field" placeholder={TOPICS.find((t) => t.id === f.topic)?.hint} maxLength={400} value={f.value} onChange={(e) => setFacts((x) => x.map((y, j) => (j === i ? { ...y, value: e.target.value } : y)))} />
               <button type="button" aria-label="הסרה" className="btn btn-quiet btn-sm justify-self-end" onClick={() => setFacts((x) => x.filter((_, j) => j !== i))}>

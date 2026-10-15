@@ -35,6 +35,8 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
   const m = assets.meta;
   const label = m.connected ? (m.account ?? "חשבון מחובר") : "לא מחובר למטא";
   const broken = m.connected && m.status === "broken";
+  // Connected, but the business has not confirmed which page and ad account are its own yet.
+  const pending = m.connected && !broken && !m.page && !m.adAccount;
 
   // One compact line per asset: what it is, its name, and whether it is set. Ids wait under "מזהים".
   const rows: { icon: typeof Flag; title: string; value?: string; ltr?: boolean }[] = [
@@ -53,7 +55,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
     ["פיקסל", m.pixel?.id],
     ["קטלוג", m.catalog?.id],
   ].filter((x): x is [string, string] => !!x[1]);
-  const Row = ({ icon: Icon, title, value, ltr, empty = "לא נבחר" }: { icon: typeof Flag; title: string; value?: string; ltr?: boolean; empty?: string }) => (
+  const Row = ({ icon: Icon, title, value, ltr, empty = pending ? "ממתין לאישור" : "לא נבחר" }: { icon: typeof Flag; title: string; value?: string; ltr?: boolean; empty?: string }) => (
     <li className="flex h-9 items-center gap-2.5 px-2.5 text-[14px]">
       <Icon className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.5} />
       <span className="w-[92px] shrink-0 text-[13px] text-ink-3">{title}</span>
@@ -73,7 +75,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
         aria-haspopup="dialog"
         className={`flex max-w-[240px] items-center gap-2 rounded-full bg-surface ps-3 pe-2.5 text-ink transition-colors hover:bg-surface-2 ${compact ? "h-8 text-[14px]" : "h-9 text-[14px] shadow-[var(--shadow)]"}`}
       >
-        <span className={`h-2 w-2 shrink-0 rounded-full ${!m.connected ? "bg-ink-3" : broken ? "bg-coral" : "bg-mint"}`} aria-hidden />
+        <span className={`h-2 w-2 shrink-0 rounded-full ${!m.connected ? "bg-ink-3" : broken ? "bg-coral" : pending ? "bg-sun" : "bg-mint"}`} aria-hidden />
         <span dir="auto" className="truncate">{label}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-ink-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} strokeWidth={1.5} />
       </button>
@@ -87,7 +89,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
           <div className="shrink-0 border-b border-line px-3.5 py-2.5">
             <p dir="auto" className="truncate text-right text-[15px]">{label}</p>
             <p className={`text-[12.5px] ${broken ? "text-bad" : "text-ink-3"}`}>
-              {!m.connected ? "פייסבוק ואינסטגרם עוד לא מחוברים" : broken ? `החיבור נותק${m.statusReason ? `: ${m.statusReason}` : ""}` : "הנכסים שמייקי עובד איתם"}
+              {!m.connected ? "פייסבוק ואינסטגרם עוד לא מחוברים" : broken ? `החיבור נותק${m.statusReason ? `: ${m.statusReason}` : ""}` : pending ? "מצאתי את העסק, הוא ממתין לאישור שלך" : "הנכסים שמייקי עובד איתם"}
             </p>
           </div>
           <div className="min-h-0 overflow-y-auto p-1">
@@ -121,7 +123,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
           </div>
           <div className="shrink-0 border-t border-line p-1.5">
             <Link href="/settings" onClick={() => setOpen(false)} className="btn btn-quiet btn-sm w-full">
-              {broken || !m.connected ? "לחבר בהגדרות" : "לנהל חיבורים"}
+              {broken || !m.connected ? "לחבר בהגדרות" : pending ? "לאשר את העסק" : "לנהל חיבורים"}
             </Link>
           </div>
         </div>

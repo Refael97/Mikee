@@ -86,6 +86,7 @@ export class FakeMeta {
     if (root === "debug_token") return { data: { app_id: process.env.META_APP_ID, is_valid: this.token.valid, scopes: this.token.scopes } };
     if (root === "me") {
       if (edge === "permissions") return { data: ["ads_management", "pages_manage_posts", "instagram_content_publish"].map((permission) => ({ permission, status: "granted" })) };
+      if (edge === "assigned_product_catalogs") return { data: [{ id: "cat_9", name: "Catalog_Professional_Services" }] };
       if (edge === "accounts") return { data: [{ id: "page_1", name: "Studio Noa", instagram_business_account: { id: "ig_1", username: "studio.noa" } }] };
       return { id: "user_1", name: "Noa" };
     }
