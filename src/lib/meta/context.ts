@@ -44,15 +44,32 @@ export function money(amount: number, currency = "ILS"): string {
 }
 
 /** Lists every asset the token can reach, for the onboarding picker. */
+/**
+ * What the token can see. Only /me is required; a list Meta refuses (no ads permission, no business
+ * permission) comes back empty and is named in `problems`, so the caller can save what works and say
+ * exactly what is missing.
+ */
 export async function discoverAssets(graph: Graph) {
+  const problems: string[] = [];
+  const soft = <T,>(what: string, p: Promise<T[]>) =>
+    p.catch((e: Error) => {
+      problems.push(`${what}: ${e.message}`);
+      return [] as T[];
+    });
   const [me, adAccounts, pages, businesses] = await Promise.all([
     graph.get<{ name: string; id: string }>("/me", { fields: "id,name" }),
-    graph.all<{ id: string; name: string; currency: string; account_status: number }>("/me/adaccounts", {
-      fields: "id,name,currency,account_status",
-    }),
-    graph.all<{ id: string; name: string; instagram_business_account?: { id: string; username?: string } }>(
-      "/me/accounts",
-      { fields: "id,name,instagram_business_account{id,username}" },
+    soft(
+      "ad accounts",
+      graph.all<{ id: string; name: string; currency: string; account_status: number }>("/me/adaccounts", {
+        fields: "id,name,currency,account_status",
+      }),
+    ),
+    soft(
+      "pages",
+      graph.all<{ id: string; name: string; instagram_business_account?: { id: string; username?: string } }>(
+        "/me/accounts",
+        { fields: "id,name,instagram_business_account{id,username}" },
+      ),
     ),
     graph
       .all<{ id: string; name: string; owned_product_catalogs?: { data: { id: string; name: string }[] } }>(
@@ -62,7 +79,7 @@ export async function discoverAssets(graph: Graph) {
       .catch(() => []),
   ]);
   const catalogs = businesses.flatMap((b) => b.owned_product_catalogs?.data ?? []);
-  return { me, adAccounts, pages, catalogs };
+  return { me, adAccounts, pages, catalogs, problems };
 }
 
 export async function listPixels(graph: Graph, adAccountId: string) {

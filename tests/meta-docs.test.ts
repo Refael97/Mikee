@@ -27,6 +27,8 @@ describe("Facebook Login for Business, as Meta documents it", () => {
       config_id: "987654321",
       response_type: "code",
       override_default_response_type: "true",
+      // Declined permissions are asked for again on every connect, not only on a reconnect.
+      auth_type: "rerequest",
     });
     expect(u.searchParams.has("scope")).toBe(false);
   });

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { META_NOTICES } from "@/lib/meta/notices";
 import { requireSession } from "@/lib/auth";
 import { budgetStatus } from "@/lib/budget";
 import { getConnection, type MetaConfig } from "@/lib/connections";
@@ -157,13 +158,14 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
   );
 }
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const { workspace } = await requireSession();
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
   return (
     <Page narrow>
       <PageHeader title="הגדרות" lead="התקציב, המגבלות, וכל מה שמחובר למייקי." />
       {error && ERRORS[error] && <p className="note note-warn mb-6">{ERRORS[error]}</p>}
+      {notice && META_NOTICES[notice] && <p className="note note-warn mb-6">{META_NOTICES[notice]}</p>}
 
       <Section id="budget" title="תקציב השיווק החודשי" hint="התקרה החודשית. מייקי לא יעבור אותה בלי לבקש ולקבל אישור ממך.">
         <BudgetForm workspaceId={workspace.id} />

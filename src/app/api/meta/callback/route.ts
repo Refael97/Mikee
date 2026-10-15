@@ -5,6 +5,18 @@ import { discoverAssets } from "@/lib/meta/context";
 import { clientBusinessId, exchangeCode, Graph, inspectToken } from "@/lib/meta/graph";
 import { logConnectDiagnosis } from "@/lib/meta/diagnose";
 
+/**
+ * The connection is kept even when Meta leaves permissions out (pages and Instagram still work); the screen
+ * then says exactly what is missing. Ads and business permissions on a business integration come only with
+ * an ad account chosen in Facebook's window, so that is what the notice asks for.
+ */
+function missingNotice(scopes: string[]) {
+  const has = (s: string) => scopes.includes(s);
+  if (!has("ads_read") || !has("ads_management")) return "?notice=meta_missing_ads";
+  if (!has("business_management")) return "?notice=meta_missing_business";
+  return "";
+}
+
 export async function GET(req: NextRequest) {
   const base = process.env.APP_URL ?? req.nextUrl.origin;
   const session = await getSession();
@@ -29,7 +41,8 @@ export async function GET(req: NextRequest) {
     // What Meta granted and what each asset read answers, in the log, whether or not the connection works.
     await logConnectDiagnosis(token, info, businessId).catch((e) => console.warn("[meta] diagnosis failed", (e as Error).message));
     if (!info || !info.valid || info.appId !== process.env.META_APP_ID) return NextResponse.redirect(new URL(`${back}?error=meta_wrong_app`, base));
-    const { me } = await discoverAssets(new Graph(token));
+    const { me, problems } = await discoverAssets(new Graph(token));
+    if (problems.length) console.warn("[meta] connected with gaps", problems.join(" | "));
     await saveConnection(
       session.workspace.id,
       "meta",
@@ -44,7 +57,7 @@ export async function GET(req: NextRequest) {
       },
       token,
     );
-    const res = NextResponse.redirect(new URL(back, base));
+    const res = NextResponse.redirect(new URL(`${back}${missingNotice(info.scopes)}`, base));
     res.cookies.delete("meta_oauth_state");
     return res;
   } catch (e) {

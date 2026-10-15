@@ -287,7 +287,7 @@ export const GRAPH_VERSION = VERSION;
  * System-user (business integration) tokens need the authorization-code grant, so the response type is
  * forced to code (docs: facebook-login/facebook-login-for-business).
  */
-export function oauthDialogUrl(state: string, opts: { reauthorize?: boolean } = {}): string {
+export function oauthDialogUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: process.env.META_APP_ID!,
     redirect_uri: metaRedirectUri(),
@@ -296,7 +296,9 @@ export function oauthDialogUrl(state: string, opts: { reauthorize?: boolean } = 
     response_type: "code",
     override_default_response_type: "true",
   });
-  if (opts.reauthorize) params.set("auth_type", "reauthorize");
+  // Every time, not only on a reconnect: a business that installed the integration before (with fewer assets
+  // or permissions) is otherwise handed the old grant again without seeing the choice.
+  params.set("auth_type", "rerequest");
   return `https://www.facebook.com/${VERSION}/dialog/oauth?${params}`;
 }
 

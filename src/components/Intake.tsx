@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Award,
@@ -132,6 +132,8 @@ function RangeSlider({ stops, low, high, onChange, format }: { stops: readonly n
   );
 }
 
+const DRAFT_KEY = "mikee-intake-draft";
+
 /** One question at a time in a large card, answers as tiles. Saved once at the end, then the connections screen opens. */
 export function Intake() {
   const router = useRouter();
@@ -140,6 +142,21 @@ export function Intake() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A deploy while the questions are open makes the page's server action stale ("Failed to find Server
+  // Action"). The answers are kept for the tab, the page reloads with the new version, and they come back.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+      sessionStorage.removeItem(DRAFT_KEY);
+      const d = JSON.parse(saved) as { a: Answers; i: number };
+      setA(d.a);
+      setI(Math.min(Math.max(0, d.i), STEPS.length - 1));
+    } catch {
+      /* nothing saved, or storage is off */
+    }
+  }, []);
   const step = STEPS[i];
   const last = i === STEPS.length - 1;
 
@@ -166,8 +183,21 @@ export function Intake() {
         state: a.state,
         goals: a.goals,
         knowledge: a.knowledge,
-      }).catch(() => ({ error: "השמירה לא הצליחה. נסו שוב." }));
+      }).catch((e: Error) => {
+        if (/server action/i.test(e?.message ?? "")) {
+          try {
+            sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ a, i }));
+            window.location.reload();
+            return { error: "" };
+          } catch {
+            /* storage is off: say it plainly below */
+          }
+          return { error: "האתר התעדכן ברגע זה. רעננו את העמוד ונסו שוב." };
+        }
+        return { error: "השמירה לא הצליחה. נסו שוב." };
+      });
       if (r?.error) return setError(r.error);
+      if (r && "error" in r) return;
       router.refresh();
     });
   };
