@@ -23,7 +23,7 @@ async function main() {
 
   if (process.env.DATABASE_URL) {
     const { default: postgres } = await import("postgres");
-    const sql = postgres(process.env.DATABASE_URL, { prepare: false });
+    const sql = postgres(process.env.DATABASE_URL, { prepare: false, onnotice: () => {} });
     await sql.unsafe(INIT_SQL);
     await run((q, p) => sql.unsafe(q, p as never[]) as unknown as Promise<Record<string, unknown>[]>);
     await sql.end();

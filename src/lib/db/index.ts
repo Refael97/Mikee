@@ -12,7 +12,8 @@ async function connect(): Promise<DB> {
   if (url) {
     const { default: postgres } = await import("postgres");
     const { drizzle } = await import("drizzle-orm/postgres-js");
-    const client = postgres(url, { prepare: false, max: 5 });
+    // "already exists, skipping" notices from the idempotent schema setup are not worth a log line each.
+    const client = postgres(url, { prepare: false, max: 5, onnotice: () => {} });
     await client.unsafe(INIT_SQL);
     return drizzle(client, { schema }) as unknown as DB;
   }
