@@ -46,7 +46,7 @@ export function middleware(req: NextRequest) {
 }
 
 /** The site's own pages; everything else on the site's address belongs to the app. */
-const SITE_PAGES = new Set(["/", "/meeting", "/terms", "/privacy", "/data-deletion"]);
+const SITE_PAGES = new Set(["/", "/meeting", "/terms", "/privacy", "/data-deletion", "/accessibility"]);
 
 const hostOf = (url: string | undefined) => {
   try {

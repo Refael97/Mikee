@@ -99,6 +99,11 @@ export function HelpPanel({ open, onClose, support }: { open: boolean; onClose: 
               </div>
             )}
           </section>
+          <p className="rule flex flex-wrap gap-x-4 gap-y-1 py-4 text-[13.5px] text-ink-3">
+            <a href="/site/terms" className="hover:text-ink-2">תנאי שימוש</a>
+            <a href="/site/privacy" className="hover:text-ink-2">מדיניות פרטיות</a>
+            <a href="/site/accessibility" className="hover:text-ink-2">הצהרת נגישות</a>
+          </p>
         </div>
       </aside>
     </div>

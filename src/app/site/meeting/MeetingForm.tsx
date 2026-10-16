@@ -109,6 +109,7 @@ export function MeetingForm({ days }: { days: Day[] }) {
       </fieldset>
 
       {error && <p className="s-error" role="alert">{error}</p>}
+      <p className="s-opt">הפרטים ישמשו רק לתיאום הפגישה ולחזרה אליכם, ויימחקו תוך 12 חודשים. פרטים ב<a href="/site/privacy">מדיניות הפרטיות</a>.</p>
       <div className="s-book-end">
         <button type="submit" className="btn btn-primary s-btn-lg" disabled={busy}>
           {busy ? "קובעים…" : slot ? `לקבוע ל${current?.label} בשעה ${slot.slice(11)}` : "לקבוע פגישה"}

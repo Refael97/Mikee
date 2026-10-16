@@ -15,6 +15,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
   const home = sitePath("/");
   return (
     <div className="s-root">
+      <a href="#content" className="s-skip">דילוג לתוכן</a>
       <header className="s-nav">
         <div className="s-nav-in">
           <Link href={home} className="s-brand" aria-label="מייקי, לדף הבית">
@@ -34,7 +35,9 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         </div>
       </header>
 
-      {children}
+      <div id="content" tabIndex={-1} className="outline-none">
+        {children}
+      </div>
 
       <footer className="s-foot">
         <div className="s-wrap s-foot-in">
@@ -48,6 +51,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
             <Link href={sitePath("/meeting")}>פגישת היכרות</Link>
             <Link href={sitePath("/terms")}>תנאי שימוש</Link>
             <Link href={sitePath("/privacy")}>מדיניות פרטיות</Link>
+            <Link href={sitePath("/accessibility")}>הצהרת נגישות</Link>
+            <Link href={sitePath("/data-deletion")}>מחיקת מידע</Link>
             <a href={appPath("/login")}>כניסה לחשבון</a>
           </nav>
           <p className="s-foot-small">© {new Date().getFullYear()} מייקי</p>

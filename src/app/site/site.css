@@ -332,3 +332,10 @@
 @media (prefers-reduced-motion: reduce) {
   .s-root *, .s-root *::before, .s-root *::after { transition: none !important; animation: none !important; }
 }
+.s-legal ul { margin: 6px 0 0; padding-inline-start: 20px; list-style: disc; }
+.s-legal li { font-size: 16.5px; line-height: 1.7; color: var(--ink-2); }
+.s-legal p + p, .s-legal p + ul, .s-legal ul + p { margin-top: 10px; }
+.s-legal h3 { margin: 18px 0 4px; font-size: 17px; font-weight: 500; }
+.s-legal a { text-decoration: underline; text-underline-offset: 3px; }
+.s-skip { position: absolute; inset-inline-start: 12px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 9999px; background: var(--ink); color: var(--surface); }
+.s-skip:focus { top: 12px; }

@@ -71,6 +71,9 @@ export function SignupForm() {
       <button className="btn btn-primary btn-lg w-full" disabled={pending}>
         {pending ? "פותחים חשבון…" : "פתיחת חשבון"}
       </button>
+      <p className="text-center text-[13.5px] text-ink-3">
+        בפתיחת החשבון את מסכימה ל<a href="/site/terms" className="underline underline-offset-2">תנאי השימוש</a> ול<a href="/site/privacy" className="underline underline-offset-2">מדיניות הפרטיות</a>.
+      </p>
     </form>
   );
 }

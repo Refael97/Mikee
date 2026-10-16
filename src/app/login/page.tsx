@@ -43,6 +43,11 @@ export default function LoginPage() {
         </Link>
       </p>
       <p className="mt-3 max-w-[400px] text-center text-[13px] text-ink-3">שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך.</p>
+      <p className="mt-3 flex gap-4 text-[13px] text-ink-3">
+        <a href="/site/terms" className="hover:text-ink-2">תנאי שימוש</a>
+        <a href="/site/privacy" className="hover:text-ink-2">פרטיות</a>
+        <a href="/site/accessibility" className="hover:text-ink-2">נגישות</a>
+      </p>
     </main>
   );
 }
