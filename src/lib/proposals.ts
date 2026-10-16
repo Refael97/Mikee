@@ -37,7 +37,7 @@ export function dedupeKey(kind: ProposalKind, a: any): string {
     case "change":
       return `target:${a.target.id}`;
     case "campaign":
-      return `campaign:${sha(canonical({ goal: a.goal, links: a.ads.map((x: any) => x.link).sort(), media: a.ads.map((x: any) => x.media.url).sort() })).slice(0, 24)}`;
+      return `campaign:${sha(canonical({ goal: a.goal, links: a.ads.map((x: any) => x.link).sort(), media: a.ads.flatMap((x: any) => x.media ? [x.media.url] : []).sort(), ...(a.catalog ? { catalog: { catalogId: a.catalog.catalogId, productSetId: a.catalog.productSetId, format: a.catalog.format } } : {}), ...(a.moreAdsets ? { moreAdsets: a.moreAdsets } : {}), ...(a.buildOnly ? { buildOnly: true } : {}) })).slice(0, 24)}`;
     case "post":
       return `post:${sha(canonical({ format: a.format ?? "auto", channels: [...a.channels].sort(), text: String(a.text).trim().replace(/\s+/g, " "), media: a.media, scheduleAt: a.scheduleAt })).slice(0, 24)}`;
     case "budget":
@@ -267,7 +267,7 @@ export async function finishProposal(p: Proposal, ok: boolean, result: Record<st
       type: "text",
       text: ok
         ? p.kind === "campaign"
-          ? `[Platform event, not typed by the client] "${title}" was built PAUSED at Meta and read back; it matches the approved card. An activation card is now waiting for the client: nothing spends until she approves it. Meta review: ${String(result.review ?? "")}${(result.blockers as string[] | undefined)?.length ? ` Blockers: ${JSON.stringify(result.blockers)}` : ""}. Tell her briefly, in one or two sentences.${result.activationProposalId ? ` {"proposalId":"${String(result.activationProposalId)}"}` : ""}`
+          ? `[Platform event, not typed by the client] "${title}" was built PAUSED at Meta and read back; it matches the approved card. ${p.action.buildOnly === true ? "This was a build-only test. It stays PAUSED, with no activation card and no automatic activation." : "An activation card is now waiting for the client: nothing spends until she approves it."} Meta review: ${String(result.review ?? "")}${(result.blockers as string[] | undefined)?.length ? ` Blockers: ${JSON.stringify(result.blockers)}` : ""}. Tell her briefly, in one or two sentences.${result.activationProposalId ? ` {"proposalId":"${String(result.activationProposalId)}"}` : ""}`
           : `[Platform event, not typed by the client] "${title}" was carried out successfully. Result: ${JSON.stringify(result)}`
         : `[Platform event, not typed by the client] "${title}" failed: ${String(result.detail ?? result.error)}. ${result.retryable === false ? "It cannot be retried automatically." : "The client can retry from the card; progress is kept, nothing is duplicated."} Explain simply if she asks.`,
     },

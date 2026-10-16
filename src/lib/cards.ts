@@ -57,7 +57,12 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
         title: s.title,
         why: s.why,
         rows: [
-          { label: "המטרה", value: GOAL_HE[s.goal] },
+          { label: "המטרה", value: s.catalog ? "מכירות מהקטלוג" : GOAL_HE[s.goal] },
+          ...(s.catalog ? [
+            { label: "המוצרים", value: `${s.catalog.catalogName ?? "הקטלוג המחובר"} · ${s.catalog.productSetName ?? "סט המוצרים שנבחר"}` },
+            { label: "איך המודעה תיראה", value: `${s.catalog.format === "single_image" ? "מוצר אחד בכל מודעה" : "קרוסלת מוצרים"}. התמונות והמחירים מגיעים מהקטלוג ועשויים להתעדכן.` },
+            ...allAds.map((a, i) => ({ label: `מודעה ${i + 1}`, value: `${a.primaryText} · ${a.headline ?? "{{product.name}}"} · ${CTA_HE[a.cta]}` })),
+          ] : []),
           { label: "תקציב", value: `${money(totalDaily(s), currency)} ביום בממוצע${several ? `, לכל הסדרות יחד` : ""}` },
           ...(several
             ? sets.map((x, i) => ({
@@ -66,14 +71,14 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
               }))
             : [{ label: "למי נגיע", value: s.audience.description }]),
           { label: "מתי", value: when },
-          s.leadFormId ? { label: "טופס הלידים", value: `${s.leadFormName ?? "טופס"} (מזהה ${s.leadFormId})` } : { label: "לאן מגיעים", value: links },
-          { label: "מה יקרה באישור", value: "מייקי בונה את הקמפיין במצב מושהה ובודק אותו. הוא יעלה לאוויר רק אחרי אישור נוסף שלך." },
+          s.leadFormId ? { label: "טופס הלידים", value: `${s.leadFormName ?? "טופס"} (מזהה ${s.leadFormId})` } : { label: "לאן מגיעים", value: s.catalog ? `לדפי המוצרים מהקטלוג. קישור גיבוי: ${links}` : links },
+          { label: "מה יקרה באישור", value: s.buildOnly ? "בדיקה בלבד: הקמפיין ייבנה מושהה ולא יופעל אוטומטית." : "מייקי בונה את הקמפיין במצב מושהה ובודק אותו. הוא יעלה לאוויר רק אחרי אישור נוסף שלך." },
         ],
-        media: allAds.map((a) => ({
-          type: a.media.type,
-          url: a.media.url,
-          metaImageHash: a.media.metaImageHash,
-          metaVideoId: a.media.metaVideoId,
+        media: allAds.filter((a) => a.media).map((a) => ({
+          type: a.media!.type,
+          url: a.media!.url,
+          metaImageHash: a.media!.metaImageHash,
+          metaVideoId: a.media!.metaVideoId,
           text: a.primaryText,
           headline: a.headline,
           cta: CTA_HE[a.cta],
@@ -103,6 +108,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
           },
           { label: "מתי", value: when },
           { label: "בדיקת מטא", value: s.review },
+          ...(s.catalog ? [{ label: "המוצרים", value: `${s.catalog.catalogName ?? "הקטלוג המחובר"} · ${s.catalog.productSetName ?? "סט המוצרים שנבחר"}. התמונות והמחירים מתעדכנים מהקטלוג.` }] : []),
         ],
         media: s.media,
         approveLabel: adsets ? "להפעיל את הסדרה" : "להפעיל עכשיו",

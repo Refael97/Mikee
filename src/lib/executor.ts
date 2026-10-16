@@ -8,6 +8,7 @@ import { buildProject, renderVideo, VideoProblem } from "./video/render";
 import { metaContext } from "./meta/context";
 import { MetaError } from "./meta/graph";
 import { resolveIdentity } from "./meta/identities";
+import { resolveCatalog } from "./meta/catalog";
 import { activateCampaign, addAdset, applyChange, buildCampaign, cleanupAdset, copyAdset, CopyUncertain, describeBuild, OwnershipProblem, reviewAds, targeting, PublishProblem, type Checkpoint, cleanupLaunch, currentDailyBudget, describeError, publishPost, verifyBuild, whatWasBuilt } from "./meta/actions";
 import { approveProposal, createProposal, finishProposal, ProposalConflict, type Proposal, saveProgress } from "./proposals";
 import { ActivateSpec, adsetsOf, AdsetAddSpec, AdsetCopySpec, BudgetRequestSpec, CampaignSpec, ChangeSpec, MediaSpec, PostSpec, type ProposalCard, totalDaily, VideoSpec } from "./specs";
@@ -89,7 +90,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         const ids = await buildCampaign(ctx, spec, `mk-${p.id.slice(0, 8)}`, cp, identity?.regional_regulation_identities);
         const check = await verifyBuild(ctx, spec, ids);
         if (!check.ok) throw new NotRetryable(`The built campaign does not match the approved card (${check.mismatches.join("; ")}). It stays paused.`);
-        const activation = await openActivation(p, spec, ids, check.review, tz, ctx.currency).catch((e) => (e instanceof ProposalConflict ? null : Promise.reject(e)));
+        const activation = spec.buildOnly ? null : await openActivation(p, spec, ids, check.review, tz, ctx.currency).catch((e) => (e instanceof ProposalConflict ? null : Promise.reject(e)));
         // "Final approval only": her approval of this card was the final one, so a build that checked out clean
         // goes live now (the activation re-checks the budget against live numbers). Any review problem leaves
         // the activation card for her.
@@ -102,6 +103,18 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
         // Step two: the client approved going live. The budget is checked again against live numbers.
         const spec = ActivateSpec.parse(p.action);
         const ctx = await metaContext(p.workspaceId);
+        if (spec.catalog) {
+          const source = await d.query.proposals.findFirst({ where: and(eq(schema.proposals.id, spec.fromProposal), eq(schema.proposals.workspaceId, p.workspaceId)) });
+          if (!source || source.kind !== "campaign") throw new NotRetryable("לא נמצא כרטיס הקטלוג המקורי שאושר.");
+          const approved = CampaignSpec.parse(source.action);
+          if (approved.buildOnly || !approved.catalog) throw new NotRetryable("קמפיין מבחן נשאר מושהה. נדרש כרטיס חדש להפעלה.");
+          await resolveCatalog(ctx, approved.catalog);
+          // Re-read before spending: an operator may have changed the paused build since its first check.
+          const built = source.result as unknown as Parameters<typeof verifyBuild>[2];
+          if (built.campaignId !== spec.campaignId) throw new NotRetryable("הקמפיין להפעלה אינו הקמפיין שנבנה מהכרטיס המקורי.");
+          const check = await verifyBuild(ctx, approved, built, { activationRetry: cp.data.catalogActivationStarted === true });
+          if (!check.ok || check.blockers.length) throw new NotRetryable("קמפיין הקטלוג השתנה או נחסם במטא מאז הבנייה. הוא נשאר מושהה עד לבדיקה מחדש.");
+        }
         if (spec.scope === "adsets") {
           // New ad sets inside an existing campaign: their own budget is what starts to spend.
           const first = await ctx.graph.get<{ effective_status?: string }>(`/${spec.adsetIds?.[0] ?? spec.adsetId}`, { fields: "effective_status" });
@@ -114,6 +127,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
             await assertWithinBudget(p.workspaceId, tz, ctx, dailyCommit(spec.dailyBudget, tz, spec.endTime, spec.startTime), { excludeProposalId: p.id });
           }
         }
+        if (spec.catalog) await cp.save({ catalogActivationStarted: true });
         result = await activateCampaign(ctx, spec);
         await syncMetaSpendCap(p.workspaceId, tz, ctx).catch(() => undefined);
         break;
@@ -213,6 +227,7 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
 async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId: string; adsetId: string; adIds: string[]; adsets?: { adsetId: string }[] }, review: string, tz: string, currency?: string) {
   const card = p.card as unknown as ProposalCard;
   const action: ActivateSpec = {
+    catalog: spec.catalog,
     fromProposal: p.id,
     title: card.title,
     campaignId: ids.campaignId,
@@ -226,11 +241,12 @@ async function openActivation(p: Proposal, spec: CampaignSpec, ids: { campaignId
     review,
     media: adsetsOf(spec)
       .flatMap((x) => x.ads)
+      .filter((a) => a.media)
       .map((a) => ({
-        type: a.media.type,
-        url: a.media.url,
-        metaImageHash: a.media.metaImageHash,
-        metaVideoId: a.media.metaVideoId,
+        type: a.media!.type,
+        url: a.media!.url,
+        metaImageHash: a.media!.metaImageHash,
+        metaVideoId: a.media!.metaVideoId,
         text: a.primaryText,
         headline: a.headline,
         cta: CTA_HE[a.cta],
