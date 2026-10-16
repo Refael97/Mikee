@@ -6,11 +6,11 @@
 export const LEGAL = {
   company: "ADRT GROUP LTD",
   companyHe: "אדרט גרופ בע״מ",
-  companyNumber: "",
+  companyNumber: "517169736",
   address: "",
   // The support details the app already shows in its help panel (Railway variables), unless set here.
-  email: process.env.SUPPORT_EMAIL ?? "",
-  phone: process.env.SUPPORT_WHATSAPP ?? "",
+  email: "info@mikee.co.il",
+  phone: "0544607899",
   /** The privacy and accessibility contact (and coordinator) required by Israeli regulations. */
   contactName: "רפאל לוי",
   updated: "16 באוקטובר 2026",
