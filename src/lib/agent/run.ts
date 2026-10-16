@@ -11,7 +11,7 @@ import { refundJob } from "../credits";
 import { businessBrief } from "./brief";
 import { playbookStatus } from "../playbooks";
 import { skillsBrief, skillsFor } from "../skills";
-import { agentLoop, type LoopEvent, type Row, tierFor } from "./loop";
+import { agentLoop, type LoopEvent, MODELS, type Row, supportsMidConversationSystem, tierFor } from "./loop";
 import { LEAK_MARKERS, LEAK_REPLACEMENT, MIKEE_CONSTITUTION, stageInstructions } from "./prompt";
 import { TEAM_TOOLS } from "./team";
 import { pick, type ToolDef } from "./tools";
@@ -55,6 +55,17 @@ export async function runMikee(opts: {
 
   const history = await loadHistory(workspaceId, conversationId);
   const pending: Row[] = opts.resume?.length ? [...opts.resume] : [...(opts.prepend ?? [])];
+  // What changes from turn to turn (the time, credits, cards, playbooks, other conversations) goes into the
+  // conversation as a state message, saved with the turn, instead of into the system prompt: a change there
+  // would make the whole cached conversation behind it count again at full price on every new message.
+  if (!opts.resume?.length) {
+    const state = `# Current state (newer than any earlier state message in this conversation)\n${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}`;
+    const before = pending.length ? pending[pending.length - 1] : history[history.length - 1];
+    // A system message must follow the client's message; when the turn opens otherwise (Mikee writes first),
+    // or on a model without mid-conversation system messages, the state rides in a user row instead.
+    const asSystem = before?.role === "user" && supportsMidConversationSystem(MODELS[tierFor("mikee")]);
+    pending.push({ role: asSystem ? "system" : "user", kind: "state", content: [{ type: "text", text: asSystem ? state : `<platform_state>\n${state}\n</platform_state>` }] });
+  }
   let written = "";
   let failed = false;
 
@@ -63,8 +74,7 @@ export async function runMikee(opts: {
       // emit in the context lets the specialists show their own steps on the client's screen.
       ctx: { workspaceId, tz: ws.timezone, conversationId, agent: "mikee", emit: (e) => (e.t === "tool" ? emit(e) : undefined) },
       agent: "mikee",
-      // Built once per turn, not at every step: the brief carries the time, and any change at the front of
-      // the request would make the cached conversation behind it count again at full price.
+      // Only what rarely changes: the constitution (cached), the stage, the autonomy rules and the skills.
       system: await (async () => {
         const stage = ws.stage;
         const skills = skillsBrief(await skillsFor(workspaceId, "mikee"));
@@ -72,7 +82,7 @@ export async function runMikee(opts: {
           { type: "text", text: MIKEE_CONSTITUTION, cache_control: { type: "ephemeral" } },
           {
             type: "text",
-            text: `${await businessBrief(workspaceId, ws.timezone)}\n\n# Your team's playbooks for this business\n${await playbookStatus(workspaceId)}\n\n# Other recent conversations\n${await recentConversationsText(workspaceId, conversationId)}\n\n${stageInstructions(stage)}\n\n# How much to ask the client\n${AUTONOMY_RULES[ws.settings?.autonomy ?? DEFAULT_AUTONOMY]}${skills ? `\n\n${skills}` : ""}`,
+            text: `The business's current state (time, connections, cards, credits, playbooks, other conversations) arrives as the latest "Current state" message in the conversation; older ones are history.\n\n${stageInstructions(stage)}\n\n# How much to ask the client\n${AUTONOMY_RULES[ws.settings?.autonomy ?? DEFAULT_AUTONOMY]}${skills ? `\n\n${skills}` : ""}`,
           },
         ];
       })(),

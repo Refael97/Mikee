@@ -36,6 +36,8 @@ const says = async (ws: string, conv: string, text: string) => {
   await drainJobs();
 };
 const sysOf = (req: any) => req.system.map((b: any) => b.text).join("\n");
+/** Mikee's view: the system prompt and the turn's state message (cards, time, credits live there). */
+const contextOf = (req: any) => [sysOf(req), ...req.messages.filter((m: any) => m.role === "system").map((m: any) => m.content.map((b: any) => b.text).join("\n"))].join("\n");
 
 describe("each specialist's playbook", () => {
   it("is versioned with its reason, takes lessons under their own section, and stays readable in size", async () => {
@@ -88,7 +90,7 @@ describe("Mikee manages the video editor through its playbook", () => {
         () => ({ stop_reason: "tool_use", content: [toolUse("m2", "ask_video_editor", { task: "Reel for the new Shabbat collection, Instagram reels" })] }),
         // Turn 2: she did not like it. The lesson goes to the editor's file first, then a new version.
         (req) => {
-          expect(sysOf(req)).toMatch(/"ריל לקולקציה" id [0-9a-f-]{36}, since [^\n]+, made by video_editor/);
+          expect(contextOf(req)).toMatch(/"ריל לקולקציה" id [0-9a-f-]{36}, since [^\n]+, made by video_editor/);
           return { stop_reason: "tool_use", content: [toolUse("m3", "update_playbook", { agent: "video_editor", action: "add_lesson", text: "פחות טקסט על המסך, שהשמלה תדבר", reason: "הלקוחה לא אהבה את כמות הטקסט" })] };
         },
         () => ({ stop_reason: "tool_use", content: [toolUse("m4", "ask_video_editor", { task: `New version with less text; replaces card ${firstCard}` })] }),

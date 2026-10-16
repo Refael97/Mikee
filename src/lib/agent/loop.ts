@@ -46,7 +46,23 @@ export function tierFor(role: string): Tier {
 const isHaiku = (model: string) => model.startsWith("claude-haiku");
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
-export type Row = { role: "user" | "assistant"; kind: Kind; content: unknown[] };
+export type Row = { role: "user" | "assistant" | "system"; kind: Kind; content: unknown[] };
+
+/**
+ * Postgres jsonb keeps object keys shorter first, then in byte order. Messages built in memory have another
+ * order; sorting them the same way makes a stored turn and a fresh one identical on the wire.
+ */
+export function canonical<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(canonical) as T;
+  if (!value || typeof value !== "object") return value;
+  const keys = Object.keys(value as Record<string, unknown>).sort((a, b) => Buffer.byteLength(a) - Buffer.byteLength(b) || Buffer.compare(Buffer.from(a), Buffer.from(b)));
+  return Object.fromEntries(keys.map((k) => [k, canonical((value as Record<string, unknown>)[k])])) as T;
+}
+
+/** Models that take a role "system" message inside the conversation (no beta header). */
+export function supportsMidConversationSystem(model: string): boolean {
+  return /^claude-(sonnet-5-5|haiku-5-5|opus-5|opus-5-5|opus-4-8|fable-5|fable-5-1|mythos-5|mythos-5-1)$/.test(model);
+}
 /** `agent` is set when a specialist (not Mikee) runs the tool, so the client sees who is doing what. */
 export type LoopEvent = { t: "text"; v: string } | { t: "tool"; name: string; state: "start" | "done" | "error"; agent?: string } | { t: "proposal"; id: string };
 
@@ -130,7 +146,9 @@ export async function agentLoop(opts: {
         thinking: features.blockBinding ? { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } } : { type: "adaptive" },
         output_config: { effort: opts.effort },
         system,
-        messages: [...opts.history, ...pending.map((r) => ({ role: r.role, content: r.content as Anthropic.Beta.BetaContentBlockParam[] }))],
+        // In the key order Postgres stores them in, so a turn read back from the database next time is the same bytes
+        // as the turn sent now, and the cached conversation still matches.
+        messages: canonical([...opts.history, ...pending.map((r) => ({ role: r.role, content: r.content as Anthropic.Beta.BetaContentBlockParam[] }))]),
         tools: [
           ...definitions,
           ...(opts.web && !haiku

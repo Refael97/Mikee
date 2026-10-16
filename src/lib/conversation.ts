@@ -8,12 +8,12 @@ import { getObject } from "./storage";
 import { untrusted } from "./agent/untrusted";
 
 type Block = Anthropic.Beta.BetaContentBlockParam;
-export type Kind = "chat" | "event" | "kickoff";
+export type Kind = "chat" | "event" | "kickoff" | "state";
 
 export async function appendMessage(
   workspaceId: string,
   conversationId: string,
-  role: "user" | "assistant",
+  role: "user" | "assistant" | "system",
   kind: Kind,
   content: Block[] | unknown[],
   attachments?: Attachment[],
@@ -23,7 +23,7 @@ export async function appendMessage(
   await d.update(schema.conversations).set({ updatedAt: new Date() }).where(eq(schema.conversations.id, conversationId));
 }
 
-export async function appendMany(workspaceId: string, conversationId: string, rows: { role: "user" | "assistant"; kind: Kind; content: unknown[] }[]) {
+export async function appendMany(workspaceId: string, conversationId: string, rows: { role: "user" | "assistant" | "system"; kind: Kind; content: unknown[] }[]) {
   if (!rows.length) return;
   const d = await db();
   await d.insert(schema.messages).values(rows.map((r) => ({ workspaceId, conversationId, ...r })));

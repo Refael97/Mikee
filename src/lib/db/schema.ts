@@ -197,7 +197,8 @@ export const messages = pgTable("messages", {
   conversationId: uuid("conversation_id").references(() => conversations.id),
   /** Files the client attached; expanded into image/document blocks when sent to the model. */
   attachments: jsonb("attachments").$type<Attachment[]>(),
-  role: text("role").$type<"user" | "assistant">().notNull(),
+  /** system: the business's state at the start of a turn (kind "state"), never shown in the timeline. */
+  role: text("role").$type<"user" | "assistant" | "system">().notNull(),
   kind: text("kind").notNull().default("chat"),
   content: jsonb("content").$type<unknown[]>().notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),

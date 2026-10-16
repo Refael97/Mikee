@@ -86,7 +86,31 @@ describe("separate conversations", () => {
 
     const req = team.requests[0].req;
     expect(JSON.stringify(req.messages)).not.toContain("סוד של שיחה א");
-    expect(req.system.map((s: any) => s.text).join("\n")).toContain('"קמפיין סתיו"');
+    // The other conversations arrive in the turn's state message, after the client's message, not in the system prompt.
+    const state = req.messages.find((m: any) => m.role === "system");
+    expect(JSON.stringify(state)).toContain('\\"קמפיין סתיו\\"');
+    expect(req.system.map((s: any) => s.text).join("\n")).not.toContain("קמפיין סתיו");
+  });
+
+  it("a new turn keeps the cached prefix: same system prompt, earlier messages byte for byte, state appended", async () => {
+    const ws = await createBusiness({ budget: 3000 });
+    const c = await createConversation(ws, { title: "שיחה" });
+    const team = fakeTeam({
+      mikee: [() => ({ stop_reason: "end_turn", content: [{ type: "text", text: "שלום" }] }), () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "בטח" }] })],
+    });
+    setAnthropicForTests(team);
+    await say(ws, c.id, "היי");
+    await drainJobs();
+    // Time moves on between turns: the brief's clock changes, and it must not touch the cached prefix.
+    vi.setSystemTime(new Date(NOW.getTime() + 20 * 60_000));
+    await say(ws, c.id, "ומה עכשיו?");
+    await drainJobs();
+    vi.setSystemTime(NOW);
+    const [first, second] = team.requests.filter((r) => r.agent === "mikee").map((r) => r.req);
+    expect(JSON.stringify(second.system)).toBe(JSON.stringify(first.system));
+    expect(JSON.stringify(second.tools)).toBe(JSON.stringify(first.tools));
+    expect(JSON.stringify(second.messages.slice(0, first.messages.length))).toBe(JSON.stringify(first.messages));
+    expect(second.messages.at(-1).role).toBe("system");
   });
 
   it("a card's outcome is reported in the conversation it came from", async () => {
@@ -153,5 +177,18 @@ describe("attachments", () => {
     expect(blocks[0]).toMatchObject({ type: "image", source: { type: "base64", media_type: "image/png", data: png.toString("base64") } });
     expect(blocks.some((b) => b.type === "text" && b.text.includes(`/api/media/${vid.id}`))).toBe(true);
     expect(blocks.at(-1)).toEqual({ type: "text", text: "תשתמש בזה" });
+  });
+});
+
+describe("wire order", () => {
+  it("sorts keys the way Postgres jsonb stores them: shorter first, then byte order", async () => {
+    const { canonical } = await import("@/lib/agent/loop");
+    const d = await db();
+    const ws = await createBusiness();
+    const c = await createConversation(ws, { title: "x" });
+    const block = { type: "tool_use", id: "t1", name: "read_results", input: { since: "2026-10-01", level: "ad", z: 1, campaignIds: ["1"] } };
+    await appendMessage(ws, c.id, "assistant", "chat", [block]);
+    const [row] = await d.select().from(schema.messages).where(eq(schema.messages.conversationId, c.id));
+    expect(JSON.stringify(canonical([block]))).toBe(JSON.stringify(row.content));
   });
 });

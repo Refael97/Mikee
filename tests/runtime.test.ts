@@ -89,7 +89,8 @@ describe("a Mikee turn", () => {
     expect((await eventsSince(job.id)).map((e) => e.event.t).at(-1)).toBe("done");
     const d = await db();
     const rows = await d.select().from(schema.messages).where(eq(schema.messages.conversationId, job.conversationId)).orderBy(asc(schema.messages.id));
-    expect(rows.map((r) => r.role)).toEqual(["user", "assistant", "user", "assistant"]);
+    // The client's message, the turn's state (saved, so the next turn's cached prefix is unchanged), then Mikee.
+    expect(rows.map((r) => r.role)).toEqual(["user", "system", "assistant", "user", "assistant"]);
     const usage = await d.select().from(schema.usage).where(eq(schema.usage.workspaceId, ws));
     expect(usage.filter((u) => (u.detail as { purpose?: string } | null)?.purpose !== "conversation_title")).toHaveLength(2);
   });
