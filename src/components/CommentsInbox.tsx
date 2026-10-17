@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PlatformLogo } from "./PlatformLogo";
 import { EyeOff, Eye, Heart, Reply, Trash2, ExternalLink, Pencil } from "lucide-react";
 
 type ReplyItem = { id: string; author: string; text: string; at: string; mine: boolean };
@@ -79,7 +80,8 @@ export function CommentsInbox({ connected }: { connected: boolean }) {
           <header className="flex items-center gap-3 border-b border-line px-5 py-3">
             {p.image && <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-[8px] object-cover" />}
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] text-ink-3">
+              <p className="flex items-center gap-1.5 text-[13px] text-ink-3">
+                <PlatformLogo platform={p.platform} className="h-3.5 w-3.5 shrink-0" />
                 {p.platform === "instagram" ? "אינסטגרם" : "פייסבוק"} · {when(p.at)}
               </p>
               <p dir="auto" className="truncate text-[15px]">{p.text || "פוסט בלי טקסט"}</p>
