@@ -1,7 +1,7 @@
 import "server-only";
 import { getConnection, type MetaConfig } from "./connections";
 import { metaContext } from "./meta/context";
-import { type FriendlyCampaign, type Period, readCampaigns } from "./meta/performance";
+import { type FriendlyCampaign, readCampaigns, type Window } from "./meta/performance";
 
 /**
  * Every ad platform behind one list. Meta works today; Google and TikTok are reserved so the campaigns page
@@ -17,7 +17,7 @@ export const PLATFORMS: { id: PlatformId; name: string; sub: string; ready: bool
 export type PlatformCampaign = FriendlyCampaign & { platform: PlatformId };
 
 /** `includeArchived` also reads archived and deleted campaigns (only when the client asks for ended ones). */
-export async function allCampaigns(workspaceId: string, period: Period, includeArchived = false) {
+export async function allCampaigns(workspaceId: string, period: Window, includeArchived = false) {
   const meta = await getConnection<MetaConfig>(workspaceId, "meta");
   const out: { campaigns: PlatformCampaign[]; currency: string; connected: Record<PlatformId, boolean>; error: string | null } = {
     campaigns: [],

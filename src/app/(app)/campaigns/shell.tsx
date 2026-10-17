@@ -1,15 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import type { Period } from "@/lib/meta/performance";
+import { type DateRange, rangeQuery } from "@/lib/date-range";
 import { PLATFORMS } from "@/lib/platforms";
-import { Page, PageHeader, Segmented } from "@/components/Page";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { Page, PageHeader } from "@/components/Page";
 import { Sk } from "@/components/Skeleton";
-
-export const PERIODS: { key: Period; label: string }[] = [
-  { key: "last_7d", label: "7 ימים" },
-  { key: "this_month", label: "החודש" },
-  { key: "last_30d", label: "30 יום" },
-];
 
 export function TableHead() {
   return (
@@ -49,7 +44,8 @@ export function RowsSkeleton() {
   );
 }
 
-export function CampaignsShell({ period, all, connected, rows, count }: { period?: Period; all: boolean; connected: boolean; rows?: React.ReactNode; count?: React.ReactNode }) {
+export function CampaignsShell({ range, today, tz, all, connected, rows, count }: { range?: DateRange; today?: string; tz?: string; all: boolean; connected: boolean; rows?: React.ReactNode; count?: React.ReactNode }) {
+  const period = range ? rangeQuery(range) : undefined;
   return (
     <Page>
       <PageHeader
@@ -63,7 +59,13 @@ export function CampaignsShell({ period, all, connected, rows, count }: { period
             "כל הקמפיינים, מכל הפלטפורמות, בשפה פשוטה"
           )
         }
-        action={<Segmented active={period ?? ""} items={PERIODS.map((x) => ({ key: x.key, label: x.label, href: `/campaigns?p=${x.key}${all ? "&show=all" : ""}` }))} />}
+        action={
+          range && today && tz ? (
+            <DateRangePicker value={range} today={today} tz={tz} path="/campaigns" extra={all ? "&show=all" : ""} />
+          ) : (
+            <Sk w="260px" h="40px" />
+          )
+        }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-line">
@@ -76,7 +78,7 @@ export function CampaignsShell({ period, all, connected, rows, count }: { period
         ))}
         <span className="flex-1" />
         {connected && (
-          <Link href={`/campaigns?p=${period ?? "last_7d"}${all ? "" : "&show=all"}`} className="link pb-2 text-[14px]">
+          <Link href={`/campaigns?${period ?? "p=last_7d"}${all ? "" : "&show=all"}`} className="link pb-2 text-[14px]">
             {all ? "רק פעילים" : "כולל קמפיינים שהסתיימו"}
           </Link>
         )}

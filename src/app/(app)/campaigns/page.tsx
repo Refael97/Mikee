@@ -2,13 +2,14 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { money } from "@/lib/meta/context";
-import { DELIVERY_LABEL, GOAL_LABEL, type Period } from "@/lib/meta/performance";
+import { DELIVERY_LABEL, GOAL_LABEL, type Window } from "@/lib/meta/performance";
+import { type DateRange, parseRange, todayIn } from "@/lib/date-range";
 import { allCampaigns, PLATFORMS, type PlatformCampaign } from "@/lib/platforms";
 import { getConnection, type MetaConfig } from "@/lib/connections";
 import { remember, rememberedAge } from "@/lib/ttl";
 import { Freshness } from "@/components/Freshness";
 import { RetryButton } from "@/components/RetryButton";
-import { CampaignsShell, PERIODS } from "./shell";
+import { CampaignsShell } from "./shell";
 
 const VERDICT = {
   star: { label: "מוביל", cls: "tag-good" },
@@ -101,20 +102,20 @@ function Num({ value, className = "" }: { value: string; className?: string }) {
   return <div className={`num text-end text-[15px] font-medium ${className}`}>{value}</div>;
 }
 
-const key = (workspaceId: string, period: Period, all: boolean) => `campaigns:${workspaceId}:${period}:${all}`;
-const load = (workspaceId: string, period: Period, all: boolean) => remember(key(workspaceId, period, all), 60_000, () => allCampaigns(workspaceId, period, all));
+const key = (workspaceId: string, period: Window, all: boolean) => `campaigns:${workspaceId}:${typeof period === "string" ? period : `${period.since}..${period.until}`}:${all}`;
+const load = (workspaceId: string, period: Window, all: boolean) => remember(key(workspaceId, period, all), 60_000, () => allCampaigns(workspaceId, period, all));
 const shown = (data: Awaited<ReturnType<typeof allCampaigns>>, all: boolean) =>
   data.campaigns.filter((c) => all || c.live || c.numbers.spend > 0).sort((a, b) => Number(b.live) - Number(a.live) || b.numbers.spend - a.numbers.spend);
 
 /** How many really run: the only part of the header that comes from Meta. */
-async function LiveCount({ workspaceId, period, all }: { workspaceId: string; period: Period; all: boolean }) {
+async function LiveCount({ workspaceId, period, all }: { workspaceId: string; period: Window; all: boolean }) {
   const data = await load(workspaceId, period, all);
   // When Meta did not answer there is no count to give: a dash, not a false zero.
   return <>{data.error ? "—" : data.campaigns.filter((c) => c.live).length}</>;
 }
 
 /** The table body: rows from Meta, or what to do when there are none. */
-async function Rows({ workspaceId, period, all }: { workspaceId: string; period: Period; all: boolean }) {
+async function Rows({ workspaceId, period, all }: { workspaceId: string; period: Window; all: boolean }) {
   const data = await load(workspaceId, period, all);
   if (data.error)
     return (
@@ -149,13 +150,25 @@ async function Rows({ workspaceId, period, all }: { workspaceId: string; period:
  * Everything that does not come from Meta (title, periods, platforms, the table and its header) appears at
  * once; only the numbers and rows wait, shimmering in place.
  */
-export default async function CampaignsPage({ searchParams }: { searchParams: Promise<{ p?: Period; show?: string }> }) {
+export default async function CampaignsPage({ searchParams }: { searchParams: Promise<{ p?: string; since?: string; until?: string; show?: string }> }) {
   const { workspace } = await requireSession();
-  const { p, show } = await searchParams;
-  const period = PERIODS.some((x) => x.key === p) ? p! : "last_7d";
-  const all = show === "all";
+  const q = await searchParams;
+  const today = todayIn(workspace.timezone);
+  const range: DateRange = parseRange(q, today);
+  // "All time" asks Meta for its own maximum; every other choice is read as exact days.
+  const period: Window = range.preset === "maximum" ? "maximum" : { since: range.since, until: range.until };
+  const all = q.show === "all";
   const meta = await getConnection<MetaConfig>(workspace.id, "meta");
   const connected = !!meta?.secret && meta.status !== "broken";
-  return <CampaignsShell period={period} all={all} connected={connected} rows={<Rows workspaceId={workspace.id} period={period} all={all} />} count={<LiveCount workspaceId={workspace.id} period={period} all={all} />} />;
+  return (
+    <CampaignsShell
+      range={range}
+      today={today}
+      tz={workspace.timezone}
+      all={all}
+      connected={connected}
+      rows={<Rows workspaceId={workspace.id} period={period} all={all} />}
+      count={<LiveCount workspaceId={workspace.id} period={period} all={all} />}
+    />
+  );
 }
-

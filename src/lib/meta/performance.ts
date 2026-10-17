@@ -169,15 +169,21 @@ export type Period = "today" | "yesterday" | "last_7d" | "last_14d" | "last_30d"
 const INSIGHT_FIELDS = "spend,impressions,reach,clicks,ctr,frequency,actions,action_values";
 
 /** Reads campaigns with their audiences, budgets and ads, translated to plain language. */
-export async function readCampaigns(ctx: MetaContext, period: Period = "last_7d", includeEnded = false) {
+export type Window = Period | { since: string; until: string };
+
+/** The insights modifier for a window: a named preset or exact days. */
+const windowOf = (w: Window) => (typeof w === "string" ? `date_preset(${w})` : `time_range(${JSON.stringify({ since: w.since, until: w.until })})`);
+
+export async function readCampaigns(ctx: MetaContext, period: Window = "last_7d", includeEnded = false) {
   const account = requireAdAccount(ctx);
+  const w = windowOf(period);
   const currency = ctx.currency ?? "ILS";
   const campaigns = await ctx.graph.all<any>(`/${account}/campaigns`, {
     fields: [
       "id,name,objective,status,effective_status,daily_budget,lifetime_budget,start_time,stop_time",
-      `insights.date_preset(${period}){${INSIGHT_FIELDS}}`,
+      `insights.${w}{${INSIGHT_FIELDS}}`,
       "adsets.limit(20){id,name,effective_status,daily_budget,lifetime_budget,start_time,end_time,targeting}",
-      `ads.limit(30){id,name,effective_status,creative{thumbnail_url,image_url,body,title,object_story_spec},insights.date_preset(${period}){${INSIGHT_FIELDS}}}`,
+      `ads.limit(30){id,name,effective_status,creative{thumbnail_url,image_url,body,title,object_story_spec},insights.${w}{${INSIGHT_FIELDS}}}`,
     ].join(","),
     ...(includeEnded ? {} : { effective_status: JSON.stringify(["ACTIVE", "PAUSED", "IN_PROCESS", "WITH_ISSUES", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "PENDING_REVIEW", "DISAPPROVED", "PENDING_BILLING_INFO"]) }),
   }, 100);
