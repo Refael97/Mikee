@@ -9,6 +9,7 @@ import { CONNECTORS } from "@/lib/connectors";
 import { driveConfigured } from "@/lib/google";
 import { Page, PageHeader } from "@/components/Page";
 import { getSettings } from "@/lib/settings";
+import { SectionNav } from "@/components/SectionNav";
 import { BudgetForm, MetaAssets, MetaConnect, Section, WebsiteStore } from "@/components/ConnectionForms";
 import { AdvertiserIdentitySettings } from "@/components/AdvertiserIdentity";
 import { remember } from "@/lib/ttl";
@@ -158,11 +159,20 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
   );
 }
 
+const SECTIONS = [
+  { id: "budget", label: "תקציב חודשי" },
+  { id: "limits", label: "מגבלה במטא" },
+  { id: "skills", label: "סקילים" },
+  { id: "connectors", label: "חיבורים" },
+];
+
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const { workspace } = await requireSession();
   const { error, notice } = await searchParams;
   return (
-    <Page narrow>
+    <Page>
+      <div className="lg:grid lg:grid-cols-[170px_minmax(0,820px)] lg:justify-between lg:gap-10">
+      <div className="min-w-0">
       <PageHeader title="הגדרות" lead="התקציב, המגבלות, וכל מה שמחובר למייקי." />
       {error && ERRORS[error] && <p className="note note-warn mb-6">{ERRORS[error]}</p>}
       {notice && META_NOTICES[notice] && <p className="note note-warn mb-6">{META_NOTICES[notice]}</p>}
@@ -185,6 +195,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <Section id="connectors" title="חיבורים" hint="כל מה שמייקי יכול לעבוד איתו. הגישה נשמרת מוצפנת ולא מגיעה למודל.">
         <Connectors workspaceId={workspace.id} businessName={workspace.name} />
       </Section>
+      </div>
+      <aside className="order-first lg:pt-24">
+        <SectionNav items={SECTIONS} />
+      </aside>
+      </div>
     </Page>
   );
 }
