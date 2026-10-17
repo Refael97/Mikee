@@ -30,6 +30,14 @@ describe("a new business can open an account", () => {
     expect(ws?.stage).toBe("connect");
   });
 
+  it("records which version of the terms the owner accepted", async () => {
+    const r = await registerBusiness(form({ terms: "17 באוקטובר 2026" }));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const row = await (await db()).query.activity.findFirst({ where: eq(schema.activity.workspaceId, r.workspaceId) });
+    expect(row?.detail).toMatchObject({ termsAccepted: "17 באוקטובר 2026", termsAcceptedAt: expect.any(String) });
+  });
+
   it("refuses weak or mismatched passwords and bad emails", async () => {
     expect(await registerBusiness(form({ password: "short", confirm: "short" }))).toMatchObject({ ok: false });
     expect(await registerBusiness(form({ confirm: "something-else-1" }))).toMatchObject({ ok: false, error: expect.stringMatching(/זהות/) });

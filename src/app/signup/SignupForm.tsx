@@ -67,13 +67,16 @@ export function SignupForm() {
       <div aria-hidden className="absolute -start-[9999px] h-px w-px overflow-hidden">
         <input name="website" tabIndex={-1} autoComplete="off" />
       </div>
+      <label className="flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-2">
+        <input type="checkbox" name="terms" required className="mt-1 h-4 w-4 shrink-0" />
+        <span>
+          קראתי ואני מסכימה ל<a href="/site/terms" target="_blank" className="underline underline-offset-2">תנאי השימוש</a> ול<a href="/site/privacy" target="_blank" className="underline underline-offset-2">מדיניות הפרטיות</a>, ובהם האחריות שלי לבדוק כל תוכן והמלצה של מייקי לפני שאני מאשרת.
+        </span>
+      </label>
       {error && <p className="note note-bad text-[14px]">{error}</p>}
       <button className="btn btn-primary btn-lg w-full" disabled={pending}>
         {pending ? "פותחים חשבון…" : "פתיחת חשבון"}
       </button>
-      <p className="text-center text-[13.5px] text-ink-3">
-        בפתיחת החשבון את מסכימה ל<a href="/site/terms" className="underline underline-offset-2">תנאי השימוש</a> ול<a href="/site/privacy" className="underline underline-offset-2">מדיניות הפרטיות</a>.
-      </p>
     </form>
   );
 }

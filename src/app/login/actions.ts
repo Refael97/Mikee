@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity";
 import { registerBusiness } from "@/lib/signup";
 import { resetPassword as resetNow } from "@/lib/recovery";
 import { findUserByLogin } from "@/lib/username";
+import { LEGAL } from "@/app/site/legal";
 
 /**
  * Sign in. Limits per email and per network address stop password guessing; the answer is the same for a
@@ -37,6 +38,7 @@ export async function login(_: string | null, form: FormData): Promise<string | 
 /** Open a new business account and sign its owner in; she continues to the setup steps. */
 export async function signup(_: string | null, form: FormData): Promise<string | null> {
   const field = (k: string, max: number) => String(form.get(k) ?? "").slice(0, max);
+  if (form.get("terms") !== "on") return "כדי לפתוח חשבון צריך לאשר את תנאי השימוש ואת מדיניות הפרטיות.";
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const r = await registerBusiness({
     username: field("username", 60),
@@ -44,6 +46,7 @@ export async function signup(_: string | null, form: FormData): Promise<string |
     password: field("password", 256),
     website: field("website", 200),
     ip,
+    terms: LEGAL.updated,
   });
   if (!r.ok) return r.error;
   await startSession(r.userId, r.sessionVersion);

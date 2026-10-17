@@ -13,5 +13,5 @@ export const LEGAL = {
   phone: process.env.SUPPORT_WHATSAPP ?? "",
   /** The privacy and accessibility contact (and coordinator) required by Israeli regulations. */
   contactName: "רפאל לוי",
-  updated: "16 באוקטובר 2026",
+  updated: "17 באוקטובר 2026",
 };

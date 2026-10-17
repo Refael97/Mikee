@@ -17,7 +17,7 @@ export function signupMode(): SignupMode {
 
 export const SIGNUP_LIMITS = { perIpHour: 20, perIpDay: 50, globalDay: Number(process.env.MIKEE_SIGNUP_DAILY_CAP) || 50 };
 
-export type SignupInput = { username: string; email: string; password: string; confirm?: string; business?: string; name?: string; website?: string; ip: string };
+export type SignupInput = { username: string; email: string; password: string; confirm?: string; business?: string; name?: string; website?: string; ip: string; /** The version of the terms the owner ticked, recorded with the account. */ terms?: string };
 export type SignupResult = { ok: true; userId: string; sessionVersion: number; workspaceId: string } | { ok: false; error: string };
 
 const EMAIL = /^[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.[a-z]{2,}$/i;
@@ -65,7 +65,7 @@ export async function registerBusiness(input: SignupInput): Promise<SignupResult
       const [user] = await tx.insert(schema.users).values({ workspaceId: ws.id, email, username, name, passwordHash: hash }).returning();
       return { ws, user };
     });
-    await logActivity(created.ws.id, "security", "החשבון נפתח", { ip: input.ip });
+    await logActivity(created.ws.id, "security", "החשבון נפתח", { ip: input.ip, ...(input.terms ? { termsAccepted: input.terms, termsAcceptedAt: new Date().toISOString() } : {}) });
     return { ok: true, userId: created.user.id, sessionVersion: created.user.sessionVersion, workspaceId: created.ws.id };
   } catch (e) {
     if (/username/i.test(String((e as Error)?.message ?? e))) return { ok: false, error: "שם המשתמש תפוס. אפשר לנסות אחר." };
