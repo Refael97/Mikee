@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useT } from "@/components/Lang";
 
 type Ev = { id: string; title: string; startTime: string; endTime?: string };
 type Details = Ev & { notification_subtypes?: string[]; notification_target_time?: string };
@@ -23,6 +24,7 @@ function isoWithOffset(date: string, time: string): string {
  * create one. Followers can be reminded of an event, and a reminder ad can point to it.
  */
 export function InstagramEvents({ connected }: { connected: boolean }) {
+  const t = useT();
   const [events, setEvents] = useState<Ev[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, Details>>({});
@@ -37,7 +39,7 @@ export function InstagramEvents({ connected }: { connected: boolean }) {
     const res = await fetch("/api/meta/events", { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
     setEvents(data.events ?? []);
-    if (data.error) setError(data.error);
+    if (data.error) setError(t(data.error));
   }, []);
   useEffect(() => {
     if (connected) void load();
@@ -61,10 +63,10 @@ export function InstagramEvents({ connected }: { connected: boolean }) {
     try {
       const res = await fetch("/api/meta/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, startTime: isoWithOffset(date, time) }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "זה לא הצליח. נסי שוב.");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("זה לא הצליח. נסי שוב."));
       setEvents(data.events);
       setTitle("");
-      setDone("האירוע נוצר באינסטגרם.");
+      setDone(t("האירוע נוצר באינסטגרם."));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -72,14 +74,14 @@ export function InstagramEvents({ connected }: { connected: boolean }) {
     }
   }
 
-  if (!connected) return <p className="text-ink-3">קודם מחברים את האינסטגרם בהגדרות.</p>;
+  if (!connected) return <p className="text-ink-3">{t("קודם מחברים את האינסטגרם בהגדרות.")}</p>;
   return (
     <div className="space-y-4">
       {error && <p className="note note-bad">{error}</p>}
       {done && <p className="note note-good">{done}</p>}
       <div className="card divide-y divide-line">
         {events === null && <span className="skeleton m-5 block h-6 w-1/2" />}
-        {events?.length === 0 && <p className="p-5 text-ink-3">אין אירועים קרובים.</p>}
+        {events?.length === 0 && <p className="p-5 text-ink-3">{t("אין אירועים קרובים.")}</p>}
         {events?.map((ev) => (
           <div key={ev.id}>
             <button type="button" className="flex w-full items-center gap-3 px-5 py-3 text-right" aria-expanded={open === ev.id} onClick={() => void toggle(ev.id)}>
@@ -89,10 +91,10 @@ export function InstagramEvents({ connected }: { connected: boolean }) {
             </button>
             {open === ev.id && (
               <dl className="space-y-1 px-5 pb-4 text-[14.5px]">
-                <div className="flex gap-2"><dt className="w-24 text-ink-3">שם</dt><dd dir="auto">{ev.title}</dd></div>
-                <div className="flex gap-2"><dt className="w-24 text-ink-3">מתחיל</dt><dd>{when(ev.startTime)}</dd></div>
-                {(details[ev.id]?.endTime ?? ev.endTime) && <div className="flex gap-2"><dt className="w-24 text-ink-3">נגמר</dt><dd>{when(details[ev.id]?.endTime ?? ev.endTime)}</dd></div>}
-                <div className="flex gap-2"><dt className="w-24 text-ink-3">מזהה</dt><dd dir="ltr" className="num text-ink-2">{ev.id}</dd></div>
+                <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("שם")}</dt><dd dir="auto">{ev.title}</dd></div>
+                <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("מתחיל")}</dt><dd>{when(ev.startTime)}</dd></div>
+                {(details[ev.id]?.endTime ?? ev.endTime) && <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("נגמר")}</dt><dd>{when(details[ev.id]?.endTime ?? ev.endTime)}</dd></div>}
+                <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("מזהה")}</dt><dd dir="ltr" className="num text-ink-2">{ev.id}</dd></div>
               </dl>
             )}
           </div>
@@ -100,19 +102,19 @@ export function InstagramEvents({ connected }: { connected: boolean }) {
       </div>
       <form onSubmit={create} className="card grid gap-3 p-5 sm:grid-cols-[1fr_150px_110px_auto] sm:items-end">
         <label className="space-y-1.5">
-          <span className="text-[14px] text-ink-2">שם האירוע</span>
-          <input dir="auto" className="field" maxLength={100} required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="השקת קולקציית החורף" />
+          <span className="text-[14px] text-ink-2">{t("שם האירוע")}</span>
+          <input dir="auto" className="field" maxLength={100} required value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("השקת קולקציית החורף")} />
         </label>
         <label className="space-y-1.5">
-          <span className="text-[14px] text-ink-2">תאריך</span>
+          <span className="text-[14px] text-ink-2">{t("תאריך")}</span>
           <input type="date" className="field" required value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         <label className="space-y-1.5">
-          <span className="text-[14px] text-ink-2">שעה</span>
+          <span className="text-[14px] text-ink-2">{t("שעה")}</span>
           <input type="time" className="field" required value={time} onChange={(e) => setTime(e.target.value)} />
         </label>
         <button className="btn btn-primary" disabled={busy || !title.trim() || !date}>
-          {busy ? "יוצר…" : "ליצור אירוע"}
+          {busy ? t("יוצר…") : t("ליצור אירוע")}
         </button>
       </form>
     </div>

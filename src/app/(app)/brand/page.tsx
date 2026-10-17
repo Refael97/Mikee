@@ -6,6 +6,7 @@ import { addFact, decideFact, editFact } from "@/lib/actions";
 import { type ItemStatus, journeyStatus } from "@/lib/journey";
 import { Block, Page, PageHeader } from "@/components/Page";
 import { SubmitButton } from "@/components/SubmitButton";
+import { getT } from "@/lib/i18n/server";
 
 const STATUS: Record<ItemStatus, { label: string; icon: typeof Circle; cls: string }> = {
   done: { label: "קיים", icon: CheckCircle2, cls: "text-good" },
@@ -18,6 +19,7 @@ const STATUS: Record<ItemStatus, { label: string; icon: typeof Circle; cls: stri
 const TYPE_HE: Record<string, string> = { ecommerce: "חנות אונליין", services: "נותני שירות", local: "עסק מקומי", content: "יוצרי תוכן" };
 
 export default async function BrandPage() {
+  const t = await getT();
   const { workspace } = await requireSession();
   const [facts, journey] = await Promise.all([listFacts(workspace.id), journeyStatus(workspace.id)]);
   const suggested = facts.filter((f) => f.status === "suggested" && f.kind !== "insight");
@@ -26,19 +28,19 @@ export default async function BrandPage() {
 
   return (
     <Page>
-      <PageHeader title="העסק" lead="התוכנית השיווקית, צעד אחרי צעד, וכל מה שמייקי למד על העסק. אפשר לתקן כל משפט, ומייקי עובד לפי מה שכתוב כאן." />
+      <PageHeader title={t("העסק")} lead={t("התוכנית השיווקית, צעד אחרי צעד, וכל מה שמייקי למד על העסק. אפשר לתקן כל משפט, ומייקי עובד לפי מה שכתוב כאן.")} />
 
       <Block
-        title="התוכנית"
+        title={t("התוכנית")}
         action={
           <span className="text-[14px] text-ink-2">
-            {journey.businessType ? `${TYPE_HE[journey.businessType]} · ` : ""}
+            {journey.businessType ? `${t(TYPE_HE[journey.businessType])} · ` : ""}
             {journey.focus ? (
               <>
-                הפוקוס: <span className="font-medium text-ink">{journey.focus.text}</span>
+                {t("הפוקוס:")} <span className="font-medium text-ink">{journey.focus.text}</span>
               </>
             ) : (
-              "מייקי ישאל מה הכי חשוב עכשיו"
+              t("מייקי ישאל מה הכי חשוב עכשיו")
             )}
           </span>
         }
@@ -55,7 +57,7 @@ export default async function BrandPage() {
                     <div className={`h-full rounded-full ${i < currentIndex ? "bg-good" : "bg-brand"}`} style={{ width: `${pct}%` }} />
                   </div>
                   <p className="num mt-1.5 hidden text-[12.5px] text-ink-3 sm:block">
-                    {p.done} מתוך {p.total}
+                    {t("{used} מתוך {limit}", { used: p.done, limit: p.total })}
                   </p>
                 </li>
               );
@@ -71,7 +73,7 @@ export default async function BrandPage() {
                   const st = STATUS[it.status];
                   return (
                     <li key={it.id} className="flex items-start gap-2.5 py-1.5">
-                      <st.icon className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${st.cls}`} strokeWidth={1.75} aria-label={st.label} />
+                      <st.icon className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${st.cls}`} strokeWidth={1.75} aria-label={t(st.label)} />
                       <div className="min-w-0">
                         <p className={`text-[15px] ${it.status === "done" || it.status === "skipped" ? "text-ink-3" : "font-medium"}`}>{it.title}</p>
                         {it.note && <p className="text-[13.5px] text-ink-2">{it.note}</p>}
@@ -82,18 +84,18 @@ export default async function BrandPage() {
               </ul>
             </div>
             <div className="border-t border-line p-4 sm:p-5 lg:border-t-0">
-              <h3 className="font-semibold">הצעדים הבאים שמייקי מציע</h3>
+              <h3 className="font-semibold">{t("הצעדים הבאים שמייקי מציע")}</h3>
               <ul className="mt-2 divide-y divide-line">
                 {journey.nextUp.map((it) => (
                   <li key={it.id} className="py-3">
                     <p className="font-medium">{it.title}</p>
                     <p className="mt-0.5 text-[14.5px] text-ink-2">{it.why}</p>
                     <Link href={`/mikee?q=${encodeURIComponent(`בוא נדבר על הצעד הבא: ${it.title}`)}`} className="link mt-1.5 inline-flex items-center gap-1 text-[14.5px]">
-                      לדבר על זה עם מייקי <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                      {t("לדבר על זה עם מייקי")} <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
                     </Link>
                   </li>
                 ))}
-                {journey.nextUp.length === 0 && <li className="py-3 text-[15px] text-ink-2">אין כרגע צעד פתוח. מייקי יציע את הבא בזמן הנכון.</li>}
+                {journey.nextUp.length === 0 && <li className="py-3 text-[15px] text-ink-2">{t("אין כרגע צעד פתוח. מייקי יציע את הבא בזמן הנכון.")}</li>}
               </ul>
             </div>
           </div>
@@ -101,7 +103,7 @@ export default async function BrandPage() {
       </Block>
 
       {suggested.length > 0 && (
-        <Block title="מייקי רוצה לוודא כמה דברים" className="mt-8">
+        <Block title={t("מייקי רוצה לוודא כמה דברים")} className="mt-8">
           <ul className="group-list">
             {suggested.slice(0, 8).map((f) => (
               <li key={f.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -112,10 +114,10 @@ export default async function BrandPage() {
                 <form action={decideFact} className="flex gap-1.5">
                   <input type="hidden" name="id" value={f.id} />
                   <SubmitButton name="decision" value="confirm" className="btn btn-primary btn-sm" pendingText="…" doneText={null}>
-                    נכון
+                    {t("נכון")}
                   </SubmitButton>
                   <SubmitButton name="decision" value="reject" className="btn btn-quiet btn-sm" pendingText="…" doneText={null}>
-                    לא נכון
+                    {t("לא נכון")}
                   </SubmitButton>
                 </form>
               </li>
@@ -142,7 +144,7 @@ export default async function BrandPage() {
                         <textarea name="text" defaultValue={f.text} rows={1} maxLength={500} className="w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none [field-sizing:content]" />
                         <p className="text-[12.5px] text-ink-3">{sourceLabel(f)}</p>
                       </div>
-                      <SubmitButton className="btn btn-quiet btn-sm opacity-0 transition-opacity group-focus-within:opacity-100">שמירה</SubmitButton>
+                      <SubmitButton className="btn btn-quiet btn-sm opacity-0 transition-opacity group-focus-within:opacity-100">{t("שמירה")}</SubmitButton>
                     </form>
                   </li>
                 ))}
@@ -150,8 +152,8 @@ export default async function BrandPage() {
                   <form action={addFact} className="flex items-center gap-2 px-4 py-2">
                     <input type="hidden" name="topic" value={topic} />
                     <Plus className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.75} />
-                    <input name="text" maxLength={500} placeholder="להוסיף משפט" className="min-w-0 flex-1 bg-transparent py-1 text-[15px] outline-none placeholder:text-ink-3" />
-                    <SubmitButton className="btn btn-quiet btn-sm shrink-0" pendingText="מוסיף…" doneText="נוסף">הוספה</SubmitButton>
+                    <input name="text" maxLength={500} placeholder={t("להוסיף משפט")} className="min-w-0 flex-1 bg-transparent py-1 text-[15px] outline-none placeholder:text-ink-3" />
+                    <SubmitButton className="btn btn-quiet btn-sm shrink-0" pendingText={t("מוסיף…")} doneText={t("נוסף")}>{t("הוספה")}</SubmitButton>
                   </form>
                 </li>
               </ul>
@@ -159,7 +161,7 @@ export default async function BrandPage() {
           );
         })}
       </div>
-      <p className="mt-4 text-[13px] text-ink-3">כדי למחוק משפט, מוחקים את הטקסט ושומרים.</p>
+      <p className="mt-4 text-[13px] text-ink-3">{t("כדי למחוק משפט, מוחקים את הטקסט ושומרים.")}</p>
     </Page>
   );
 }

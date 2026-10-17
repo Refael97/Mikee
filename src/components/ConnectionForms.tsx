@@ -9,9 +9,11 @@ import { eq } from "drizzle-orm";
 import { remember } from "@/lib/ttl";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Picker } from "@/components/Picker";
+import { getLocale, getT } from "@/lib/i18n/server";
 
 /** A settings group: title and explanation on the start side, the controls in a card beside them. */
-export function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
+export async function Section({ step, title, hint, done, children, id }: { step?: number; title: string; hint?: string; done?: boolean; children: React.ReactNode; id?: string }) {
+  const t = await getT();
   return (
     // The explanation sits right above its fields, so the eye does not cross the page to find them.
     <section id={id} className="scroll-mt-6 space-y-3 border-t border-line py-6 first-of-type:border-t-0 first-of-type:pt-2">
@@ -19,7 +21,7 @@ export function Section({ step, title, hint, done, children, id }: { step?: numb
         <h2 className="flex items-center gap-2 text-[16px] font-medium">
           {step != null &&
             (done ? (
-              <CheckCircle2 className="h-5 w-5 text-good" strokeWidth={1.75} aria-label="הושלם" />
+              <CheckCircle2 className="h-5 w-5 text-good" strokeWidth={1.75} aria-label={t("הושלם")} />
             ) : (
               <span className="num flex h-5 w-5 items-center justify-center rounded-full border border-line-strong text-[12px] text-ink-2">{step}</span>
             ))}
@@ -33,20 +35,21 @@ export function Section({ step, title, hint, done, children, id }: { step?: numb
 }
 
 export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
+  const t = await getT();
   const conn = await getConnection<MetaConfig>(workspaceId, "meta");
   if (conn?.secret && conn.status === "broken") {
     return (
       <div className="space-y-3">
-        <p className="note note-warn font-semibold">החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.</p>
-        <p className="text-[15px] text-ink-2">זה קורה כשמשנים סיסמה, מסירים הרשאה או כשמישהו מוציא את החשבון מהעסק.</p>
+        <p className="note note-warn font-semibold">{t("החיבור לפייסבוק נותק, ולכן מייקי לא יכול לראות תוצאות או לפרסם.")}</p>
+        <p className="text-[15px] text-ink-2">{t("זה קורה כשמשנים סיסמה, מסירים הרשאה או כשמישהו מוציא את החשבון מהעסק.")}</p>
         <div className="flex flex-wrap gap-2">
           {process.env.META_APP_ID && (
             <a href="/api/meta/connect" className="btn btn-primary">
-              לחבר מחדש
+              {t("לחבר מחדש")}
             </a>
           )}
           <form action={recheckMeta}>
-            <SubmitButton className="btn btn-quiet" pendingText="בודק…" doneText={null}>לבדוק שוב</SubmitButton>
+            <SubmitButton className="btn btn-quiet" pendingText={t("בודק…")} doneText={null}>{t("לבדוק שוב")}</SubmitButton>
           </form>
         </div>
         <TokenForm />
@@ -57,10 +60,10 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
     const missing = conn.config.scopes ? NEEDED_SCOPES.filter((x) => !conn.config.scopes!.includes(x)) : [];
     return (
       <div className="space-y-2">
-        <p className="tag tag-good">מחובר בתור {conn.config.userName ?? "החשבון שלך"}</p>
+        <p className="tag tag-good">{t("מחובר בתור")} {conn.config.userName ?? t("החשבון שלך")}</p>
         {missing.length > 0 && (
           <p className="note note-warn text-[14px]">
-            חסרות הרשאות, ולכן חלק מהפעולות לא יעבדו: <span dir="ltr">{missing.join(", ")}</span>. אפשר לחבר מחדש ולאשר את כולן.
+            {t("חסרות הרשאות, ולכן חלק מהפעולות לא יעבדו:")} <span dir="ltr">{missing.join(", ")}</span>. {t("אפשר לחבר מחדש ולאשר את כולן.")}
           </p>
         )}
       </div>
@@ -70,7 +73,7 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-4">
       {process.env.META_APP_ID && (
         <a href="/api/meta/connect" className="btn btn-primary">
-          התחברות עם פייסבוק
+          {t("התחברות עם פייסבוק")}
         </a>
       )}
       <TokenForm />
@@ -78,13 +81,14 @@ export async function MetaConnect({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-function TokenForm() {
+async function TokenForm() {
+  const t = await getT();
   return (
     <details className="group text-[15px] text-ink-2">
-      <summary className="cursor-pointer select-none flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />יש לי מפתח גישה מוכן</summary>
+      <summary className="cursor-pointer select-none flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />{t("יש לי מפתח גישה מוכן")}</summary>
       <form action={saveMetaToken} className="mt-3 flex gap-2">
-        <input name="token" className="field" placeholder="מפתח גישה ממטא" dir="ltr" />
-        <SubmitButton className="btn btn-quiet shrink-0">שמירה</SubmitButton>
+        <input name="token" className="field" placeholder={t("מפתח גישה ממטא")} dir="ltr" />
+        <SubmitButton className="btn btn-quiet shrink-0">{t("שמירה")}</SubmitButton>
       </form>
     </details>
   );
@@ -95,15 +99,17 @@ function TokenForm() {
  * "these are yours?" Picking by hand stays available, folded away.
  */
 export async function MetaAssets({ workspaceId, businessName }: { workspaceId: string; businessName: string }) {
+  const t = await getT();
+  const locale = await getLocale();
   const conn = await getConnection<MetaConfig>(workspaceId, "meta");
-  if (!conn?.secret) return <p className="text-ink-3">קודם מתחברים לפייסבוק.</p>;
+  if (!conn?.secret) return <p className="text-ink-3">{t("קודם מתחברים לפייסבוק.")}</p>;
   const site = await getConnection<WebsiteConfig>(workspaceId, "website");
   let found: Detected;
   try {
     // The scan reads everything the login can reach: remembered for a few minutes, cleared when assets change.
     found = await remember(`assets-scan:${workspaceId}`, 5 * 60_000, () => detectBusiness(new Graph(conn.secret!), businessName, site?.config.url));
   } catch (e) {
-    return <p className="text-warn">לא הצלחתי לקרוא את החשבונות ({(e as Error).message}). נסי להתחבר מחדש.</p>;
+    return <p className="text-warn">{t("לא הצלחתי לקרוא את החשבונות ({error}). נסי להתחבר מחדש.", { error: (e as Error).message })}</p>;
   }
   const c = conn.config;
   const chosen = {
@@ -119,57 +125,57 @@ export async function MetaAssets({ workspaceId, businessName }: { workspaceId: s
   const saved = !!(c.adAccountId || c.pageId);
   const adsBlocked = !account && !!found.blocked.adAccounts;
 
-  if (!page && !account) return <p className="text-ink-2">לא מצאתי דף או חשבון מודעות שמחוברים למשתמש הזה.</p>;
+  if (!page && !account) return <p className="text-ink-2">{t("לא מצאתי דף או חשבון מודעות שמחוברים למשתמש הזה.")}</p>;
 
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-3 text-[15px] text-ink-3">{saved ? "אני עובד עם:" : "מצאתי את העסק שלך:"}</p>
+        <p className="mb-3 text-[15px] text-ink-3">{saved ? t("אני עובד עם:") : t("מצאתי את העסק שלך:")}</p>
         <ul className="group-list text-[15px] [&>li]:px-4 [&>li]:py-2.5">
           {page && (
             <li>
-              דף הפייסבוק <strong>{page.name}</strong>
+              {t("דף הפייסבוק")} <strong>{page.name}</strong>
             </li>
           )}
           {page?.ig && (
             <li>
-              האינסטגרם <strong dir="ltr">@{page.ig.username}</strong>
+              {t("האינסטגרם")} <strong dir="ltr">@{page.ig.username}</strong>
             </li>
           )}
           {account && (
             <li>
-              חשבון המודעות <strong>{account.name}</strong>
+              {t("חשבון המודעות")} <strong>{account.name}</strong>
             </li>
           )}
-          {adsBlocked && <li className="text-ink-3">חשבון המודעות: פייסבוק לא נתן לי גישה אליו בחיבור הזה</li>}
+          {adsBlocked && <li className="text-ink-3">{t("חשבון המודעות: פייסבוק לא נתן לי גישה אליו בחיבור הזה")}</li>}
           {catalog && (
             <li>
-              קטלוג המוצרים <strong>{catalog.name}</strong>
+              {t("קטלוג המוצרים")} <strong>{catalog.name}</strong>
             </li>
           )}
-          {pixel && <li>המעקב באתר פעיל{pixel.lastFired ? ` (נראה לאחרונה ${new Date(pixel.lastFired).toLocaleDateString("he-IL")})` : ""}</li>}
+          {pixel && <li>{t("המעקב באתר פעיל")}{pixel.lastFired ? ` (${t("נראה לאחרונה {date}", { date: new Date(pixel.lastFired).toLocaleDateString(locale) })})` : ""}</li>}
         </ul>
       </div>
       {adsBlocked && (
         <p className="text-[15px] text-ink-3">
-          אפשר להתחיל כבר עכשיו עם הדף והאינסטגרם. כשפייסבוק יאשר את הרשאות המודעות, אחבר את חשבון המודעות בהגדרות.
+          {t("אפשר להתחיל כבר עכשיו עם הדף והאינסטגרם. כשפייסבוק יאשר את הרשאות המודעות, אחבר את חשבון המודעות בהגדרות.")}
         </p>
       )}
       {!saved && (
         <form action={saveMetaAssets}>
           <Hidden chosen={chosen} />
-          <button className="btn btn-primary">כן, זה העסק שלי</button>
+          <button className="btn btn-primary">{t("כן, זה העסק שלי")}</button>
         </form>
       )}
       <details className="group text-[15px]">
-        <summary className="cursor-pointer select-none text-ink-2 flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />{saved ? "להחליף" : "לא, אבחר בעצמי"}</summary>
+        <summary className="cursor-pointer select-none text-ink-2 flex list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"><ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />{saved ? t("להחליף") : t("לא, אבחר בעצמי")}</summary>
         <form action={saveMetaAssets} className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Select label="דף הפייסבוק" name="page" value={chosen.pageId} options={found.pages.map((p) => [p.id, `${p.name}${p.ig?.username ? ` · @${p.ig.username}` : ""}`])} />
-          {found.adAccounts.length > 0 && <Select label="חשבון המודעות" name="adAccount" value={chosen.adAccountId} options={found.adAccounts.map((a) => [a.id, a.name])} />}
-          <Select label="מעקב באתר" name="pixel" value={chosen.pixelId} options={[["", "בלי"], ...found.pixels.map((p) => [p.id, p.name] as [string, string])]} />
-          <Select label="קטלוג מוצרים" name="catalog" value={chosen.catalogId} options={[["", "בלי"], ...found.catalogs.map((k) => [k.id, k.name] as [string, string])]} />
+          <Select label={t("דף הפייסבוק")} name="page" value={chosen.pageId} options={found.pages.map((p) => [p.id, `${p.name}${p.ig?.username ? ` · @${p.ig.username}` : ""}`])} />
+          {found.adAccounts.length > 0 && <Select label={t("חשבון המודעות")} name="adAccount" value={chosen.adAccountId} options={found.adAccounts.map((a) => [a.id, a.name])} />}
+          <Select label={t("מעקב באתר")} name="pixel" value={chosen.pixelId} options={[["", t("בלי")], ...found.pixels.map((p) => [p.id, p.name] as [string, string])]} />
+          <Select label={t("קטלוג מוצרים")} name="catalog" value={chosen.catalogId} options={[["", t("בלי")], ...found.catalogs.map((k) => [k.id, k.name] as [string, string])]} />
           <div className="sm:col-span-2">
-            <SubmitButton className="btn btn-quiet">שמירה</SubmitButton>
+            <SubmitButton className="btn btn-quiet">{t("שמירה")}</SubmitButton>
           </div>
         </form>
       </details>
@@ -198,6 +204,7 @@ function Select({ label, name, value, options }: { label: string; name: string; 
 }
 
 export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
+  const t = await getT();
   const [site, store] = await Promise.all([
     getConnection<WebsiteConfig>(workspaceId, "website"),
     getConnection<StoreConfig>(workspaceId, "store"),
@@ -205,9 +212,9 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
   return (
     <form action={saveWebsiteAndStore} className="space-y-4">
       <label className="block space-y-1.5">
-        <span className="label">כתובת האתר</span>
+        <span className="label">{t("כתובת האתר")}</span>
         <input name="website" className="field" placeholder="www.your-site.co.il" dir="ltr" defaultValue={site?.config.url} required />
-        <span className="block text-[13px] text-ink-3">הכתובת שהלקוחות שלך מכירים. מייקי קורא ממנה את העסק, המוצרים והמחירים.</span>
+        <span className="block text-[13px] text-ink-3">{t("הכתובת שהלקוחות שלך מכירים. מייקי קורא ממנה את העסק, המוצרים והמחירים.")}</span>
       </label>
       <StoreFields
         platform={(store?.config.platform ?? (site?.config.platform === "shopify" || site?.config.platform === "woocommerce" ? site.config.platform : "")) as "" | "shopify" | "woocommerce"}
@@ -215,12 +222,13 @@ export async function WebsiteStore({ workspaceId }: { workspaceId: string }) {
         consumerKey={store?.config.consumerKey}
         hasSecret={!!store?.secret}
       />
-      <SubmitButton>שמירה</SubmitButton>
+      <SubmitButton>{t("שמירה")}</SubmitButton>
     </form>
   );
 }
 
 export async function BudgetForm({ workspaceId, suggested }: { workspaceId: string; suggested?: number }) {
+  const t = await getT();
   const d = await db();
   const row = await d.query.budgets.findFirst({ where: eq(schema.budgets.workspaceId, workspaceId) });
   const meta = await getConnection<MetaConfig>(workspaceId, "meta");
@@ -239,8 +247,8 @@ export async function BudgetForm({ workspaceId, suggested }: { workspaceId: stri
         <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-ink-2">{currency === "ILS" ? "₪" : currency}</span>
       </div>
       <input type="hidden" name="currency" value={currency} />
-      <span className="text-ink-2">לחודש</span>
-      <SubmitButton>שמירה</SubmitButton>
+      <span className="text-ink-2">{t("לחודש")}</span>
+      <SubmitButton>{t("שמירה")}</SubmitButton>
     </form>
   );
 }

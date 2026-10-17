@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useT } from "@/components/Lang";
 import {
   type DateRange,
   type RangePreset,
@@ -32,6 +33,7 @@ const monthOf = (d: string): [number, number] => [Number(d.slice(0, 4)), Number(
  * days. The draft starts again from the applied range every time the panel opens.
  */
 export function DateRangePicker({ value, today, tz, path, extra = "" }: { value: DateRange; today: string; tz: string; path: string; extra?: string }) {
+  const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
@@ -117,11 +119,11 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
       {open && (
         <div
           role="dialog"
-          aria-label="בחירת טווח תאריכים"
+          aria-label={t("בחירת טווח תאריכים")}
           className="fixed inset-x-3 top-20 z-50 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-[var(--radius)] bg-surface shadow-[var(--shadow-float)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:max-h-none sm:w-[760px] sm:overflow-visible"
         >
           <div className="flex flex-col sm:flex-row">
-            <div role="radiogroup" aria-label="טווחים מוכנים" className="flex gap-1 overflow-x-auto border-b border-line p-3 sm:w-[210px] sm:shrink-0 sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-e sm:py-4">
+            <div role="radiogroup" aria-label={t("טווחים מוכנים")} className="flex gap-1 overflow-x-auto border-b border-line p-3 sm:w-[210px] sm:shrink-0 sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-e sm:py-4">
               {RANGE_PRESETS.map((p) => {
                 const on = draft.preset === p.key && !anchor;
                 return (
@@ -144,10 +146,10 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
 
             <div className="min-w-0 flex-1 p-4">
               <div className="flex items-center justify-between">
-                <button type="button" aria-label="החודש הקודם" onClick={() => setView((v) => shift(v, -1))} className="btn btn-quiet btn-sm !px-2">
+                <button type="button" aria-label={t("החודש הקודם")} onClick={() => setView((v) => shift(v, -1))} className="btn btn-quiet btn-sm !px-2">
                   <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
                 </button>
-                <button type="button" aria-label="החודש הבא" disabled={!canNext} onClick={() => setView((v) => shift(v, 1))} className="btn btn-quiet btn-sm !px-2 disabled:opacity-30">
+                <button type="button" aria-label={t("החודש הבא")} disabled={!canNext} onClick={() => setView((v) => shift(v, 1))} className="btn btn-quiet btn-sm !px-2 disabled:opacity-30">
                   <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
                 </button>
               </div>
@@ -160,8 +162,8 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
                     </p>
                     <div className="grid grid-cols-7 text-center text-[12.5px] text-ink-3">
                       {WEEKDAYS.map((w, k) => (
-                        <abbr key={w} title={WEEKDAY_NAMES[k]} className="pb-1.5 no-underline">
-                          {w}
+                        <abbr key={w} title={t(WEEKDAY_NAMES[k])} className="pb-1.5 no-underline">
+                          {t(w)}
                         </abbr>
                       ))}
                     </div>
@@ -198,23 +200,23 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
               </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-2 text-[14px]">
-                <span className="field !h-9 !w-auto flex-1 !py-0 leading-9" aria-label="מתאריך">
-                  {draft.preset === "maximum" && !anchor ? "כל התקופה" : shortDate(lo)}
+                <span className="field !h-9 !w-auto flex-1 !py-0 leading-9" aria-label={t("מתאריך")}>
+                  {draft.preset === "maximum" && !anchor ? t("כל התקופה") : shortDate(lo)}
                 </span>
-                <span className="text-ink-3">עד</span>
-                <span className="field !h-9 !w-auto flex-1 !py-0 leading-9" aria-label="עד תאריך">
-                  {draft.preset === "maximum" && !anchor ? "היום" : shortDate(hi)}
+                <span className="text-ink-3">{t("עד")}</span>
+                <span className="field !h-9 !w-auto flex-1 !py-0 leading-9" aria-label={t("עד תאריך")}>
+                  {draft.preset === "maximum" && !anchor ? t("היום") : shortDate(hi)}
                 </span>
               </div>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[13px] text-ink-3">{tz === "Asia/Jerusalem" ? "התאריכים לפי שעון ישראל" : `התאריכים לפי אזור הזמן ${tz}`}</p>
+                <p className="text-[13px] text-ink-3">{tz === "Asia/Jerusalem" ? t("התאריכים לפי שעון ישראל") : t("התאריכים לפי אזור הזמן {tz}", { tz })}</p>
                 <div className="flex gap-2">
                   <button type="button" className="btn btn-quiet btn-sm" onClick={() => close()}>
-                    ביטול
+                    {t("ביטול")}
                   </button>
                   <button type="button" className="btn btn-primary btn-sm" onClick={apply}>
-                    עדכן
+                    {t("עדכן")}
                   </button>
                 </div>
               </div>

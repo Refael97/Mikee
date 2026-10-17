@@ -12,6 +12,7 @@ import { NavScroll } from "@/components/NavScroll";
 import { UsageWatcher } from "@/components/Usage";
 import { MikeeLookProvider } from "@/components/MikeeLook";
 import { lookOf } from "@/lib/mikee-look";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = await getT();
   const { user, workspace } = await requireSession();
   if (workspace.stage === "connect") redirect("/onboarding");
   const [meta, pending, assets, unread] = await Promise.all([
@@ -56,12 +58,12 @@ export default async function AppLayout({
             >
               <span>
                 <span className="font-medium">
-                  החיבור לפייסבוק ולאינסטגרם נותק.
+                  {t("החיבור לפייסבוק ולאינסטגרם נותק.")}
                 </span>{" "}
-                מייקי לא יכול לעבוד עד שמחברים מחדש.
+                {t("מייקי לא יכול לעבוד עד שמחברים מחדש.")}
               </span>
               <span className="shrink-0 underline underline-offset-4">
-                לחבר
+                {t("לחבר")}
               </span>
             </Link>
           )}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { ChevronDown, Mail, MessageCircle, X } from "lucide-react";
 import { sendSupport } from "@/lib/actions";
+import { useT } from "@/components/Lang";
 
 const FAQ: [string, string][] = [
   ["האם מייקי יכול להוציא כסף בלי לשאול אותי?", "לא. כל קמפיין, שינוי תקציב או פוסט מגיע אלייך ככרטיס, ושום דבר לא עולה לאוויר עד שאת מאשרת. התקציב החודשי שהגדרת הוא תקרה קשיחה."],
@@ -17,6 +18,7 @@ const FAQ: [string, string][] = [
 
 /** Help without leaving the screen: quick answers, a way to ask Mikee, and a direct line to a person. */
 export function HelpPanel({ open, onClose, support }: { open: boolean; onClose: () => void; support: { email?: string; whatsapp?: string } }) {
+  const t = useT();
   const [state, action, pending] = useActionState(sendSupport, null);
   useEffect(() => {
     if (!open) return;
@@ -30,65 +32,65 @@ export function HelpPanel({ open, onClose, support }: { open: boolean; onClose: 
       <div className={`absolute inset-0 bg-ink/25 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <aside
         role="dialog"
-        aria-label="עזרה"
+        aria-label={t("עזרה")}
         className={`absolute inset-y-0 end-0 flex w-full max-w-[420px] flex-col bg-surface shadow-[var(--shadow-float)] transition-[transform,visibility] duration-[380ms] ease-[var(--ease)] ${
-          open ? "visible translate-x-0" : "invisible -translate-x-full"
+          open ? "visible translate-x-0" : "invisible rtl:-translate-x-full ltr:translate-x-full"
         }`}
       >
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-5">
-          <h2 className="h2">איך אפשר לעזור?</h2>
-          <button onClick={onClose} className="btn btn-ghost btn-sm px-2" aria-label="סגירה">
+          <h2 className="h2">{t("איך אפשר לעזור?")}</h2>
+          <button onClick={onClose} className="btn btn-ghost btn-sm px-2" aria-label={t("סגירה")}>
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-10">
           <section className="py-5">
-            <h3 className="font-semibold">שאלות נפוצות</h3>
+            <h3 className="font-semibold">{t("שאלות נפוצות")}</h3>
             <div className="group-list mt-2">
               {FAQ.map(([q, a]) => (
                 <details key={q} className="group px-3.5 py-2.5">
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
-                    {q}
+                    {t(q)}
                     <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-ink-3 transition-transform group-open:rotate-180" strokeWidth={1.75} />
                   </summary>
-                  <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-2">{a}</p>
+                  <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-2">{t(a)}</p>
                 </details>
               ))}
             </div>
             <Link href="/mikee" onClick={onClose} className="link mt-3 inline-block text-[14.5px]">
-              או פשוט לשאול את מייקי
+              {t("או פשוט לשאול את מייקי")}
             </Link>
           </section>
 
           <section className="rule py-5">
-            <h3 className="font-semibold">לדבר עם בן אדם</h3>
-            <p className="mt-1 text-[14.5px] text-ink-2">משהו לא עובד, או שיש שאלה על החשבון? כתבי לנו כאן, ואנחנו חוזרים תוך יום עסקים.</p>
+            <h3 className="font-semibold">{t("לדבר עם בן אדם")}</h3>
+            <p className="mt-1 text-[14.5px] text-ink-2">{t("משהו לא עובד, או שיש שאלה על החשבון? כתבי לנו כאן, ואנחנו חוזרים תוך יום עסקים.")}</p>
             <form action={action} className="mt-4 space-y-3">
               <Picker
                 name="topic"
-                label="נושא"
+                label={t("נושא")}
                 defaultValue="general"
                 options={[
-                  ["general", "שאלה כללית"],
-                  ["bug", "משהו לא עובד"],
-                  ["billing", "מנוי וחיוב"],
-                  ["connections", "חיבור חשבונות"],
-                  ["privacy", "פרטיות ומידע"],
+                  ["general", t("שאלה כללית")],
+                  ["bug", t("משהו לא עובד")],
+                  ["billing", t("מנוי וחיוב")],
+                  ["connections", t("חיבור חשבונות")],
+                  ["privacy", t("פרטיות ומידע")],
                 ]}
               />
-              <textarea name="body" rows={4} maxLength={4000} required placeholder="מה קרה? כמה שיותר פרטים עוזרים לנו" className="field resize-none" />
+              <textarea name="body" rows={4} maxLength={4000} required placeholder={t("מה קרה? כמה שיותר פרטים עוזרים לנו")} className="field resize-none" />
               {state?.error && <p className="note note-bad text-[15px]">{state.error}</p>}
               {state?.ok && <p className="note text-[15px]">{state.ok}</p>}
               <button className="btn btn-primary w-full" disabled={pending}>
-                {pending ? "שולח…" : "שליחה לצוות"}
+                {pending ? t("שולח…") : t("שליחה לצוות")}
               </button>
             </form>
             {(support.email || support.whatsapp) && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {support.whatsapp && (
                   <a href={`https://wa.me/${support.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="btn btn-quiet btn-sm">
-                    <MessageCircle className="h-4 w-4" strokeWidth={1.8} /> וואטסאפ
+                    <MessageCircle className="h-4 w-4" strokeWidth={1.8} /> {t("וואטסאפ")}
                   </a>
                 )}
                 {support.email && (
@@ -100,9 +102,9 @@ export function HelpPanel({ open, onClose, support }: { open: boolean; onClose: 
             )}
           </section>
           <p className="rule flex flex-wrap gap-x-4 gap-y-1 py-4 text-[13.5px] text-ink-3">
-            <a href="/site/terms" className="hover:text-ink-2">תנאי שימוש</a>
-            <a href="/site/privacy" className="hover:text-ink-2">מדיניות פרטיות</a>
-            <a href="/site/accessibility" className="hover:text-ink-2">הצהרת נגישות</a>
+            <a href="/site/terms" className="hover:text-ink-2">{t("תנאי שימוש")}</a>
+            <a href="/site/privacy" className="hover:text-ink-2">{t("מדיניות פרטיות")}</a>
+            <a href="/site/accessibility" className="hover:text-ink-2">{t("הצהרת נגישות")}</a>
           </p>
         </div>
       </aside>

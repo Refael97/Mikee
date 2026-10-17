@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { refreshConversations } from "./Sidebar";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
+import { useT } from "@/components/Lang";
 
 type Unread = { id: string; title: string; preview?: string };
 
@@ -29,6 +30,7 @@ function remember(ids: Set<string>) {
  * Mikee's orb, the topic, and the first words, one tap from the conversation.
  */
 export function MikeeToast() {
+  const t = useT();
   const path = usePathname();
   const router = useRouter();
   const [note, setNote] = useState<Unread | null>(null);
@@ -60,17 +62,17 @@ export function MikeeToast() {
       refreshConversations();
     }
     void check();
-    const t = setInterval(check, 30_000);
+    const timer = setInterval(check, 30_000);
     return () => {
       stop = true;
-      clearInterval(t);
+      clearInterval(timer);
     };
   }, []);
 
   useEffect(() => {
     if (!note) return;
-    const t = setTimeout(close, 14_000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(close, 14_000);
+    return () => clearTimeout(timer);
   }, [note, close]);
 
   if (!note) return null;
@@ -90,14 +92,14 @@ export function MikeeToast() {
           <MikeeAvatar size={28} greet className="mt-0.5" />
           <span className="min-w-0">
             <span className="flex items-center gap-2 text-[14px] font-semibold">
-              מייקי כתב לך
+              {t("מייקי כתב לך")}
               <span className="h-1.5 w-1.5 rounded-full bg-brand" />
             </span>
             <span className="mt-0.5 block truncate text-[13.5px] text-ink-3">{note.title}</span>
             <span className="mt-1 line-clamp-2 text-[15px] leading-snug">{note.preview}</span>
           </span>
         </button>
-        <button onClick={close} aria-label="סגירה" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] text-ink-3 hover:bg-surface-2 hover:text-ink">
+        <button onClick={close} aria-label={t("סגירה")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] text-ink-3 hover:bg-surface-2 hover:text-ink">
           <X className="h-4 w-4" />
         </button>
       </div>

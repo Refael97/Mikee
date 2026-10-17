@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { Block, Page, PageHeader } from "@/components/Page";
 import { Sk } from "@/components/Skeleton";
+import { getT } from "@/lib/i18n/server";
 
 /** The results page's own frame, at once: only the numbers and the chart shimmer while Meta answers. */
-export default function Loading() {
+export default async function Loading() {
+  const t = await getT();
   return (
     <Page>
-      <PageHeader title="תוצאות" lead="החודש עד היום, בהשוואה לאותם ימים בחודש שעבר" action={<Link href="/campaigns" className="btn btn-quiet btn-sm">כל הקמפיינים</Link>} />
+      <PageHeader title={t("תוצאות")} lead={t("החודש עד היום, בהשוואה לאותם ימים בחודש שעבר")} action={<Link href="/campaigns" className="btn btn-quiet btn-sm">{t("כל הקמפיינים")}</Link>} />
       <section className="card grid grid-cols-2 lg:grid-cols-4" aria-busy="true">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
@@ -20,7 +22,7 @@ export default function Loading() {
           </div>
         ))}
       </section>
-      <Block title="תוצאות בכל יום החודש" className="mt-8">
+      <Block title={t("תוצאות בכל יום החודש")} className="mt-8">
         <div className="card p-5">
           <span aria-hidden className="skeleton block h-44 w-full" />
         </div>

@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { saveIntake } from "@/lib/actions";
 import { BUDGET_STOPS, BUSINESS, GOALS, HELP, KNOWLEDGE, STATE } from "@/lib/intake";
+import { useT } from "@/components/Lang";
+import type { T } from "@/lib/i18n";
 
 type Option = { id: string; title: string; sub: string };
 type Tone = "mint" | "sun" | "coral" | "violet";
@@ -89,13 +91,14 @@ const STEPS: Step[] = [
 ];
 
 const ils = (n: number) => `${n.toLocaleString("he-IL")}\u00a0₪`;
-const rangeText = (lo: number, hi: number) => (!hi ? "עדיין אין תקציב" : lo === hi ? ils(hi) : !lo ? `עד ${ils(hi)}` : `${ils(lo)} עד ${ils(hi)}`);
+const rangeText = (t: T, lo: number, hi: number) => (!hi ? t("עדיין אין תקציב") : lo === hi ? ils(hi) : !lo ? t("עד {hi}", { hi: ils(hi) }) : t("{lo} עד {hi}", { lo: ils(lo), hi: ils(hi) }));
 
 /**
  * Two handles on one track: the right one is the bottom of the range, the left one the top (RTL). Two native
  * range inputs share the track, so the keyboard and screen readers work as usual; only their thumbs take the pointer.
  */
 function RangeSlider({ stops, low, high, onChange, format }: { stops: readonly number[]; low: number; high: number; onChange: (low: number, high: number) => void; format: (n: number) => string }) {
+  const t = useT();
   const last = stops.length - 1;
   const pct = (n: number) => (n / last) * 100;
   // When the handles meet, the one that can still move away stays on top.
@@ -111,7 +114,7 @@ function RangeSlider({ stops, low, high, onChange, format }: { stops: readonly n
         step={1}
         value={low}
         onChange={(e) => onChange(Math.min(Number(e.target.value), high), high)}
-        aria-label="תקציב מינימלי"
+        aria-label={t("תקציב מינימלי")}
         aria-valuetext={format(stops[low])}
         className="range-dual"
         style={{ zIndex: lowOnTop ? 2 : 1 }}
@@ -123,7 +126,7 @@ function RangeSlider({ stops, low, high, onChange, format }: { stops: readonly n
         step={1}
         value={high}
         onChange={(e) => onChange(low, Math.max(Number(e.target.value), low))}
-        aria-label="תקציב מקסימלי"
+        aria-label={t("תקציב מקסימלי")}
         aria-valuetext={format(stops[high])}
         className="range-dual"
         style={{ zIndex: lowOnTop ? 1 : 2 }}
@@ -136,6 +139,7 @@ const DRAFT_KEY = "mikee-intake-draft";
 
 /** One question at a time in a large card, answers as tiles. Saved once at the end, then the connections screen opens. */
 export function Intake() {
+  const t = useT();
   const router = useRouter();
   const [i, setI] = useState(0);
   const [a, setA] = useState<Answers>({ businessOther: "", help: [], helpOther: "", low: BUDGET_STOPS.indexOf(2000), high: BUDGET_STOPS.indexOf(5000), goals: [] });
@@ -192,9 +196,9 @@ export function Intake() {
           } catch {
             /* storage is off: say it plainly below */
           }
-          return { error: "האתר התעדכן ברגע זה. רעננו את העמוד ונסו שוב." };
+          return { error: t("האתר התעדכן ברגע זה. רעננו את העמוד ונסו שוב.") };
         }
-        return { error: "השמירה לא הצליחה. נסו שוב." };
+        return { error: t("השמירה לא הצליחה. נסו שוב.") };
       });
       if (r?.error) return setError(r.error);
       if (r && "error" in r) return;
@@ -237,28 +241,28 @@ export function Intake() {
               ))}
             </div>
             <p className="meta num whitespace-nowrap">
-              שאלה {i + 1} מתוך {STEPS.length}
+              {t("שאלה {i} מתוך {n}", { i: i + 1, n: STEPS.length })}
             </p>
           </div>
           {i > 0 && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setI(i - 1)} disabled={pending}>
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-              חזרה
+              {t("חזרה")}
             </button>
           )}
         </div>
 
         <div key={step.id} className="fade-in">
           <h2 id="intake-q" className="text-[22px] font-normal leading-snug tracking-[-0.01em] sm:text-[26px]">
-            {step.question}
+            {t(step.question)}
           </h2>
-          {step.kind === "multi" && <p className="mt-1 text-[15px] text-ink-3">{step.hint}</p>}
+          {step.kind === "multi" && <p className="mt-1 text-[15px] text-ink-3">{t(step.hint)}</p>}
 
           {step.kind === "budget" ? (
             <div className="mt-8">
               <p className="num text-[24px] font-normal leading-tight sm:text-[30px]" aria-live="polite">
-                <span className="whitespace-nowrap">{rangeText(BUDGET_STOPS[a.low], BUDGET_STOPS[a.high])}</span>
-                {BUDGET_STOPS[a.high] > 0 && <span className="ms-2 text-[17px] text-ink-2">לחודש</span>}
+                <span className="whitespace-nowrap">{rangeText(t, BUDGET_STOPS[a.low], BUDGET_STOPS[a.high])}</span>
+                {BUDGET_STOPS[a.high] > 0 && <span className="ms-2 text-[17px] text-ink-2">{t("לחודש")}</span>}
               </p>
               <RangeSlider
                 stops={BUDGET_STOPS}
@@ -271,7 +275,7 @@ export function Intake() {
                 <span>{ils(0)}</span>
                 <span>{ils(BUDGET_STOPS[BUDGET_STOPS.length - 1])}</span>
               </div>
-              <p className="mt-5 text-[15px] text-ink-2">זו נקודת פתיחה בלבד. את התקרה המחייבת קובעים בהמשך, ושום שקל לא יוצא בלי אישור.</p>
+              <p className="mt-5 text-[15px] text-ink-2">{t("זו נקודת פתיחה בלבד. את התקרה המחייבת קובעים בהמשך, ושום שקל לא יוצא בלי אישור.")}</p>
             </div>
           ) : (
             <div className="mt-6 grid gap-2.5 sm:grid-cols-2" role={step.kind === "single" ? "radiogroup" : "group"} aria-labelledby="intake-q">
@@ -294,8 +298,8 @@ export function Intake() {
                       <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[16.5px] leading-snug text-ink">{o.title}</span>
-                      <span className="block text-[13.5px] leading-snug text-ink-3">{o.sub}</span>
+                      <span className="block text-[16.5px] leading-snug text-ink">{t(o.title)}</span>
+                      <span className="block text-[13.5px] leading-snug text-ink-3">{t(o.sub)}</span>
                     </span>
                     <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${step.kind === "multi" ? "rounded-[6px]" : "rounded-full"} border ${on ? "border-ink bg-ink text-surface" : "border-line-strong"}`} aria-hidden>
                       {on && <Check className="h-3 w-3" strokeWidth={2} />}
@@ -308,7 +312,7 @@ export function Intake() {
 
           {otherOn && (
             <label className="mt-4 block space-y-1.5">
-              <span className="label">{step.id === "business" ? "איזה עסק?" : "במה עוד לעזור?"}</span>
+              <span className="label">{step.id === "business" ? t("איזה עסק?") : t("במה עוד לעזור?")}</span>
               <input
                 className="field"
                 autoFocus
@@ -325,9 +329,9 @@ export function Intake() {
 
         <div className="mt-8 flex items-center gap-4">
           <button type="button" className="btn btn-primary btn-lg" onClick={next} disabled={!answered || pending}>
-            {last ? (pending ? "שומר…" : "סיום, ממשיכים לחיבורים") : "המשך"}
+            {last ? (pending ? t("שומר…") : t("סיום, ממשיכים לחיבורים")) : t("המשך")}
           </button>
-          {!answered && step.kind !== "budget" && <p className="text-[14px] text-ink-3">{otherOn ? "כמה מילים, ואפשר להמשיך" : "בחירה אחת לפחות"}</p>}
+          {!answered && step.kind !== "budget" && <p className="text-[14px] text-ink-3">{otherOn ? t("כמה מילים, ואפשר להמשיך") : t("בחירה אחת לפחות")}</p>}
         </div>
       </div>
     </section>

@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Activity, AtSign, Building2, ChevronDown, CreditCard, Flag, Globe, HardDrive, ShoppingBag, UserRound } from "lucide-react";
 import type { ConnectedAssets } from "@/lib/meta/assets";
+import { useT } from "@/components/Lang";
 
 /**
  * The connected account, always in view: the business's name at Meta, and on click every asset Mikee
  * works with (the person who connected, ad account, page, Instagram, pixel, catalog, site, Drive).
  */
 export function ConnectedAccount({ initial, compact = false }: { initial: ConnectedAssets; compact?: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState(initial);
   const ref = useRef<HTMLDivElement>(null);
@@ -33,29 +35,29 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
   }, [open]);
 
   const m = assets.meta;
-  const label = m.connected ? (m.account ?? "חשבון מחובר") : "לא מחובר למטא";
+  const label = m.connected ? (m.account ?? t("חשבון מחובר")) : t("לא מחובר למטא");
   const broken = m.connected && m.status === "broken";
   // Connected, but the business has not confirmed which page and ad account are its own yet.
   const pending = m.connected && !broken && !m.page && !m.adAccount;
 
   // One compact line per asset: what it is, its name, and whether it is set. Ids wait under "מזהים".
   const rows: { icon: typeof Flag; title: string; value?: string; ltr?: boolean }[] = [
-    { icon: UserRound, title: "מחובר דרך", value: m.person },
-    { icon: Building2, title: "העסק במטא", value: m.business },
-    { icon: CreditCard, title: "חשבון מודעות", value: m.adAccount ? [m.adAccount.name ?? m.adAccount.id, m.adAccount.currency].filter(Boolean).join(" · ") : undefined },
-    { icon: Flag, title: "עמוד", value: m.page?.name ?? m.page?.id },
-    { icon: AtSign, title: "אינסטגרם", value: m.instagram ? (m.instagram.username ? `@${m.instagram.username}` : m.instagram.id) : undefined },
-    { icon: Activity, title: "פיקסל", value: m.pixel?.name ?? m.pixel?.id },
-    { icon: ShoppingBag, title: "קטלוג", value: m.catalog?.name ?? m.catalog?.id },
+    { icon: UserRound, title: t("מחובר דרך"), value: m.person },
+    { icon: Building2, title: t("העסק במטא"), value: m.business },
+    { icon: CreditCard, title: t("חשבון מודעות"), value: m.adAccount ? [m.adAccount.name ?? m.adAccount.id, m.adAccount.currency].filter(Boolean).join(" · ") : undefined },
+    { icon: Flag, title: t("עמוד"), value: m.page?.name ?? m.page?.id },
+    { icon: AtSign, title: t("אינסטגרם"), value: m.instagram ? (m.instagram.username ? `@${m.instagram.username}` : m.instagram.id) : undefined },
+    { icon: Activity, title: t("פיקסל"), value: m.pixel?.name ?? m.pixel?.id },
+    { icon: ShoppingBag, title: t("קטלוג"), value: m.catalog?.name ?? m.catalog?.id },
   ];
   const ids = [
-    ["חשבון מודעות", m.adAccount?.id.replace(/^act_/, "")],
-    ["עמוד", m.page?.id],
-    ["אינסטגרם", m.instagram?.id],
-    ["פיקסל", m.pixel?.id],
-    ["קטלוג", m.catalog?.id],
+    [t("חשבון מודעות"), m.adAccount?.id.replace(/^act_/, "")],
+    [t("עמוד"), m.page?.id],
+    [t("אינסטגרם"), m.instagram?.id],
+    [t("פיקסל"), m.pixel?.id],
+    [t("קטלוג"), m.catalog?.id],
   ].filter((x): x is [string, string] => !!x[1]);
-  const Row = ({ icon: Icon, title, value, ltr, empty = pending ? "ממתין לאישור" : "לא נבחר" }: { icon: typeof Flag; title: string; value?: string; ltr?: boolean; empty?: string }) => (
+  const Row = ({ icon: Icon, title, value, ltr, empty = pending ? t("ממתין לאישור") : t("לא נבחר") }: { icon: typeof Flag; title: string; value?: string; ltr?: boolean; empty?: string }) => (
     <li className="flex h-9 items-center gap-2.5 px-2.5 text-[14px]">
       <Icon className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.5} />
       <span className="w-[92px] shrink-0 text-[13px] text-ink-3">{title}</span>
@@ -83,13 +85,13 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
       {open && (
         <div
           role="dialog"
-          aria-label="הנכסים המחוברים"
+          aria-label={t("הנכסים המחוברים")}
           className={`pop-over rise absolute top-full z-50 mt-2 flex max-h-[calc(100dvh-96px)] w-[min(340px,calc(100vw-32px))] flex-col !rounded-[16px] ${compact ? "max-lg:fixed max-lg:inset-x-4 max-lg:top-[60px] max-lg:w-auto lg:start-0" : "end-0"}`}
         >
           <div className="shrink-0 border-b border-line px-3.5 py-2.5">
             <p dir="auto" className="truncate text-right text-[15px]">{label}</p>
             <p className={`text-[12.5px] ${broken ? "text-bad" : "text-ink-3"}`}>
-              {!m.connected ? "פייסבוק ואינסטגרם עוד לא מחוברים" : broken ? `החיבור נותק${m.statusReason ? `: ${m.statusReason}` : ""}` : pending ? "מצאתי את העסק, הוא ממתין לאישור שלך" : "הנכסים שמייקי עובד איתם"}
+              {!m.connected ? t("פייסבוק ואינסטגרם עוד לא מחוברים") : broken ? `${t("החיבור נותק")}${m.statusReason ? `: ${m.statusReason}` : ""}` : pending ? t("מצאתי את העסק, הוא ממתין לאישור שלך") : t("הנכסים שמייקי עובד איתם")}
             </p>
           </div>
           <div className="min-h-0 overflow-y-auto p-1">
@@ -101,14 +103,14 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
               </ul>
             )}
             <ul className={m.connected ? "mt-1 border-t border-line pt-1" : ""}>
-              <Row icon={Globe} title="אתר" value={assets.website?.replace(/^https?:\/\//, "").replace(/\/$/, "")} ltr empty="לא חובר" />
-              <Row icon={HardDrive} title="גוגל דרייב" value={assets.drive ? "מחובר" : undefined} empty="לא חובר" />
+              <Row icon={Globe} title={t("אתר")} value={assets.website?.replace(/^https?:\/\//, "").replace(/\/$/, "")} ltr empty={t("לא חובר")} />
+              <Row icon={HardDrive} title={t("גוגל דרייב")} value={assets.drive ? t("מחובר") : undefined} empty={t("לא חובר")} />
             </ul>
             {ids.length > 0 && (
               <details className="group mx-2.5 mb-1 mt-1 border-t border-line pt-1.5 text-[12.5px] text-ink-3">
                 <summary className="flex h-7 cursor-pointer list-none items-center gap-1 hover:text-ink-2">
                   <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
-                  מזהים
+                  {t("מזהים")}
                 </summary>
                 <dl className="space-y-0.5 pb-1">
                   {ids.map(([k, v]) => (
@@ -123,7 +125,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
           </div>
           <div className="shrink-0 border-t border-line p-1.5">
             <Link href="/settings" onClick={() => setOpen(false)} className="btn btn-quiet btn-sm w-full">
-              {broken || !m.connected ? "לחבר בהגדרות" : pending ? "לאשר את העסק" : "לנהל חיבורים"}
+              {broken || !m.connected ? t("לחבר בהגדרות") : pending ? t("לאשר את העסק") : t("לנהל חיבורים")}
             </Link>
           </div>
         </div>

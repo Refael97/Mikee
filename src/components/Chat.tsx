@@ -12,6 +12,7 @@ import { RichText } from "./RichText";
 import { refreshConversations } from "./Sidebar";
 import { SILENT_STEPS, stepLabel } from "@/lib/progress";
 import { type Autonomy, DEFAULT_AUTONOMY } from "@/lib/autonomy";
+import { useT } from "@/components/Lang";
 
 const SUGGESTIONS = [
   { title: "איך הולך החודש?", sub: "תמונת מצב קצרה, במספרים אמיתיים" },
@@ -95,6 +96,7 @@ export function Chat({
   suggestions?: { title: string; sub: string }[];
   autonomy?: Autonomy;
 }) {
+  const t = useT();
   const [items, setItems] = useState<ChatItem[]>(initialItems);
   const retries = useRef(new Map<string, Retry>());
   /** Scrolled up to read: the view stops following, and a button leads back to the latest message. */
@@ -173,7 +175,7 @@ export function Chat({
                       : { ...(l ?? EMPTY), segments: [...(l?.segments ?? []), { kind: "card", proposal: p }], activity: null },
                   );
               }
-              if (e.t === "error") setError(e.message);
+              if (e.t === "error") setError(t(e.message));
               if (e.t === "done") finished = true;
             }
             if (finished || data.status === "done" || data.status === "failed") break;
@@ -232,7 +234,7 @@ export function Chat({
           if (data.alreadyRunning && body.text) {
             // Not stored: Mikee is still on the previous message. It stays here to send again.
             mark("failed");
-            setError("מייקי עוד מסיים משהו קודם. ההודעה לא נשלחה, אפשר לנסות שוב כשהוא יסיים.");
+            setError(t("מייקי עוד מסיים משהו קודם. ההודעה לא נשלחה, אפשר לנסות שוב כשהוא יסיים."));
           } else {
             mark(undefined);
             retries.current.delete(localId);
@@ -240,7 +242,7 @@ export function Chat({
           await follow(data.jobId);
           return;
         }
-        throw new Error(data?.error ?? "ההודעה לא נשלחה. אפשר לנסות שוב.");
+        throw new Error(data?.error ?? t("ההודעה לא נשלחה. אפשר לנסות שוב."));
       } catch (e) {
         mark("failed");
         // The message itself says "not sent" with its retry; a note is added only when there is more to say.
@@ -277,7 +279,7 @@ export function Chat({
   const quietRef = useRef(false);
   useEffect(() => {
     if (!conversationId) return;
-    const t = setInterval(async () => {
+    const timer = setInterval(async () => {
       if (liveRef.current || quietRef.current || document.hidden || !convId.current) return;
       const active = await fetch(`/api/jobs/active?conversationId=${convId.current}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (!active?.jobId || liveRef.current || quietRef.current) return;
@@ -290,7 +292,7 @@ export function Chat({
       // She watched it arrive, so it is already read.
       await fetch(`/api/conversations/${convId.current}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ read: true }) });
     }, 12_000);
-    return () => clearInterval(t);
+    return () => clearInterval(timer);
   }, [conversationId, follow]);
 
   // Stay at the end while it grows: new words, a card, an image that finishes loading. Nothing jumps
@@ -357,12 +359,12 @@ export function Chat({
         {empty ? (
           <div className="mx-auto max-w-[640px] pt-[6vh]">
             <MikeeAvatar size={96} state={typing ? "listening" : "idle"} cues />
-            <h1 className="display mt-5">היי {firstName}, מה עושים היום?</h1>
-            <p className="lead mt-2">ספרי לי מה צריך. את כל השאר אני לוקח עליי.</p>
+            <h1 className="display mt-5">{t("היי {name}, מה עושים היום?", { name: firstName })}</h1>
+            <p className="lead mt-2">{t("ספרי לי מה צריך. את כל השאר אני לוקח עליי.")}</p>
 
             {nextMoves.length > 0 && (
               <section className="mt-8">
-                <h2 className="label mb-2">מייקי מציע להמשיך</h2>
+                <h2 className="label mb-2">{t("מייקי מציע להמשיך")}</h2>
                 <ul className="group-list">
                   {nextMoves.map((m) => (
                     <li key={m.title}>
@@ -380,12 +382,12 @@ export function Chat({
             )}
 
             <section className="mt-6">
-              <h2 className="label mb-2">או להתחיל מכאן</h2>
+              <h2 className="label mb-2">{t("או להתחיל מכאן")}</h2>
               <div className="grid gap-2 sm:grid-cols-2">
                 {suggestions.map(({ title, sub }) => (
-                  <button key={title} onClick={() => submit(title)} className="card px-4 py-3 text-start transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-[var(--shadow)]">
-                    <span className="block text-[15px] font-medium">{title}</span>
-                    <span className="mt-0.5 block text-[14px] text-ink-2">{sub}</span>
+                  <button key={title} onClick={() => submit(t(title))} className="card px-4 py-3 text-start transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-[var(--shadow)]">
+                    <span className="block text-[15px] font-medium">{t(title)}</span>
+                    <span className="mt-0.5 block text-[14px] text-ink-2">{t(sub)}</span>
                   </button>
                 ))}
               </div>
@@ -416,12 +418,12 @@ export function Chat({
                     {item.text && item.text !== "(קבצים מצורפים)" && (
                       <div className={`max-w-[80%] whitespace-pre-line rounded-[10px] bg-surface-2 px-3.5 py-2 text-[16px] transition-opacity duration-[var(--dur-2)] ${item.state === "sending" ? "opacity-70" : ""}`}>{item.text}</div>
                     )}
-                    {item.state === "sending" && <span className="text-[12.5px] text-ink-3">שולח…</span>}
+                    {item.state === "sending" && <span className="text-[12.5px] text-ink-3">{t("שולח…")}</span>}
                     {item.state === "failed" && (
                       <span className="flex items-center gap-2 text-[13px] text-bad">
-                        לא נשלח
+                        {t("לא נשלח")}
                         <button type="button" disabled={!!live} onClick={() => retry(item.id)} className="link text-[13px] text-ink disabled:opacity-40">
-                          לנסות שוב
+                          {t("לנסות שוב")}
                         </button>
                       </span>
                     )}
@@ -494,11 +496,11 @@ export function Chat({
             className="fade-in absolute -top-3 left-1/2 flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full bg-surface px-3 text-[13.5px] text-ink shadow-[var(--shadow-float)] transition-colors hover:bg-surface-2"
           >
             <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.75} />
-            להודעה האחרונה
+            {t("להודעה האחרונה")}
           </button>
         )}
-        <Composer onTyping={setTyping} autonomy={{ value: autonomy, onChange: chooseAutonomy }} busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? "מייקי לומד את העסק…" : "מה צריך?"} onSend={submit} />
-        <p className="mt-2 text-center text-[12.5px] text-ink-3">{live && typing ? "אפשר לשלוח כשמייקי יסיים לענות. מה שכתבת נשמר כאן." : "שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך"}</p>
+        <Composer onTyping={setTyping} autonomy={{ value: autonomy, onChange: chooseAutonomy }} busy={!!live} initialText={draft} placeholder={autoScan && items.length === 0 ? t("מייקי לומד את העסק…") : t("מה צריך?")} onSend={submit} />
+        <p className="mt-2 text-center text-[12.5px] text-ink-3">{live && typing ? t("אפשר לשלוח כשמייקי יסיים לענות. מה שכתבת נשמר כאן.") : t("שום דבר לא עולה לאוויר ושום שקל לא יוצא בלי האישור שלך")}</p>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { AGENT_NAMES } from "@/lib/progress";
+import { useT } from "@/components/Lang";
 
 export type SkillView = { id: string; name: string; whenToUse: string; body: string; agents: string[]; enabled: boolean; source: "written" | "file" };
 type Draft = { id?: string; name: string; whenToUse: string; body: string; agents: string[]; source: "written" | "file" };
@@ -26,6 +27,7 @@ async function post(body: unknown) {
  * reads it and presses save.
  */
 export function SkillsEditor({ initial }: { initial: SkillView[] }) {
+  const t = useT();
   const [skills, setSkills] = useState(initial);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function SkillsEditor({ initial }: { initial: SkillView[] }) {
       if (done) setSaved(done);
       await reload();
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     } finally {
       setBusy(false);
     }
@@ -57,13 +59,13 @@ export function SkillsEditor({ initial }: { initial: SkillView[] }) {
   async function upload(f: File) {
     setError(null);
     setSaved(null);
-    if (f.size > FILE_MAX) return setError("הקובץ גדול מדי. סקיל הוא קובץ טקסט קצר, עד 32KB.");
-    if (!/\.(md|markdown|txt)$/i.test(f.name)) return setError("אפשר להעלות קובץ SKILL.md או קובץ טקסט. קבצים אחרים, כמו סקריפטים או ZIP, לא נקראים.");
+    if (f.size > FILE_MAX) return setError(t("הקובץ גדול מדי. סקיל הוא קובץ טקסט קצר, עד 32KB."));
+    if (!/\.(md|markdown|txt)$/i.test(f.name)) return setError(t("אפשר להעלות קובץ SKILL.md או קובץ טקסט. קבצים אחרים, כמו סקריפטים או ZIP, לא נקראים."));
     try {
       const { draft: d } = await post({ action: "parse", filename: f.name, text: await f.text() });
       setDraft({ ...EMPTY, ...d, source: "file" });
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     }
   }
 
@@ -79,24 +81,24 @@ export function SkillsEditor({ initial }: { initial: SkillView[] }) {
               <div className="min-w-0 flex-1">
                 <p className={`truncate ${s.enabled ? "" : "text-ink-3"}`}>{s.name}</p>
                 <p className="line-clamp-2 text-[14px] text-ink-3">{s.whenToUse}</p>
-                <p className="mt-1 text-[13px] text-ink-3">{s.agents.map(whoLabel).join(", ")}</p>
+                <p className="mt-1 text-[13px] text-ink-3">{s.agents.map((a) => t(whoLabel(a))).join(", ")}</p>
               </div>
-              <button type="button" aria-label={`עריכת ${s.name}`} className="btn btn-quiet btn-sm !px-2" onClick={() => setDraft({ ...s })}>
+              <button type="button" aria-label={t("עריכת {name}", { name: s.name })} className="btn btn-quiet btn-sm !px-2" onClick={() => setDraft({ ...s })}>
                 <Pencil className="h-4 w-4" strokeWidth={1.5} />
               </button>
               <button
                 type="button"
-                aria-label={`מחיקת ${s.name}`}
+                aria-label={t("מחיקת {name}", { name: s.name })}
                 className="btn btn-quiet btn-sm !px-2"
                 disabled={busy}
-                onClick={() => confirm(`למחוק את הסקיל "${s.name}"?`) && run({ action: "delete", id: s.id }, "הסקיל נמחק")}
+                onClick={() => confirm(t("למחוק את הסקיל \"{name}\"?", { name: s.name })) && run({ action: "delete", id: s.id }, t("הסקיל נמחק"))}
               >
                 <Trash2 className="h-4 w-4" strokeWidth={1.5} />
               </button>
               <input
                 type="checkbox"
                 className="switch mt-1"
-                aria-label={s.enabled ? `לכבות את ${s.name}` : `להפעיל את ${s.name}`}
+                aria-label={s.enabled ? t("לכבות את {name}", { name: s.name }) : t("להפעיל את {name}", { name: s.name })}
                 checked={s.enabled}
                 disabled={busy}
                 onChange={(e) => run({ action: "enabled", id: s.id, enabled: e.target.checked })}
@@ -111,45 +113,45 @@ export function SkillsEditor({ initial }: { initial: SkillView[] }) {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            void run({ action: "save", ...draft }, draft.id ? "הסקיל עודכן" : "הסקיל נשמר", () => setDraft(null));
+            void run({ action: "save", ...draft }, draft.id ? t("הסקיל עודכן") : t("הסקיל נשמר"), () => setDraft(null));
           }}
         >
-          {draft.source === "file" && !draft.id && <p className="note">קראנו את הקובץ. עברי על ההוראות לפני השמירה: מייקי יעבוד לפיהן.</p>}
+          {draft.source === "file" && !draft.id && <p className="note">{t("קראנו את הקובץ. עברי על ההוראות לפני השמירה: מייקי יעבוד לפיהן.")}</p>}
           <label className="block space-y-1.5">
-            <span className="text-[15px] text-ink-2">שם</span>
-            <span className="block text-[13px] text-ink-3">קצר וברור, למשל: פוסט השקה לקולקציה</span>
+            <span className="text-[15px] text-ink-2">{t("שם")}</span>
+            <span className="block text-[13px] text-ink-3">{t("קצר וברור, למשל: פוסט השקה לקולקציה")}</span>
             <input className="field" value={draft.name} maxLength={60} required onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-[15px] text-ink-2">מתי להשתמש בו</span>
-            <span className="block text-[13px] text-ink-3">משפט אחד. לפיו מייקי יודע לבחור בסקיל</span>
+            <span className="text-[15px] text-ink-2">{t("מתי להשתמש בו")}</span>
+            <span className="block text-[13px] text-ink-3">{t("משפט אחד. לפיו מייקי יודע לבחור בסקיל")}</span>
             <input className="field" value={draft.whenToUse} maxLength={300} required onChange={(e) => setDraft({ ...draft, whenToUse: e.target.value })} />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-[15px] text-ink-2">ההוראות</span>
-            <span className="block text-[13px] text-ink-3">איך לעשות את העבודה: שלבים, סגנון, מה תמיד ומה אף פעם. בלי קישורים ובלי סיסמאות</span>
+            <span className="text-[15px] text-ink-2">{t("ההוראות")}</span>
+            <span className="block text-[13px] text-ink-3">{t("איך לעשות את העבודה: שלבים, סגנון, מה תמיד ומה אף פעם. בלי קישורים ובלי סיסמאות")}</span>
             <textarea className="field min-h-48 py-2.5 leading-relaxed" value={draft.body} maxLength={BODY_MAX} required onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
             <span dir="ltr" className="block text-left text-[12px] text-ink-3 num">
               {draft.body.length.toLocaleString("he-IL")} / {BODY_MAX.toLocaleString("he-IL")}
             </span>
           </label>
           <fieldset className="space-y-2">
-            <legend className="text-[15px] text-ink-2">מי משתמש בו</legend>
+            <legend className="text-[15px] text-ink-2">{t("מי משתמש בו")}</legend>
             <div className="flex flex-wrap gap-2">
               {WHO.map((w) => (
                 <label key={w.id} className={`tag cursor-pointer ${draft.agents.includes(w.id) ? "tag-good" : "tag-quiet"}`}>
                   <input type="checkbox" className="sr-only" checked={draft.agents.includes(w.id)} onChange={() => toggleWho(w.id)} />
-                  {w.label}
+                  {t(w.label)}
                 </label>
               ))}
             </div>
           </fieldset>
           <div className="flex gap-2">
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "שומר…" : "שמירה"}
+              {busy ? t("שומר…") : t("שמירה")}
             </button>
             <button type="button" className="btn btn-quiet" onClick={() => (setDraft(null), setError(null))}>
-              ביטול
+              {t("ביטול")}
             </button>
           </div>
         </form>
@@ -157,11 +159,11 @@ export function SkillsEditor({ initial }: { initial: SkillView[] }) {
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => (setDraft({ ...EMPTY }), setSaved(null))} disabled={skills.length >= 20}>
             <Plus className="h-4 w-4" strokeWidth={1.5} />
-            סקיל חדש
+            {t("סקיל חדש")}
           </button>
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => file.current?.click()} disabled={skills.length >= 20}>
             <FileUp className="h-4 w-4" strokeWidth={1.5} />
-            מקובץ SKILL.md
+            {t("מקובץ SKILL.md")}
           </button>
           <input
             ref={file}
@@ -180,7 +182,7 @@ export function SkillsEditor({ initial }: { initial: SkillView[] }) {
       {error && <p className="note note-warn" role="alert">{error}</p>}
       {saved && <p className="text-[14px] text-good" role="status">{saved}</p>}
       <p className="text-[13px] text-ink-3">
-        סקיל הוא הוראות בטקסט בלבד. הוא לא מריץ קוד, לא נותן למייקי גישה חדשה, ולא עוקף את כרטיסי האישור, את רמת השליטה שבחרת או את תקרת התקציב.
+        {t("סקיל הוא הוראות בטקסט בלבד. הוא לא מריץ קוד, לא נותן למייקי גישה חדשה, ולא עוקף את כרטיסי האישור, את רמת השליטה שבחרת או את תקרת התקציב.")}
       </p>
     </div>
   );

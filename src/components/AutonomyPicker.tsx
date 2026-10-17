@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CheckCheck, ChevronDown, Hand, ShieldCheck } from "lucide-react";
 import { AUTONOMY, type Autonomy } from "@/lib/autonomy";
+import { useT } from "@/components/Lang";
 
 const ICON: Record<Autonomy, typeof Hand> = { every_step: Hand, important: ShieldCheck, final: CheckCheck };
 
 /** How much Mikee asks before moving on, chosen right where she writes (like an AI assistant's approval mode). */
 export function AutonomyPicker({ value, onChange }: { value: Autonomy; onChange: (a: Autonomy) => void }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -31,16 +33,16 @@ export function AutonomyPicker({ value, onChange }: { value: Autonomy; onChange:
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="מתי מייקי מבקש אישור"
+        title={t("מתי מייקי מבקש אישור")}
         className={`flex h-7 items-center gap-1 rounded-full px-2 text-[12px] transition-colors ${open ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
       >
         <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-        <span className="max-sm:hidden">אישור {current.short}</span>
+        <span className="max-sm:hidden">{t("אישור {level}", { level: t(current.short) })}</span>
         <ChevronDown className={`h-3 w-3 text-ink-3 transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={1.5} />
       </button>
       {open && (
         <div role="menu" className="pop-over rise absolute bottom-9 start-0 z-30 w-max max-w-[calc(100vw-48px)] !rounded-[14px] p-1">
-          <p className="px-2 pb-0.5 pt-1 text-[11px] text-ink-3">מתי מייקי מבקש אישור?</p>
+          <p className="px-2 pb-0.5 pt-1 text-[11px] text-ink-3">{t("מתי מייקי מבקש אישור?")}</p>
           {AUTONOMY.map((a) => {
             const I = ICON[a.id];
             const on = a.id === value;

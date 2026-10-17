@@ -1,5 +1,7 @@
 import { PageLoading } from "@/components/PageLoading";
+import { getT } from "@/lib/i18n/server";
 
-export default function Loading() {
-  return <PageLoading narrow title="הפרופיל שלי" sections={["הפרטים שלי", "המנוי והשימוש"]} />;
+export default async function Loading() {
+  const t = await getT();
+  return <PageLoading narrow title={t("הפרופיל שלי")} sections={[t("הפרטים שלי"), t("המנוי והשימוש")]} />;
 }

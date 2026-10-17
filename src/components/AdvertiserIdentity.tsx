@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check } from "lucide-react";
+import { useT } from "@/components/Lang";
 
 type Who = { id: string; name: string };
 type Saved = { id: string; scope: "ad_account" | "workspace" | "proposal"; adAccountId: string | null; proposalId: string | null; beneficiary: Who; payer: Who; nameSource: string; confirmedAt: string };
@@ -27,6 +28,7 @@ async function call(method: "POST" | "DELETE", url: string, body?: unknown) {
  * With a proposalId it also offers "only this campaign" (used inside a failed campaign card).
  */
 export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; onSaved?: (s: Saved) => void }) {
+  const t = useT();
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [beneficiary, setBeneficiary] = useState<string>("");
   const [payer, setPayer] = useState<string>("");
@@ -41,7 +43,7 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
     setError(null);
     const res = await fetch("/api/meta/identities?discover=1", { cache: "no-store" });
     const data = await res.json().catch(() => null);
-    const d: Discovery = data?.discovery ?? { status: "error", error: "לא הצלחנו לקרוא את חשבון המודעות." };
+    const d: Discovery = data?.discovery ?? { status: "error", error: t("לא הצלחנו לקרוא את חשבון המודעות.") };
     setDiscovery(d);
     // Nothing is picked for the client: with one option it is shown selected, with several she picks.
     if (d.status === "ok" && d.candidates.length === 1) setBeneficiary(d.candidates[0].id);
@@ -51,13 +53,13 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
     void load();
   }, [load]);
 
-  if (!discovery) return <p className="text-[14.5px] text-ink-3">בודק אילו זהויות כבר קיימות בחשבון המודעות…</p>;
+  if (!discovery) return <p className="text-[14.5px] text-ink-3">{t("בודק אילו זהויות כבר קיימות בחשבון המודעות…")}</p>;
   if (discovery.status === "error") {
     return (
       <div className="space-y-2">
-        <p className="note note-bad text-[14.5px]">לא הצלחנו לקרוא את חשבון המודעות: {discovery.error}</p>
+        <p className="note note-bad text-[14.5px]">{t("לא הצלחנו לקרוא את חשבון המודעות:")} {discovery.error}</p>
         <button type="button" className="btn btn-quiet btn-sm" onClick={() => void load()}>
-          לנסות שוב
+          {t("לנסות שוב")}
         </button>
       </div>
     );
@@ -66,10 +68,10 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
     return (
       <div className="space-y-2 text-[14.5px]">
         <p className="text-ink-2">
-          לא מצאנו מפרסם ומשלם בקבוצות המודעות הקיימות ({discovery.scanned} נבדקו). צריך להגדיר אותם פעם אחת ב־Ads Manager, בהגדרות הפרסום של חשבון המודעות, ואז לחפש שוב.
+          {t("לא מצאנו מפרסם ומשלם בקבוצות המודעות הקיימות ({n} נבדקו). צריך להגדיר אותם פעם אחת ב־Ads Manager, בהגדרות הפרסום של חשבון המודעות, ואז לחפש שוב.", { n: discovery.scanned })}
         </p>
         <button type="button" className="btn btn-quiet btn-sm" onClick={() => void load()}>
-          לחפש שוב
+          {t("לחפש שוב")}
         </button>
       </div>
     );
@@ -93,7 +95,7 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
       });
       onSaved?.(data.saved);
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     } finally {
       setBusy(false);
     }
@@ -110,19 +112,19 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
                 {on && <Check className="h-3 w-3" strokeWidth={3} />}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">{c.name ?? "זהות בלי שם במטא"}</span>
+                <span className="block font-medium">{c.name ?? t("זהות בלי שם במטא")}</span>
                 <span className="block text-[13px] text-ink-3">
-                  מזהה <span className="num">{c.id}</span> · כבר בשימוש ב־{c.adsets} קבוצות מודעות בחשבון
+                  {t("מזהה")} <span className="num">{c.id}</span> · {t("כבר בשימוש ב־{n} קבוצות מודעות בחשבון", { n: c.adsets })}
                 </span>
               </span>
-              <span className={`shrink-0 text-[13px] font-medium ${on ? "text-brand" : "text-ink-3"}`}>{on ? "נבחר" : "לבחירה"}</span>
+              <span className={`shrink-0 text-[13px] font-medium ${on ? "text-brand" : "text-ink-3"}`}>{on ? t("נבחר") : t("לבחירה")}</span>
             </button>
             {on && !c.name && (
               <label className="block space-y-1.5 border-t border-line px-3 pb-3 pt-2.5">
-                <span className="block text-[13.5px] text-ink-2">מטא לא מחזירה את השם של הזהות הזאת. כתבו אותו כפי שהוא מופיע ב־Ads Manager, בשדה המפרסם והמשלם:</span>
+                <span className="block text-[13.5px] text-ink-2">{t("מטא לא מחזירה את השם של הזהות הזאת. כתבו אותו כפי שהוא מופיע ב־Ads Manager, בשדה המפרסם והמשלם:")}</span>
                 <input
                   className="field h-9 text-[14.5px]"
-                  placeholder="למשל: אדרט גרופ בע״מ"
+                  placeholder={t("למשל: אדרט גרופ בע״מ")}
                   maxLength={120}
                   value={typed[c.id] ?? ""}
                   onChange={(e) => setTyped((t) => ({ ...t, [c.id]: e.target.value }))}
@@ -139,29 +141,29 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
   return (
     <div className="space-y-4 text-[15px]">
       <div className="space-y-2">
-        <p className="font-medium">מי המפרסם?</p>
-        <p className="text-[13.5px] text-ink-2">אלה הזהויות שכבר מופיעות בקבוצות המודעות בחשבון שלך. בוחרים אחת בלחיצה.</p>
+        <p className="font-medium">{t("מי המפרסם?")}</p>
+        <p className="text-[13.5px] text-ink-2">{t("אלה הזהויות שכבר מופיעות בקבוצות המודעות בחשבון שלך. בוחרים אחת בלחיצה.")}</p>
         {options(beneficiary, setBeneficiary, "beneficiary")}
       </div>
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={separatePayer} onChange={(e) => setSeparatePayer(e.target.checked)} />
-        המשלם שונה מהמפרסם
+        {t("המשלם שונה מהמפרסם")}
       </label>
       {separatePayer && (
         <div className="space-y-2">
-          <p className="font-medium">מי המשלם?</p>
+          <p className="font-medium">{t("מי המשלם?")}</p>
           {options(payer, setPayer, "payer")}
         </div>
       )}
       {beneficiary && nameOf(beneficiary) && (
         <fieldset className="space-y-2">
           <legend className="mb-2 font-medium">
-            להשתמש ב{nameOf(beneficiary)} {separatePayer ? "כמפרסם" : "כמפרסם וכמשלם"} כברירת מחדל?
+            {separatePayer ? t("להשתמש ב{name} כמפרסם כברירת מחדל?", { name: nameOf(beneficiary) }) : t("להשתמש ב{name} כמפרסם וכמשלם כברירת מחדל?", { name: nameOf(beneficiary) })}
           </legend>
           {(["ad_account", "workspace", ...(proposalId ? (["proposal"] as const) : [])] as Saved["scope"][]).map((s) => (
             <label key={s} className="flex items-center gap-2">
               <input type="radio" name="scope" checked={scope === s} onChange={() => setScope(s)} />
-              {s === "ad_account" ? "רק לקמפיינים בחשבון המודעות הזה" : s === "workspace" ? "לכל הקמפיינים של העסק במייקי" : "רק לקמפיין הזה"}
+              {s === "ad_account" ? t("רק לקמפיינים בחשבון המודעות הזה") : s === "workspace" ? t("לכל הקמפיינים של העסק במייקי") : t("רק לקמפיין הזה")}
             </label>
           ))}
         </fieldset>
@@ -169,11 +171,11 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
       {error && <p className="note note-bad text-[14px]">{error}</p>}
       {!ready && (
         <p className="text-[13.5px] text-ink-3">
-          {!beneficiary ? "כדי לשמור, בוחרים מפרסם מהרשימה." : !nameOf(beneficiary) ? "כדי לשמור, כותבים את שם המפרסם כפי שהוא מופיע במטא." : separatePayer && !payer ? "כדי לשמור, בוחרים גם משלם." : "כדי לשמור, כותבים את שם המשלם כפי שהוא מופיע במטא."}
+          {!beneficiary ? t("כדי לשמור, בוחרים מפרסם מהרשימה.") : !nameOf(beneficiary) ? t("כדי לשמור, כותבים את שם המפרסם כפי שהוא מופיע במטא.") : separatePayer && !payer ? t("כדי לשמור, בוחרים גם משלם.") : t("כדי לשמור, כותבים את שם המשלם כפי שהוא מופיע במטא.")}
         </p>
       )}
       <button type="button" className="btn btn-primary" disabled={!ready || busy} onClick={() => void save()}>
-        {busy ? "שומרים…" : "שמירה"}
+        {busy ? t("שומרים…") : t("שמירה")}
       </button>
     </div>
   );
@@ -181,6 +183,7 @@ export function IdentityPicker({ proposalId, onSaved }: { proposalId?: string; o
 
 /** Settings: the saved choices, each removable, and the picker to add or change one. */
 export function AdvertiserIdentitySettings() {
+  const t = useT();
   const [saved, setSaved] = useState<Saved[] | null>(null);
   const [picking, setPicking] = useState(false);
 
@@ -197,8 +200,8 @@ export function AdvertiserIdentitySettings() {
   if (!saved) return null;
   return (
     <div className="space-y-3">
-      <h4 className="font-semibold">המפרסם והמשלם במטא</h4>
-      <p className="text-[14px] text-ink-2">חלק מהחשבונות והמיקומים דורשים לציין מי המפרסם ומי המשלם בכל קבוצת מודעות. בוחרים פעם אחת, ומייקי משתמש בזה בכל קמפיין.</p>
+      <h4 className="font-semibold">{t("המפרסם והמשלם במטא")}</h4>
+      <p className="text-[14px] text-ink-2">{t("חלק מהחשבונות והמיקומים דורשים לציין מי המפרסם ומי המשלם בכל קבוצת מודעות. בוחרים פעם אחת, ומייקי משתמש בזה בכל קמפיין.")}</p>
       {saved.length > 0 && (
         <ul className="divide-y divide-line rounded-[12px] border border-line">
           {saved.map((s) => (
@@ -206,11 +209,11 @@ export function AdvertiserIdentitySettings() {
               <span className="min-w-0">
                 <span className="block font-medium">
                   {s.beneficiary.name}
-                  {s.payer.id !== s.beneficiary.id && <> · משלם: {s.payer.name}</>}
+                  {s.payer.id !== s.beneficiary.id && <> · {t("משלם:")} {s.payer.name}</>}
                 </span>
                 <span className="block text-[13px] text-ink-3">
-                  {SCOPE_LABEL[s.scope]}
-                  {s.nameSource === "client" && " · השם אושר ידנית"}
+                  {t(SCOPE_LABEL[s.scope])}
+                  {s.nameSource === "client" && t(" · השם אושר ידנית")}
                 </span>
               </span>
               <button
@@ -221,7 +224,7 @@ export function AdvertiserIdentitySettings() {
                   void load();
                 }}
               >
-                הסרה
+                {t("הסרה")}
               </button>
             </li>
           ))}
@@ -236,7 +239,7 @@ export function AdvertiserIdentitySettings() {
         />
       ) : (
         <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicking(true)}>
-          {saved.length ? "לשנות" : "לבחור מפרסם ומשלם"}
+          {saved.length ? t("לשנות") : t("לבחור מפרסם ומשלם")}
         </button>
       )}
     </div>

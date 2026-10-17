@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { splitReplies, stripReplies } from "@/lib/replies";
+import { useT } from "@/components/Lang";
 
 export { splitReplies, stripReplies };
 
 /** An image or video being created: a living dot grid with a diagonal band of light, like a canvas forming. */
 export function MediaGenerating({ label = "יוצר תמונה", ratio = "4/5" }: { label?: string; ratio?: string }) {
-  const phrases = [label, "מסדר את האור", "מלטש פרטים", "כמעט מוכן"];
+  const t = useT();
+  const phrases = [t(label), t("מסדר את האור"), t("מלטש פרטים"), t("כמעט מוכן")];
   const phrase = useCycle(phrases, 2600);
   return (
     <div className="relative w-full overflow-hidden rounded-[8px] bg-surface-2" style={{ aspectRatio: ratio }} role="status" aria-label={label}>
@@ -28,8 +30,8 @@ export function useCycle<T>(items: T[], ms: number): T {
   useEffect(() => {
     setI(0);
     if (items.length < 2) return;
-    const t = setInterval(() => setI((x) => (x + 1) % items.length), ms);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setI((x) => (x + 1) % items.length), ms);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.join("|"), ms]);
   return items[i] ?? items[0];
@@ -49,7 +51,8 @@ const PHASES: Record<string, string[]> = {
 };
 
 function Phrase({ base, className = "" }: { base: string; className?: string }) {
-  const phrase = useCycle(PHASES[base] ?? [base], 2400);
+  const t = useT();
+  const phrase = useCycle((PHASES[base] ?? [base]).map((p) => t(p)), 2400);
   return (
     <span key={phrase} className={`swap-in inline-block ${className}`}>
       <span className="shimmer">{phrase}…</span>

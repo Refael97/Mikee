@@ -16,6 +16,7 @@ import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { remember, rememberedAge } from "@/lib/ttl";
 import { Freshness } from "@/components/Freshness";
 import { RetryButton } from "@/components/RetryButton";
+import { getT } from "@/lib/i18n/server";
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
 
@@ -26,8 +27,9 @@ function show(k: KpiValue, currency: string) {
   return fmt(k.value);
 }
 
-function Change({ k }: { k: KpiValue }) {
-  if (k.change == null) return <span className="text-[13px] text-ink-3">{k.previous == null ? k.hint : "ללא שינוי"}</span>;
+async function Change({ k }: { k: KpiValue }) {
+  const t = await getT();
+  if (k.change == null) return <span className="text-[13px] text-ink-3">{k.previous == null ? k.hint : t("ללא שינוי")}</span>;
   const pct = Math.round(Math.abs(k.change) * 100);
   const Icon = Math.abs(k.change) < 0.03 ? Minus : k.change > 0 ? ArrowUpRight : ArrowDownRight;
   return (
@@ -41,23 +43,24 @@ function Change({ k }: { k: KpiValue }) {
 type Data = Awaited<ReturnType<typeof dashboardData>> | null;
 
 async function Kpis({ data, workspaceId }: { data: Promise<Data>; workspaceId: string }) {
+  const t = await getT();
   const d = await data;
   if (!d)
     return (
       <div className="note note-warn flex flex-wrap items-center justify-between gap-3">
-        <span>מטא לא ענתה כרגע, ולכן המספרים לא נטענו.</span>
+        <span>{t("מטא לא ענתה כרגע, ולכן המספרים לא נטענו.")}</span>
         <RetryButton />
       </div>
     );
   return (
-    <section className="card grid grid-cols-2 lg:grid-cols-4" aria-label="המספרים העיקריים">
+    <section className="card grid grid-cols-2 lg:grid-cols-4" aria-label={t("המספרים העיקריים")}>
       {d.kpis.map((k, i) => (
         <div key={k.id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
           <div className="label">{k.label}</div>
           <div className="num mt-1.5 text-[26px] font-semibold leading-tight">{show(k, d.currency)}</div>
           <div className="mt-2 flex items-center gap-2">
             <Change k={k} />
-            {k.change != null && <span className="text-[13px] text-ink-3">מהחודש שעבר</span>}
+            {k.change != null && <span className="text-[13px] text-ink-3">{t("מהחודש שעבר")}</span>}
           </div>
         </div>
       ))}
@@ -67,12 +70,14 @@ async function Kpis({ data, workspaceId }: { data: Promise<Data>; workspaceId: s
 }
 
 async function Daily({ data }: { data: Promise<Data> }) {
+  const t = await getT();
   const d = await data;
-  if (!d) return <p className="text-[14.5px] text-ink-3">הגרף יופיע כשהמספרים ייטענו.</p>;
-  return <LineChart points={d.daily.map((x) => ({ date: x.date, value: x.results }))} unit="תוצאות" />;
+  if (!d) return <p className="text-[14.5px] text-ink-3">{t("הגרף יופיע כשהמספרים ייטענו.")}</p>;
+  return <LineChart points={d.daily.map((x) => ({ date: x.date, value: x.results }))} unit={t("תוצאות")} />;
 }
 
 export default async function ResultsPage() {
+  const t = await getT();
   const { workspace } = await requireSession();
   const ctx = await metaContext(workspace.id).catch(() => null);
   // Only the numbers come from Meta: they stream into the page, which appears at once with their labels.
@@ -92,7 +97,7 @@ export default async function ResultsPage() {
 
   return (
     <Page>
-      <PageHeader title="תוצאות" lead="החודש עד היום, בהשוואה לאותם ימים בחודש שעבר" action={<Link href="/campaigns" className="btn btn-quiet btn-sm">כל הקמפיינים</Link>} />
+      <PageHeader title={t("תוצאות")} lead={t("החודש עד היום, בהשוואה לאותם ימים בחודש שעבר")} action={<Link href="/campaigns" className="btn btn-quiet btn-sm">{t("כל הקמפיינים")}</Link>} />
 
       {spec?.headline && (
         <div className="card mb-6 flex items-start gap-3 p-4">
@@ -100,7 +105,7 @@ export default async function ResultsPage() {
           <div className="min-w-0">
             <p className="font-semibold">{spec.headline}</p>
             {spec.note && <p className="mt-0.5 text-[15px] text-ink-2">{spec.note}</p>}
-            {updated && <p className="mt-1 text-[13px] text-ink-3">מייקי, {updated}</p>}
+            {updated && <p className="mt-1 text-[13px] text-ink-3">{t("מייקי")}, {updated}</p>}
           </div>
         </div>
       )}
@@ -108,9 +113,9 @@ export default async function ResultsPage() {
       {!ctx ? (
         <section className="card overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface-2 px-4 py-3">
-            <p className="text-[15px] text-ink-2">כשחשבון המודעות מחובר, המספרים שמייקי בחר לעסק יתמלאו כאן לבד.</p>
+            <p className="text-[15px] text-ink-2">{t("כשחשבון המודעות מחובר, המספרים שמייקי בחר לעסק יתמלאו כאן לבד.")}</p>
             <Link href="/settings#connectors" className="btn btn-primary btn-sm">
-              לחיבור החשבון
+              {t("לחיבור החשבון")}
             </Link>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4">
@@ -127,7 +132,7 @@ export default async function ResultsPage() {
         <>
           <Suspense
             fallback={
-              <section className="card grid grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label="המספרים העיקריים">
+              <section className="card grid grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label={t("המספרים העיקריים")}>
                 {spec.kpis.map((id, i) => (
                   <div key={id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
                     <div className="label">{KPIS[id].label}</div>
@@ -145,7 +150,7 @@ export default async function ResultsPage() {
             <Kpis data={data} workspaceId={workspace.id} />
           </Suspense>
 
-          <Block title="תוצאות בכל יום החודש" className="mt-8">
+          <Block title={t("תוצאות בכל יום החודש")} className="mt-8">
             <div className="card p-5">
               <Suspense fallback={<span aria-hidden className="skeleton block h-44 w-full" />}>
                 <Daily data={data} />
@@ -159,7 +164,7 @@ export default async function ResultsPage() {
         <Block
           title={
             <span className="flex items-center gap-2">
-              מחכה לאישור שלך
+              {t("מחכה לאישור שלך")}
               {pending.length > 0 && <span className="tag tag-brand num">{pending.length}</span>}
             </span>
           }
@@ -176,22 +181,22 @@ export default async function ResultsPage() {
               ))}
             </ul>
           ) : (
-            <p className="card px-4 py-3 text-[15px] text-ink-2">אין הצעות שמחכות לאישור.</p>
+            <p className="card px-4 py-3 text-[15px] text-ink-2">{t("אין הצעות שמחכות לאישור.")}</p>
           )}
         </Block>
 
-        <Block title="הצעד הבא בתוכנית">
+        <Block title={t("הצעד הבא בתוכנית")}>
           <div className="card p-4">
             {next ? (
               <>
                 <p className="font-semibold">{next.title}</p>
                 <p className="mt-1 text-[15px] text-ink-2">{next.why}</p>
                 <Link href={`/mikee?q=${encodeURIComponent(`בוא נדבר על הצעד הבא: ${next.title}`)}`} className="link mt-3 inline-flex items-center gap-1 text-[15px]">
-                  לדבר על זה עם מייקי <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                  {t("לדבר על זה עם מייקי")} <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
                 </Link>
               </>
             ) : (
-              <p className="text-[15px] text-ink-2">התוכנית מעודכנת. מייקי יציע את הצעד הבא בזמן הנכון.</p>
+              <p className="text-[15px] text-ink-2">{t("התוכנית מעודכנת. מייקי יציע את הצעד הבא בזמן הנכון.")}</p>
             )}
           </div>
         </Block>

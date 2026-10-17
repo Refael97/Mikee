@@ -10,6 +10,7 @@ import { MediaGenerating } from "./Live";
 import { plainTitle } from "@/lib/text";
 import { cueMikee } from "./MikeeAvatar";
 import { IdentityPicker } from "./AdvertiserIdentity";
+import { useT } from "@/components/Lang";
 
 export type Brand = { name: string; handle?: string; /** The profile picture (Instagram, else the page). */ avatar?: string };
 
@@ -61,6 +62,7 @@ function Avatar({ brand }: { brand: Brand }) {
 
 /** How the ad or post will look in the feed: the client approves what her customers will see. */
 function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsored: boolean }) {
+  const t = useT();
   const [ratio, setRatio] = useState<number | null>(null);
   const [more, setMore] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -77,7 +79,7 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
         <Avatar brand={brand} />
         <span className="min-w-0 leading-tight">
           <span className="block truncate text-[0.85rem] font-semibold">{name}</span>
-          {sponsored && <span className="block text-[0.72rem] text-ink-3">ממומן</span>}
+          {sponsored && <span className="block text-[0.72rem] text-ink-3">{t("ממומן")}</span>}
         </span>
         <MoreHorizontal className="ms-auto h-5 w-5 text-ink-2" />
       </div>
@@ -108,7 +110,7 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
           ))}
         {(failed || !src) && (
           <span className="absolute inset-0 flex items-center justify-center px-6 text-center text-[13px] text-ink-3" dir="rtl">
-            {m.type === "video" ? "לא הצלחנו לטעון את התצוגה של הסרטון. הוא עדיין ישמש במודעה." : "לא הצלחנו לטעון את התמונה."}
+            {m.type === "video" ? t("לא הצלחנו לטעון את התצוגה של הסרטון. הוא עדיין ישמש במודעה.") : t("לא הצלחנו לטעון את התמונה.")}
           </span>
         )}
       </div>
@@ -139,7 +141,7 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
           </p>
           {!more && m.text.length > 120 && (
             <button type="button" onClick={() => setMore(true)} className="mt-0.5 text-ink-3">
-              עוד
+              {t("עוד")}
             </button>
           )}
         </div>
@@ -150,6 +152,7 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
 
 /** A media card: the references before approval, a forming canvas while it runs, the result when ready. */
 function MediaResult({ view }: { view: CardView }) {
+  const t = useT();
   const gen = view.card.generate;
   const refs = view.card.media ?? [];
   const cols = (n: number) => (n > 1 ? "grid-cols-2" : "grid-cols-1");
@@ -157,7 +160,7 @@ function MediaResult({ view }: { view: CardView }) {
     return (
       <div className={`grid gap-2 px-4 ${cols(gen.count)}`}>
         {Array.from({ length: gen.count }, (_, i) => (
-          <MediaGenerating key={i} ratio={gen.ratio} label={gen.type === "video" ? "יוצר סרטון" : "יוצר תמונה"} />
+          <MediaGenerating key={i} ratio={gen.ratio} label={gen.type === "video" ? t("יוצר סרטון") : t("יוצר תמונה")} />
         ))}
       </div>
     );
@@ -191,6 +194,7 @@ function MediaResult({ view }: { view: CardView }) {
 
 /** A video card: the composition plays in the card before approval; then the forming canvas, then the MP4. */
 function VideoPreview({ view }: { view: CardView }) {
+  const t = useT();
   const preview = view.card.preview;
   if (!preview) return <MediaResult view={view} />;
   const tall = preview.ratio === "9/16";
@@ -201,22 +205,22 @@ function VideoPreview({ view }: { view: CardView }) {
         {out ? (
           <video src={out.url} className="reveal h-full w-full" controls playsInline preload="metadata" />
         ) : view.status === "executing" ? (
-          <MediaGenerating ratio={preview.ratio} label="מרנדר את הסרטון" />
+          <MediaGenerating ratio={preview.ratio} label={t("מרנדר את הסרטון")} />
         ) : (
           <iframe
             src={`/api/video/preview/${view.id}/index.html`}
-            title="תצוגה מקדימה של הסרטון"
+            title={t("תצוגה מקדימה של הסרטון")}
             className="h-full w-full border-0"
             sandbox="allow-scripts allow-same-origin"
             loading="lazy"
           />
         )}
       </div>
-      {view.status === "pending" && <p className="mt-2 text-center text-[13px] text-ink-3">תצוגה מקדימה. הסרטון הסופי יהיה באיכות מלאה.</p>}
+      {view.status === "pending" && <p className="mt-2 text-center text-[13px] text-ink-3">{t("תצוגה מקדימה. הסרטון הסופי יהיה באיכות מלאה.")}</p>}
       {out && (
         <p className="mt-2 text-center text-[13px]">
           <a href={out.url} download className="link">
-            הורדת הסרטון
+            {t("הורדת הסרטון")}
           </a>
         </p>
       )}
@@ -225,6 +229,7 @@ function VideoPreview({ view }: { view: CardView }) {
 }
 
 function Previews({ card, brand }: { card: Card; brand: Brand }) {
+  const t = useT();
   const media = card.media ?? [];
   const [index, setIndex] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
@@ -298,7 +303,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
         <>
           <button
             type="button"
-            aria-label="המודעה הקודמת"
+            aria-label={t("המודעה הקודמת")}
             onClick={() => go(index - 1)}
             disabled={index === 0}
             className="absolute start-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-[var(--shadow)] transition-opacity disabled:pointer-events-none disabled:opacity-0 sm:flex"
@@ -307,7 +312,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
           </button>
           <button
             type="button"
-            aria-label="המודעה הבאה"
+            aria-label={t("המודעה הבאה")}
             onClick={() => go(index + 1)}
             disabled={index >= media.length - 1}
             className="absolute end-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-[var(--shadow)] transition-opacity disabled:pointer-events-none disabled:opacity-0 sm:flex"
@@ -316,7 +321,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
           </button>
           <div className="mt-3 flex justify-center gap-1">
             {media.map((_, i) => (
-              <button key={i} type="button" aria-label={`מודעה ${i + 1} מתוך ${media.length}`} onClick={() => go(i)} className="flex h-6 items-center px-0.5">
+              <button key={i} type="button" aria-label={t("מודעה {i} מתוך {n}", { i: i + 1, n: media.length })} onClick={() => go(i)} className="flex h-6 items-center px-0.5">
                 <span className={`h-1.5 rounded-full transition-all duration-300 ease-[var(--ease)] ${i === index ? "w-4 bg-brand" : "w-1.5 bg-ink-3/40"}`} />
               </button>
             ))}
@@ -328,6 +333,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
 }
 
 export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal: CardView; brand: Brand; onChange: (title: string) => void; autonomy?: Autonomy }) {
+  const t = useT();
   // At "final approval only" a campaign card is the one approval: it is built and, if the check passes, goes live.
   const finalOnly = autonomy === "final" && proposal.card.kind === "campaign";
   const [view, setView] = useState(proposal);
@@ -340,7 +346,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
   // While the platform executes in the background, follow the card until it finishes.
   useEffect(() => {
     if (!["executing", "scheduled"].includes(view.status)) return;
-    const t = setInterval(async () => {
+    const timer = setInterval(async () => {
       const res = await fetch(`/api/proposals/${view.id}`, { cache: "no-store" });
       if (res.ok) {
         const next = await res.json();
@@ -353,7 +359,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
         }
       }
     }, view.status === "scheduled" ? 30_000 : 2000);
-    return () => clearInterval(t);
+    return () => clearInterval(timer);
   }, [view.status, view.id]);
 
   async function decide(decision: "approve" | "decline") {
@@ -373,7 +379,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
       const data = await res.json().catch(() => ({}));
       if (!data.ok) {
         setView(before);
-        setNotice(data.error ?? "משהו השתבש");
+        setNotice(t(data.error ?? "משהו השתבש"));
         return;
       }
       if (decision === "decline") {
@@ -387,7 +393,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
     } catch {
       // No answer at all: the card goes back to how it was, and says so. Nothing ran.
       setView(before);
-      setNotice("אין חיבור כרגע, ולכן שום דבר לא בוצע. אפשר לנסות שוב.");
+      setNotice(t("אין חיבור כרגע, ולכן שום דבר לא בוצע. אפשר לנסות שוב."));
     } finally {
       setBusy(false);
     }
@@ -401,9 +407,9 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
       <header className="relative flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-4 py-2">
         <span className="flex items-center gap-2 text-[13.5px] font-medium text-ink-2">
           <kind.icon className="h-4 w-4" strokeWidth={1.75} />
-          {card.label ?? kind.label}
+          {card.label ?? t(kind.label)}
         </span>
-        {status && <span className={status.tag}>{view.status === "done" ? kind.done : status.label}</span>}
+        {status && <span className={status.tag}>{view.status === "done" ? t(kind.done) : t(status.label)}</span>}
         {view.status === "executing" && (
           <span className="absolute inset-x-0 bottom-[-1px] h-[2px] overflow-hidden">
             <span className="progress-light block h-full w-1/3" />
@@ -432,7 +438,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
           <div className="flex flex-col gap-2 sm:flex-row">
             <button className="btn btn-primary btn-lg sm:flex-1" disabled={busy} onClick={() => decide("approve")}>
               <Check className="h-4 w-4" strokeWidth={2.4} />
-              {finalOnly ? "לבנות ולהעלות לאוויר" : card.approveLabel}
+              {finalOnly ? t("לבנות ולהעלות לאוויר") : card.approveLabel}
             </button>
             <button className="btn btn-quiet btn-lg" disabled={busy} onClick={() => decide("decline")}>
               {card.changeLabel}
@@ -440,35 +446,37 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
           </div>
         )}
         {view.status === "pending" && finalOnly && (
-          <p className="mt-2 text-[13.5px] text-ink-3">זה האישור היחיד: הקמפיין ייבנה, ייבדק ויעלה לאוויר. אם מטא תמצא בעיה הוא יישאר מושהה, ויגיע אלייך כרטיס הפעלה.</p>
+          <p className="mt-2 text-[13.5px] text-ink-3">{t("זה האישור היחיד: הקמפיין ייבנה, ייבדק ויעלה לאוויר. אם מטא תמצא בעיה הוא יישאר מושהה, ויגיע אלייך כרטיס הפעלה.")}</p>
         )}
         {view.status === "scheduled" && (
           <div className="space-y-3">
-            <p className="text-[14.5px] text-ink-2">מתוזמן לפרסום במועד שאישרת. אפשר לסגור את המסך.</p>
-            <button className="btn btn-quiet" disabled={busy} onClick={() => decide("decline")}>לבטל את התזמון</button>
+            <p className="text-[14.5px] text-ink-2">{t("מתוזמן לפרסום במועד שאישרת. אפשר לסגור את המסך.")}</p>
+            <button className="btn btn-quiet" disabled={busy} onClick={() => decide("decline")}>{t("לבטל את התזמון")}</button>
           </div>
         )}
         {view.status === "executing" && (
           <p className="text-[14.5px] text-ink-2">
-            <span className="shimmer font-medium">{({ media: "יוצר", video: "מרנדר את הסרטון", campaign: finalOnly ? "בונה את הקמפיין ובודק אותו לפני העלייה לאוויר" : "בונה את הקמפיין במצב מושהה", activate: "מפעיל", adset: "בונה את הסדרה בתוך הקמפיין, במצב מושהה", adset_copy: "משכפל את הסדרה במצב מושהה" } as Record<string, string>)[card.kind] ?? "מבצע"}</span>. אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.
+            <span className="shimmer font-medium">{({ media: t("יוצר"), video: t("מרנדר את הסרטון"), campaign: finalOnly ? t("בונה את הקמפיין ובודק אותו לפני העלייה לאוויר") : t("בונה את הקמפיין במצב מושהה"), activate: t("מפעיל"), adset: t("בונה את הסדרה בתוך הקמפיין, במצב מושהה"), adset_copy: t("משכפל את הסדרה במצב מושהה") } as Record<string, string>)[card.kind] ?? t("מבצע")}</span>. {t("אפשר לסגור את המסך, ומייקי יעדכן כשזה מוכן.")}
           </p>
         )}
         {view.status === "done" && (
           <p className="flex items-center gap-2 text-[14.5px] font-medium text-good">
             <Check className="pop h-4 w-4" strokeWidth={2.6} />
             {card.kind === "media"
-              ? "מוכן. התמונות נשמרו בספרייה"
+              ? t("מוכן. התמונות נשמרו בספרייה")
               : card.kind === "video"
-                ? "מוכן. הסרטון נשמר בספרייה"
+                ? t("מוכן. הסרטון נשמר בספרייה")
               : card.kind === "campaign"
                 ? view.autoActivated
-                  ? "נבנה, נבדק ועלה לאוויר לפי האישור שלך"
-                  : "נבנה במצב מושהה ונבדק. כרטיס ההפעלה מחכה לך למטה"
+                  ? t("נבנה, נבדק ועלה לאוויר לפי האישור שלך")
+                  : t("נבנה במצב מושהה ונבדק. כרטיס ההפעלה מחכה לך למטה")
               : card.kind === "adset" || card.kind === "adset_copy"
                 ? view.autoActivated
-                  ? "הסדרה מוכנה, נבדקה ועלתה לאוויר לפי האישור שלך"
-                  : `${card.kind === "adset" ? "הסדרה נבנתה" : "הסדרה שוכפלה"} בתוך הקמפיין הקיים, מושהית ונבדקה. כרטיס ההפעלה מחכה לך למטה`
-                : `${kind.done}. מייקי עוקב אחרי זה מעכשיו`}
+                  ? t("הסדרה מוכנה, נבדקה ועלתה לאוויר לפי האישור שלך")
+                  : card.kind === "adset"
+                    ? t("הסדרה נבנתה בתוך הקמפיין הקיים, מושהית ונבדקה. כרטיס ההפעלה מחכה לך למטה")
+                    : t("הסדרה שוכפלה בתוך הקמפיין הקיים, מושהית ונבדקה. כרטיס ההפעלה מחכה לך למטה")
+                : t("{done}. מייקי עוקב אחרי זה מעכשיו", { done: t(kind.done) })}
           </p>
         )}
         {view.status === "done" && view.links && (
@@ -476,13 +484,13 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
             {view.links.instagram && (
               <a href={view.links.instagram} target="_blank" rel="noreferrer noopener" className="btn btn-quiet btn-sm">
                 <PlatformLogo platform="instagram" />
-                לצפייה באינסטגרם
+                {t("לצפייה באינסטגרם")}
               </a>
             )}
             {view.links.facebook && (
               <a href={view.links.facebook} target="_blank" rel="noreferrer noopener" className="btn btn-quiet btn-sm">
                 <PlatformLogo platform="facebook" />
-                לצפייה בפייסבוק
+                {t("לצפייה בפייסבוק")}
               </a>
             )}
           </div>
@@ -501,10 +509,10 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
                 />
               </div>
             )}
-            {identitySaved && <p className="note note-good text-[14.5px]">נשמר. עכשיו אפשר לנסות שוב, וקבוצת המודעות תיבנה עם המפרסם והמשלם שבחרת.</p>}
+            {identitySaved && <p className="note note-good text-[14.5px]">{t("נשמר. עכשיו אפשר לנסות שוב, וקבוצת המודעות תיבנה עם המפרסם והמשלם שבחרת.")}</p>}
             {view.technical && (
               <details className="rounded-[12px] border border-line px-3 py-2 text-[13.5px]">
-                <summary className="cursor-pointer text-ink-2">פרטים טכניים מהשגיאה</summary>
+                <summary className="cursor-pointer text-ink-2">{t("פרטים טכניים מהשגיאה")}</summary>
                 <dl className="mt-2 space-y-1">
                   {view.technical.lines.map((l) => (
                     <div key={l.label} className="flex gap-2">
@@ -521,11 +529,11 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
               {view.retryable !== false && (
                 <button className="btn btn-primary sm:flex-1" disabled={busy} onClick={() => decide("approve")}>
                   <RotateCcw className="h-4 w-4" />
-                  לנסות שוב
+                  {t("לנסות שוב")}
                 </button>
               )}
               <button className="btn btn-quiet" disabled={busy} onClick={() => decide("decline")}>
-                לבטל
+                {t("לבטל")}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useT } from "@/components/Lang";
 
 type Point = { date: string; value: number };
 
@@ -11,6 +12,7 @@ const dayLabel = (iso: string) => new Intl.DateTimeFormat("he-IL", { day: "numer
  * today on the left. Hovering (or touching) shows the day and its value.
  */
 export function LineChart({ points, unit, height = 180 }: { points: Point[]; unit: string; height?: number }) {
+  const t = useT();
   const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const W = 600;
@@ -33,7 +35,7 @@ export function LineChart({ points, unit, height = 180 }: { points: Point[]; uni
     setHover(Math.max(0, Math.min(points.length - 1, Math.round(rel * (points.length - 1)))));
   }
 
-  if (!points.length) return <div className="flex items-center justify-center text-[14px] text-ink-3" style={{ height }}>עוד אין נתונים לחודש הזה</div>;
+  if (!points.length) return <div className="flex items-center justify-center text-[14px] text-ink-3" style={{ height }}>{t("עוד אין נתונים לחודש הזה")}</div>;
   const h = hover != null ? points[hover] : null;
 
   return (

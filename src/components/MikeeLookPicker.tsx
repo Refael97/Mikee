@@ -7,9 +7,11 @@ import { updateMikeeTheme } from "@/lib/actions";
 import { MIKEE_LOOKS, THEME_EVENT, type MikeeLook } from "@/lib/mikee-look";
 import { MikeeAvatar } from "./MikeeAvatar";
 import { useMikeeLook } from "./MikeeLook";
+import { useT } from "@/components/Lang";
 
 /** The four colours side by side, each Mikee alive in his own; a tap saves it and changes every Mikee at once. */
 export function MikeeLookPicker() {
+  const t = useT();
   const router = useRouter();
   const current = useMikeeLook();
   const [picked, setPicked] = useState<MikeeLook>(current);
@@ -23,7 +25,7 @@ export function MikeeLookPicker() {
     setError(null);
     window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: look }));
     start(async () => {
-      const r = await updateMikeeTheme(look).catch(() => ({ error: "השמירה לא הצליחה. נסי שוב." }));
+      const r = await updateMikeeTheme(look).catch(() => ({ error: t("השמירה לא הצליחה. נסי שוב.") }));
       if (r?.error) {
         setPicked(before);
         window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: before }));
@@ -34,7 +36,7 @@ export function MikeeLookPicker() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" role="radiogroup" aria-label="הצבע של מייקי">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" role="radiogroup" aria-label={t("הצבע של מייקי")}>
         {MIKEE_LOOKS.map((l) => {
           const on = l.id === picked;
           return (

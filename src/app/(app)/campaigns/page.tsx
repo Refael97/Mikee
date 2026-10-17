@@ -10,6 +10,7 @@ import { remember, rememberedAge } from "@/lib/ttl";
 import { Freshness } from "@/components/Freshness";
 import { RetryButton } from "@/components/RetryButton";
 import { CampaignsShell } from "./shell";
+import { getT } from "@/lib/i18n/server";
 
 const VERDICT = {
   star: { label: "מוביל", cls: "tag-good" },
@@ -22,7 +23,8 @@ const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigit
 const dateHe = (iso?: string) => (iso ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short" }).format(new Date(iso)) : null);
 const cleanName = (n: string) => n.replace(/^Mikee · /, "").replace(/ · (mk-\w+|\d{4}-\d{2}-\d{2})$/, "");
 
-function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
+async function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
+  const t = await getT();
   const g = GOAL_LABEL[c.goal];
   const n = c.numbers;
   const status = { t: DELIVERY_LABEL[c.delivery], cls: ({ live: "tag-good", paused: "tag-warn", review: "tag-warn", issue: "tag-bad", ended: "tag-quiet" } as const)[c.delivery] };
@@ -34,11 +36,11 @@ function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
             <div className="flex items-center gap-2">
               <ChevronLeft className="h-4 w-4 shrink-0 text-ink-3 transition-transform group-open:-rotate-90" strokeWidth={1.75} />
               <span className="truncate font-medium">{cleanName(c.name)}</span>
-              <span className={`tag ${status.cls}`}>{status.t}</span>
+              <span className={`tag ${status.cls}`}>{t(status.t)}</span>
             </div>
             <p className="mt-0.5 truncate ps-6 text-[13.5px] text-ink-3">
-              {PLATFORMS.find((p) => p.id === c.platform)?.name} · {g.he} · {c.audience}
-              {c.budget && ` · ${money(c.budget.amount, currency)} ${c.budget.per === "day" ? "ביום" : "סה״כ"}`}
+              {PLATFORMS.find((p) => p.id === c.platform)?.name} · {t(g.he)} · {c.audience}
+              {c.budget && ` · ${money(c.budget.amount, currency)} ${c.budget.per === "day" ? t("ביום") : t("סה״כ")}`}
             </p>
           </div>
           <Num value={money(n.spend, currency)} />
@@ -63,9 +65,9 @@ function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
                     )}
                   </div>
                   <figcaption className="mt-1.5 space-y-1 text-[12.5px] leading-snug">
-                    <span className={`tag ${VERDICT[a.verdict].cls}`}>{VERDICT[a.verdict].label}</span>
+                    <span className={`tag ${VERDICT[a.verdict].cls}`}>{t(VERDICT[a.verdict].label)}</span>
                     <span className="block text-ink-2">
-                      {a.numbers.results > 0 && a.numbers.costPerResult != null ? `${fmt(a.numbers.results)} ${g.plural} · ${money(a.numbers.costPerResult, currency)}` : `${money(a.numbers.spend, currency)} הושקעו`}
+                      {a.numbers.results > 0 && a.numbers.costPerResult != null ? `${fmt(a.numbers.results)} ${t(g.plural)} · ${money(a.numbers.costPerResult, currency)}` : t("{amount} הושקעו", { amount: money(a.numbers.spend, currency) })}
                     </span>
                   </figcaption>
                 </figure>
@@ -74,14 +76,14 @@ function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
           )}
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[14px] sm:grid-cols-4">
             {[
-              ["חשיפות", fmt(n.impressions)],
-              ["אנשים", fmt(n.reach)],
-              ["קליקים", fmt(n.clicks)],
-              ["אחוז הקלקה", `${n.ctr.toFixed(2)}%`],
-              ["תדירות", n.frequency.toFixed(1)],
-              [g.plural, fmt(n.results)],
-              ["הכנסות", n.revenue ? money(n.revenue, currency) : "—"],
-              ["תאריכים", `${dateHe(c.starts) ?? "—"}${dateHe(c.ends) ? ` עד ${dateHe(c.ends)}` : ""}`],
+              [t("חשיפות"), fmt(n.impressions)],
+              [t("אנשים"), fmt(n.reach)],
+              [t("קליקים"), fmt(n.clicks)],
+              [t("אחוז הקלקה"), `${n.ctr.toFixed(2)}%`],
+              [t("תדירות"), n.frequency.toFixed(1)],
+              [t(g.plural), fmt(n.results)],
+              [t("הכנסות"), n.revenue ? money(n.revenue, currency) : "—"],
+              [t("תאריכים"), `${dateHe(c.starts) ?? "—"}${dateHe(c.ends) ? ` ${t("עד")} ${dateHe(c.ends)}` : ""}`],
             ].map(([k, v]) => (
               <div key={k}>
                 <dt className="text-[12.5px] text-ink-3">{k}</dt>
@@ -90,7 +92,7 @@ function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
             ))}
           </dl>
           <Link href={`/mikee?q=${encodeURIComponent(`מה דעתך על הקמפיין "${cleanName(c.name)}"?`)}`} className="link mt-3 inline-block text-[14.5px]">
-            לשאול את מייקי על הקמפיין הזה
+            {t("לשאול את מייקי על הקמפיין הזה")}
           </Link>
         </div>
       </details>
@@ -116,11 +118,12 @@ async function LiveCount({ workspaceId, period, all }: { workspaceId: string; pe
 
 /** The table body: rows from Meta, or what to do when there are none. */
 async function Rows({ workspaceId, period, all }: { workspaceId: string; period: Window; all: boolean }) {
+  const t = await getT();
   const data = await load(workspaceId, period, all);
   if (data.error)
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5">
-        <p className="text-[14.5px] text-warn">מטא לא ענתה כרגע, ולכן הקמפיינים לא נטענו. שום דבר לא השתנה בהם.</p>
+        <p className="text-[14.5px] text-warn">{t("מטא לא ענתה כרגע, ולכן הקמפיינים לא נטענו. שום דבר לא השתנה בהם.")}</p>
         <RetryButton />
       </div>
     );
@@ -128,9 +131,9 @@ async function Rows({ workspaceId, period, all }: { workspaceId: string; period:
   if (!list.length)
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-        <p className="text-[15px] text-ink-2">אין קמפיינים פעילים בתקופה הזאת.</p>
+        <p className="text-[15px] text-ink-2">{t("אין קמפיינים פעילים בתקופה הזאת.")}</p>
         <Link href="/mikee?q=בוא נבנה קמפיין" className="btn btn-primary btn-sm">
-          לבנות קמפיין עם מייקי
+          {t("לבנות קמפיין עם מייקי")}
         </Link>
       </div>
     );

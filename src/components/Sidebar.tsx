@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, MoreHorizontal, Plus, Search, X } from "lucide-react";
+import { useLang, useT } from "@/components/Lang";
+import { localeOf, type Lang, type T } from "@/lib/i18n";
 
 type Category = "campaigns" | "content" | "results" | "business" | "general";
 type Conv = { id: string; title: string; category: Category; auto: boolean; updatedAt: string; unread?: boolean };
@@ -17,14 +19,14 @@ export const CATEGORY_UI: Record<Category, { title: string }> = {
 };
 const ORDER: Category[] = ["campaigns", "content", "results", "business", "general"];
 
-const rtf = new Intl.RelativeTimeFormat("he", { numeric: "auto" });
-function when(iso: string) {
+function when(iso: string, t: T, lang: Lang) {
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
-  if (diff > -60) return "עכשיו";
+  if (diff > -60) return t("עכשיו");
   if (diff > -3600) return rtf.format(Math.round(diff / 60), "minute");
   if (diff > -86400) return rtf.format(Math.round(diff / 3600), "hour");
   if (diff > -86400 * 7) return rtf.format(Math.round(diff / 86400), "day");
-  return new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(localeOf(lang), { day: "numeric", month: "short" }).format(new Date(iso));
 }
 
 /** Tells the sidebar to reload (a new conversation, or Mikee filed one). */
@@ -32,6 +34,8 @@ export const refreshConversations = (activeId?: string) => window.dispatchEvent(
 
 /** Conversation history, grouped by topic. Mikee files each conversation; the client can move it. */
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
+  const lang = useLang();
   const params = useParams<{ id?: string }>();
   const router = useRouter();
   const [items, setItems] = useState<Conv[] | null>(null);
@@ -96,25 +100,25 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         }`}
       >
         <div className="mb-3 flex items-center gap-2 lg:hidden">
-          <span className="text-[17px] font-medium">שיחות</span>
-          <button onClick={onClose} aria-label="סגירה" className="btn btn-ghost btn-sm ms-auto px-2">
+          <span className="text-[17px] font-medium">{t("שיחות")}</span>
+          <button onClick={onClose} aria-label={t("סגירה")} className="btn btn-ghost btn-sm ms-auto px-2">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <Link href="/mikee" onClick={onClose} className="btn btn-primary w-full">
           <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          שיחה חדשה
+          {t("שיחה חדשה")}
         </Link>
 
         <label className="relative mt-3 block">
           <Search className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ink-3" strokeWidth={1.5} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש בשיחות" className="field h-10 rounded-full ps-10 text-[15px] lg:h-9 lg:text-[14px]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("חיפוש בשיחות")} className="field h-10 rounded-full ps-10 text-[15px] lg:h-9 lg:text-[14px]" />
         </label>
 
         <nav className="-mx-1 mt-4 flex-1 overflow-y-auto px-1 pb-6">
-          {items === null && <p className="px-2 text-[15px] text-ink-3">טוען…</p>}
-          {items?.length === 0 && <p className="px-2 text-[15px] leading-relaxed text-ink-3">כאן יופיעו השיחות שלך, מסודרות לפי נושא.</p>}
+          {items === null && <p className="px-2 text-[15px] text-ink-3">{t("טוען…")}</p>}
+          {items?.length === 0 && <p className="px-2 text-[15px] leading-relaxed text-ink-3">{t("כאן יופיעו השיחות שלך, מסודרות לפי נושא.")}</p>}
           {groups.map(({ cat, list }) => {
             const { title } = CATEGORY_UI[cat];
             const isCollapsed = collapsed[cat];
@@ -124,7 +128,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))}
                   className="flex w-full items-center gap-1.5 px-2 pb-1 text-[14px] text-ink-3 hover:text-ink-2"
                 >
-                  {title}
+                  {t(title)}
                   <ChevronDown className={`ms-auto h-3.5 w-3.5 text-ink-3 transition-transform duration-200 ${isCollapsed ? "rotate-90" : ""}`} strokeWidth={1.75} />
                 </button>
                 {!isCollapsed && (
@@ -140,12 +144,12 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                               active ? "bg-surface-2" : "hover:bg-surface-2"
                             }`}
                           >
-                            {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-blue" aria-label="חדש" />}
+                            {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-blue" aria-label={t("חדש")} />}
                             <span className={`min-w-0 flex-1 truncate text-[16px] lg:text-[14.5px] ${c.unread && !active ? "font-medium" : ""}`}>{c.title}</span>
-                            <span className="num shrink-0 text-[12.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt)}</span>
+                            <span className="num shrink-0 text-[12.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt, t, lang)}</span>
                           </Link>
                           <button
-                            aria-label="אפשרויות"
+                            aria-label={t("אפשרויות")}
                             onClick={() => setMenuFor(menuFor === c.id ? null : c.id)}
                             className={`absolute end-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[8px] text-ink-3 transition-opacity hover:bg-surface-2 hover:text-ink ${
                               menuFor === c.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-lg:opacity-100"
@@ -155,19 +159,19 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                           </button>
                           {menuFor === c.id && (
                             <div className="pop-over rise absolute end-0 top-full z-30 mt-1 w-56 p-1.5" onMouseLeave={() => setMenuFor(null)}>
-                              <p className="px-3 pb-1 pt-1.5 text-[13.5px] text-ink-3">להעביר ל־</p>
+                              <p className="px-3 pb-1 pt-1.5 text-[13.5px] text-ink-3">{t("להעביר ל־")}</p>
                               {ORDER.filter((x) => x !== c.category).map((x) => {
-                                const { title: t } = CATEGORY_UI[x];
+                                const { title } = CATEGORY_UI[x];
                                 return (
                                   <button key={x} onClick={() => patch(c.id, { category: x })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[15px] hover:bg-surface-2">
-                                    {t}
+                                    {t(title)}
                                   </button>
                                 );
                               })}
                               <div className="my-1 h-px bg-line" />
                               <button onClick={() => patch(c.id, { archived: true })} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-start text-[15px] text-bad hover:bg-bad-tint">
                                 <X className="h-4 w-4" />
-                                הסרה מהרשימה
+                                {t("הסרה מהרשימה")}
                               </button>
                             </div>
                           )}

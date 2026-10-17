@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/components/Lang";
 import { sendFile } from "@/lib/upload-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Film, FolderInput, Music, Search, Trash2, Upload } from "lucide-react";
@@ -43,6 +44,7 @@ export function LibraryView({
   folders: { name: string; count: number }[];
   drive: { available: boolean; connected: boolean; justConnected: boolean };
 }) {
+  const t = useT();
   // Everything the page loaded. Type and folder filter it right here, at once; only a text search (by meaning)
   // asks the server, and a newer choice always wins over an older answer.
   const [all, setAll] = useState(initial);
@@ -51,7 +53,7 @@ export function LibraryView({
   const [kind, setKind] = useState<"" | "image" | "video" | "audio">("");
   const [folder, setFolder] = useState("");
   const [pending, setPending] = useState<Pending[]>([]);
-  const [notice, setNotice] = useState<string | null>(drive.justConnected ? "גוגל דרייב מחובר. אפשר לבחור קבצים לייבוא." : null);
+  const [notice, setNotice] = useState<string | null>(drive.justConnected ? t("גוגל דרייב מחובר. אפשר לבחור קבצים לייבוא.") : null);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   // The page loads at most this many; past it, a type or folder filter also asks the server for the rest.
@@ -100,8 +102,8 @@ export function LibraryView({
       return;
     }
     // Typing waits for a short pause; a click on a filter asks at once.
-    const t = setTimeout(() => fetchRemote(wantKey), want.q ? 250 : 0);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => fetchRemote(wantKey), want.q ? 250 : 0);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantKey, needServer, fetchRemote]);
 
@@ -131,11 +133,11 @@ export function LibraryView({
     setNotice(null);
     try {
       const auth = await fetch("/api/google/token", { cache: "no-store" }).then((r) => r.json());
-      if (!auth.token) throw new Error(auth.error ?? "לא הצלחתי להתחבר לגוגל דרייב");
+      if (!auth.token) throw new Error(auth.error ?? t("לא הצלחתי להתחבר לגוגל דרייב"));
       await loadPicker();
       const g = window.google.picker;
       const view = new g.DocsView(g.ViewId.DOCS_IMAGES_AND_VIDEOS).setIncludeFolders(true).setSelectFolderEnabled(false);
-      const music = new g.DocsView(g.ViewId.DOCS).setMimeTypes("audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg").setIncludeFolders(true).setLabel("מוזיקה");
+      const music = new g.DocsView(g.ViewId.DOCS).setMimeTypes("audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg").setIncludeFolders(true).setLabel(t("מוזיקה"));
       const picker = new g.PickerBuilder()
         .addView(view)
         .addView(music)
@@ -144,27 +146,27 @@ export function LibraryView({
         .setDeveloperKey(auth.apiKey)
         .setAppId(auth.appId)
         .setLocale("iw")
-        .setTitle("בחירת תמונות וסרטונים לספרייה")
+        .setTitle(t("בחירת תמונות וסרטונים לספרייה"))
         .setCallback(async (data: any) => {
           if (data.action !== g.Action.PICKED) return;
           const ids = data.docs.map((d: any) => d.id);
-          setPending((p) => [...p, ...ids.map((id: string) => ({ localId: id, name: "מגוגל דרייב" }))]);
+          setPending((p) => [...p, ...ids.map((id: string) => ({ localId: id, name: t("מגוגל דרייב") }))]);
           const res = await fetch("/api/library/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileIds: ids }) });
           const out = await res.json().catch(() => ({}));
           setPending((p) => p.filter((x) => !ids.includes(x.localId)));
-          if (!res.ok) return setNotice(out.error ?? "הייבוא נכשל");
-          setNotice(`יובאו ${out.imported.length} קבצים${out.skipped.length ? `, ${out.skipped.length} דולגו (${out.skipped[0].reason})` : ""}.`);
+          if (!res.ok) return setNotice(out.error ?? t("הייבוא נכשל"));
+          setNotice(t("יובאו {n} קבצים", { n: out.imported.length }) + (out.skipped.length ? t(", {n} דולגו ({reason})", { n: out.skipped.length, reason: out.skipped[0].reason }) : "") + ".");
           await reload();
         })
         .build();
       picker.setVisible(true);
     } catch (e) {
-      setNotice((e as Error).message);
+      setNotice(t((e as Error).message));
     }
   }
 
   async function remove(id: string) {
-    if (!confirm("למחוק את הקובץ מהספרייה? מודעות שכבר עלו לא יושפעו.")) return;
+    if (!confirm(t("למחוק את הקובץ מהספרייה? מודעות שכבר עלו לא יושפעו."))) return;
     const removed = all.find((x) => x.id === id);
     setAll((xs) => xs.filter((x) => x.id !== id));
     setRemote((r) => (r ? { ...r, items: r.items.filter((x) => x.id !== id) } : r));
@@ -172,7 +174,7 @@ export function LibraryView({
     if (!res?.ok) {
       // The server kept it: put it back and say so, rather than pretending it is gone.
       if (removed) setAll((xs) => [removed, ...xs]);
-      setNotice("המחיקה לא הצליחה. נסי שוב.");
+      setNotice(t("המחיקה לא הצליחה. נסי שוב."));
       return;
     }
     await reload();
@@ -195,21 +197,21 @@ export function LibraryView({
       className="relative"
     >
       <PageHeader
-        title="ספרייה"
-        lead="התמונות, הסרטונים והמוזיקה של העסק. מייקי מחפש כאן לפני שהוא יוצר משהו חדש, ובונה מכאן את הסרטונים."
+        title={t("ספרייה")}
+        lead={t("התמונות, הסרטונים והמוזיקה של העסק. מייקי מחפש כאן לפני שהוא יוצר משהו חדש, ובונה מכאן את הסרטונים.")}
         action={
           <div className="flex flex-wrap gap-2">
             <button onClick={() => fileInput.current?.click()} className="btn btn-primary btn-sm">
-              <Upload className="h-4 w-4" strokeWidth={2} /> העלאה
+              <Upload className="h-4 w-4" strokeWidth={2} /> {t("העלאה")}
             </button>
             {drive.available &&
               (drive.connected ? (
                 <button onClick={pickFromDrive} className="btn btn-quiet btn-sm">
-                  <FolderInput className="h-4 w-4" strokeWidth={1.8} /> מגוגל דרייב
+                  <FolderInput className="h-4 w-4" strokeWidth={1.8} /> {t("מגוגל דרייב")}
                 </button>
               ) : (
                 <a href="/api/google/connect" className="btn btn-quiet btn-sm">
-                  <FolderInput className="h-4 w-4" strokeWidth={1.8} /> לחבר את גוגל דרייב
+                  <FolderInput className="h-4 w-4" strokeWidth={1.8} /> {t("לחבר את גוגל דרייב")}
                 </a>
               ))}
             <input ref={fileInput} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => e.target.files && upload(e.target.files)} />
@@ -220,10 +222,10 @@ export function LibraryView({
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ink-3" strokeWidth={1.5} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות" className="field rounded-full ps-10" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("לחפש לפי מה שרואים: שמלה אדומה, החנות, צוות")} className="field rounded-full ps-10" />
         </label>
         <div className="inline-flex flex-wrap gap-1">
-          {([["", "הכל"], ["image", "תמונות"], ["video", "סרטונים"], ["audio", "מוזיקה"]] as const).map(([k, l]) => (
+          {([["", t("הכל")], ["image", t("תמונות")], ["video", t("סרטונים")], ["audio", t("מוזיקה")]] as const).map(([k, l]) => (
             <button
               key={k}
               onClick={() => setKind(k)}
@@ -234,12 +236,12 @@ export function LibraryView({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2.5 text-[13px] text-ink-3" title="אחסון בספרייה">
+        <div className="flex items-center gap-2.5 text-[13px] text-ink-3" title={t("אחסון בספרייה")}>
           <span className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-2">
             <span className={`block h-full rounded-full ${pct > 90 ? "bg-coral" : "bg-mint"}`} style={{ width: `${pct}%` }} />
           </span>
           <span className="num">
-            {size(usage.used)} מתוך {size(usage.limit)}
+            {t("{used} מתוך {limit}", { used: size(usage.used), limit: size(usage.limit) })}
           </span>
         </div>
       </div>
@@ -253,7 +255,7 @@ export function LibraryView({
               aria-pressed={folder === f.name}
               className="tab tab-sm"
             >
-              {f.name || "כל התיקיות"}
+              {f.name || t("כל התיקיות")}
               {f.count ? <span className="num text-[14px] text-ink-3">{f.count}</span> : null}
             </button>
           ))}
@@ -265,13 +267,13 @@ export function LibraryView({
       {failed ? (
         // A failed search is not an empty library: say so, and retry only the search.
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[12px] bg-warn-tint px-4 py-3 text-[14.5px] text-warn">
-          <span>החיפוש לא הצליח כרגע. מה שכבר בספרייה לא נפגע.</span>
+          <span>{t("החיפוש לא הצליח כרגע. מה שכבר בספרייה לא נפגע.")}</span>
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => fetchRemote(wantKey)}>
-            לנסות שוב
+            {t("לנסות שוב")}
           </button>
         </div>
       ) : items === null ? (
-        <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label="מחפש בספרייה">
+        <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label={t("מחפש בספרייה")}>
           {[0, 1, 2, 3].map((i) => (
             <li key={i} className="card overflow-hidden">
               <span className="skeleton block aspect-square w-full !rounded-none" />
@@ -284,9 +286,9 @@ export function LibraryView({
         </ul>
       ) : items.length === 0 && pending.length === 0 && !loading ? (
         <div className="mt-6 flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-line-strong px-6 py-14 text-center">
-          <span className="h2">{q || kind || folder ? "לא מצאתי משהו כזה" : "הספרייה עוד ריקה"}</span>
+          <span className="h2">{q || kind || folder ? t("לא מצאתי משהו כזה") : t("הספרייה עוד ריקה")}</span>
           <p className="max-w-lg text-ink-2">
-            {q || kind || folder ? "נסי מילה אחרת, או לנקות את הסינון." : "גוררים לכאן תמונות וסרטונים של המוצרים, החנות, הצוות והלקוחות, וגם מוזיקה לסרטונים. ככל שיש יותר תוכן אמיתי, המודעות טובות יותר."}
+            {q || kind || folder ? t("נסי מילה אחרת, או לנקות את הסינון.") : t("גוררים לכאן תמונות וסרטונים של המוצרים, החנות, הצוות והלקוחות, וגם מוזיקה לסרטונים. ככל שיש יותר תוכן אמיתי, המודעות טובות יותר.")}
           </p>
         </div>
       ) : (
@@ -296,7 +298,7 @@ export function LibraryView({
               <div className={`relative aspect-square overflow-hidden rounded-[8px] ${p.error ? "border border-bad bg-bad-tint" : "dot-grid bg-surface-2"}`}>
                 {!p.error && <div className="dot-grid-lit absolute inset-0" />}
               </div>
-              <p className={`mt-2 truncate text-[14px] ${p.error ? "text-bad" : "shimmer font-medium"}`}>{p.error ?? (p.progress === undefined ? `מעלה את ${p.name}` : p.progress >= 1 ? `שומר את ${p.name}` : `מעלה ${Math.round(p.progress * 100)}%`)}</p>
+              <p className={`mt-2 truncate text-[14px] ${p.error ? "text-bad" : "shimmer font-medium"}`}>{p.error ?? (p.progress === undefined ? t("מעלה את {name}", { name: p.name }) : p.progress >= 1 ? t("שומר את {name}", { name: p.name }) : t("מעלה {pct}%", { pct: Math.round(p.progress * 100) }))}</p>
             </li>
           ))}
           {items.map((m) => (
@@ -312,7 +314,7 @@ export function LibraryView({
                   <>
                     <video src={m.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                     <span className="absolute bottom-2 start-2 flex items-center gap-1 rounded-full bg-ink/75 px-1.5 py-0.5 text-[12px] text-bg">
-                      <Film className="h-3 w-3" /> וידאו
+                      <Film className="h-3 w-3" /> {t("וידאו")}
                     </span>
                   </>
                 ) : (
@@ -324,14 +326,14 @@ export function LibraryView({
               <div className="flex items-start justify-between gap-2 px-3 pt-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-medium">{m.name}</p>
-                  <p className="line-clamp-2 text-[13px] leading-snug text-ink-3">{m.description ?? (m.kind === "image" ? "מייקי עוד לא תיאר את התמונה" : m.source === "higgsfield" ? "נוצר על ידי מייקי" : "")}</p>
+                  <p className="line-clamp-2 text-[13px] leading-snug text-ink-3">{m.description ?? (m.kind === "image" ? t("מייקי עוד לא תיאר את התמונה") : m.source === "higgsfield" ? t("נוצר על ידי מייקי") : "")}</p>
                 </div>
-                <button onClick={() => remove(m.id)} aria-label="מחיקה" className="shrink-0 rounded-[8px] p-1 text-ink-3 opacity-0 transition-opacity hover:bg-bad-tint hover:text-bad group-hover:opacity-100 max-lg:opacity-100">
+                <button onClick={() => remove(m.id)} aria-label={t("מחיקה")} className="shrink-0 rounded-[8px] p-1 text-ink-3 opacity-0 transition-opacity hover:bg-bad-tint hover:text-bad group-hover:opacity-100 max-lg:opacity-100">
                   <Trash2 className="h-4 w-4" strokeWidth={1.8} />
                 </button>
               </div>
               <Link href={`/mikee?q=${encodeURIComponent(`בוא נשתמש בקובץ "${m.name}" מהספרייה`)}`} className="link mx-3 mb-3 mt-1.5 inline-block text-[13.5px]">
-                להשתמש עם מייקי
+                {t("להשתמש עם מייקי")}
               </Link>
             </li>
           ))}
@@ -340,7 +342,7 @@ export function LibraryView({
 
       {dragging && (
         <div className="pointer-events-none fixed inset-4 z-50 flex items-center justify-center rounded-[10px] border-2 border-dashed border-brand bg-bg/90">
-          <span className="title">לשחרר כאן כדי להוסיף לספרייה</span>
+          <span className="title">{t("לשחרר כאן כדי להוסיף לספרייה")}</span>
         </div>
       )}
     </div>
