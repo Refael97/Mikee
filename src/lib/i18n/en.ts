@@ -1229,6 +1229,28 @@ export const en: Record<string, string> = {
   "נכון ללפני {n} דקות.": "As of {n} minutes ago.",
   "מתעדכן ברקע, ברענון הבא יופיעו המספרים החדשים.": "Updating in the background; the next refresh will show the new numbers.",
 
+  // What Mikee knows about the business
+  "איך אנחנו מדברים": "How we talk",
+  "הטון, המילים שאוהבים, מה לא כותבים": "The tone, the words we like, what we never write",
+  "מה אנחנו עושים": "What we do",
+  "מה מוכרים, מה מייחד אותנו": "What we sell, what sets us apart",
+  "מי הלקוחות שלנו": "Who our customers are",
+  "מי קונה, מה חשוב להם": "Who buys, what matters to them",
+  "מה חשוב לקדם": "What to promote",
+  "מוצרים ושירותים מרכזיים, עונות": "Key products and services, seasons",
+  "לאן אנחנו רוצים להגיע": "Where we want to get to",
+  "מה נחשב הצלחה": "What counts as success",
+  "מה אף פעם לא": "What we never do",
+  "דברים שמייקי לא יעשה": "Things Mikee won't do",
+  "מה חשוב לדעת": "Good to know",
+  "אירועים, השקות, העדפות": "Events, launches, preferences",
+  "מה למדנו מהתוצאות": "What we learned from the results",
+  "מה עבד ומה פחות, עם תאריך": "What worked and what didn't, with a date",
+
+  // Security activity
+  "ניסיון כניסה עם סיסמה שגויה": "Sign-in attempt with a wrong password",
+  "הסיסמה אופסה ממסך הכניסה": "Password reset from the sign-in screen",
+
   // Section nav
   "בעמוד הזה": "On this page",
 };

@@ -96,7 +96,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       />
       <aside
         className={`fixed inset-y-0 start-0 z-50 flex w-[300px] flex-col bg-surface p-3 transition-transform duration-300 ease-[var(--ease)] lg:sticky lg:top-[10px] lg:z-0 lg:h-[calc(100dvh-20px)] lg:translate-x-0 lg:rounded-[18px] lg:shadow-[var(--shadow)] ${
-          open ? "translate-x-0" : "rtl:translate-x-full ltr:-translate-x-full"
+          open ? "translate-x-0" : "max-lg:rtl:translate-x-full max-lg:ltr:-translate-x-full"
         }`}
       >
         <div className="mb-3 flex items-center gap-2 lg:hidden">

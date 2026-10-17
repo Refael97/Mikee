@@ -150,7 +150,7 @@ export default async function AccountPage() {
           <ul className="mt-3 border-t border-line">
             {security.map((a) => (
               <li key={a.id} className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 text-[15px]">
-                <span className={a.ok ? "" : "text-bad"}>{a.summary}</span>
+                <span className={a.ok ? "" : "text-bad"}>{t(a.summary)}</span>
                 <span className="num shrink-0 text-[13.5px] text-ink-3">{when(a.createdAt)}</span>
               </li>
             ))}

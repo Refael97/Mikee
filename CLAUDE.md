@@ -15,6 +15,7 @@ Next.js 15 (App Router), React 19, TypeScript, Tailwind v4, drizzle-orm (Postgre
 
 ## Working rules
 - Branch: `claude/pensive-dirac-podemb`. Railway deploys it on every push.
+- The interface has two languages (account menu → שפה): Hebrew is the source and the key, English lives in `src/lib/i18n/en.ts`. Every interface string goes through `t()` (`useT()` in client components, `await getT()` in server components); `tests/i18n.test.ts` fails on a key without English. Only the interface is translated: what the client and Mikee write, campaign names and products stay as they are. Use logical CSS (`start`/`end`, `rtl:`/`ltr:`) so English lays out LTR.
 - UI copy is natural modern Hebrew; no emoji; no dashes joining clauses; follow `DESIGN.md` (white panels on a light ground, light 300 text, thin icons, color only in tiles, dots and badges, a black capsule for the one primary action).
 - Security is strict: CSP with nonce in `src/middleware.ts` (no external scripts), same-origin checks on mutating routes, rate limits, untrusted content wrapped for the model, tokens encrypted and never sent to the browser or the model. Keep it that way.
 - Never commit secrets (`.env*`, `railway-*.env` are git-ignored).

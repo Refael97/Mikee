@@ -132,8 +132,8 @@ export default async function BrandPage() {
           return (
             <section key={topic} className="card overflow-hidden">
               <div className="border-b border-line px-4 py-3">
-                <h2 className="font-semibold">{TOPICS[topic].title}</h2>
-                <p className="text-[13.5px] text-ink-3">{TOPICS[topic].hint}</p>
+                <h2 className="font-semibold">{t(TOPICS[topic].title)}</h2>
+                <p className="text-[13.5px] text-ink-3">{t(TOPICS[topic].hint)}</p>
               </div>
               <ul className="divide-y divide-line">
                 {rows.map((f) => (

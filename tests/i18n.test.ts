@@ -13,6 +13,7 @@ import { BUSINESS, GOALS, HELP, KNOWLEDGE, STATE } from "@/lib/intake";
 import { ITEMS, PHASES } from "@/lib/journey";
 import { ACTIONS, AGENT_NAMES, stepLabel, stepText } from "@/lib/progress";
 import { scheduleJobTitle } from "@/lib/schedule-list";
+import { TOPICS } from "@/lib/brain";
 
 const SRC = join(__dirname, "..", "src");
 const HEBREW = /[\u05D0-\u05EA]/;
@@ -76,6 +77,7 @@ describe("interface language", () => {
       ...PHASES.flatMap((p) => [p.title, p.hint]),
       ...ITEMS.flatMap((s) => [s.title, s.why]),
       ...Object.values(AGENT_NAMES),
+      ...Object.values(TOPICS).flatMap((x) => [x.title, x.hint]),
       scheduleJobTitle({ format: "story" }),
       scheduleJobTitle({ channels: ["instagram", "facebook"] }),
       scheduleJobTitle({}),
