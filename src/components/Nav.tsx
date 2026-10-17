@@ -10,6 +10,8 @@ import { HelpPanel } from "./HelpPanel";
 import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { ConnectedAccount } from "@/components/ConnectedAccount";
 import type { ConnectedAssets } from "@/lib/meta/assets";
+import { LanguageMenu } from "./LanguageMenu";
+import { useT } from "./Lang";
 
 export const LINKS = [
   { href: "/mikee", label: "שיחות", icon: MessagesSquare },
@@ -33,12 +35,13 @@ function Tip({ label }: { label: string }) {
 }
 
 function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: string; label: string; icon: typeof Store; active: boolean; compact?: boolean; dot?: boolean }) {
+  const t = useT();
   // Desktop: an icon in the rail, its name on hover. Mobile sheet: icon and name in a row.
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      aria-label={label}
+      aria-label={t(label)}
       className={
         compact
           ? `has-tip relative flex h-12 w-12 items-center justify-center rounded-[14px] transition-colors ${active ? "bg-black/[.06] text-ink dark:bg-white/[.08]" : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"}`
@@ -46,8 +49,8 @@ function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: stri
       }
     >
       <Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={1.5} />
-      {compact ? <Tip label={label} /> : <span>{label}</span>}
-      {dot && <span className={`h-2 w-2 rounded-full bg-blue ${compact ? "absolute end-2.5 top-2.5" : "ms-auto"}`} aria-label="ממתין לך" />}
+      {compact ? <Tip label={t(label)} /> : <span>{t(label)}</span>}
+      {dot && <span className={`h-2 w-2 rounded-full bg-blue ${compact ? "absolute end-2.5 top-2.5" : "ms-auto"}`} aria-label={t("ממתין לך")} />}
     </Link>
   );
 }
@@ -57,6 +60,7 @@ function NavLink({ href, label, icon: Icon, active, compact, dot }: { href: stri
  * Mobile: a top bar with the current section and a menu sheet.
  */
 export function Nav({ who, support, waiting = {}, assets }: { who: Who; support: { email?: string; whatsapp?: string }; waiting?: Record<string, boolean>; assets: ConnectedAssets }) {
+  const t = useT();
   const path = usePathname();
   const [sheet, setSheet] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -90,12 +94,12 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
     <>
       {/* Desktop: the icon rail on the ground, beside the panels */}
       <aside className="sticky top-[10px] z-40 hidden h-[calc(100dvh-20px)] w-[68px] shrink-0 flex-col items-center py-1 lg:flex">
-        <Link href="/mikee" className="has-tip relative mb-3 flex h-12 w-12 items-center justify-center rounded-[14px] hover:bg-black/[.04]" aria-label="מייקי">
+        <Link href="/mikee" className="has-tip relative mb-3 flex h-12 w-12 items-center justify-center rounded-[14px] hover:bg-black/[.04]" aria-label={t("מייקי")}>
           <MikeeAvatar size={32} />
-          <Tip label={`מייקי · ${who.business}`} />
+          <Tip label={`${t("מייקי")} · ${who.business}`} />
         </Link>
 
-        <nav className="flex flex-col items-center gap-1" aria-label="ניווט ראשי">
+        <nav className="flex flex-col items-center gap-1" aria-label={t("ניווט ראשי")}>
           {LINKS.map((l) => (
             <NavLink key={l.href} {...l} active={path.startsWith(l.href)} dot={waiting[l.href]} compact />
           ))}
@@ -104,11 +108,11 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
         <div className="mt-auto flex flex-col items-center gap-1">
           <button
             onClick={() => setHelp(true)}
-            aria-label="עזרה"
+            aria-label={t("עזרה")}
             className="has-tip relative flex h-12 w-12 items-center justify-center rounded-[14px] text-ink-2 transition-colors hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.05]"
           >
             <LifeBuoy className="h-[22px] w-[22px]" strokeWidth={1.5} />
-            <Tip label="עזרה" />
+            <Tip label={t("עזרה")} />
           </button>
           <NavLink href="/settings" label="הגדרות" icon={Settings} active={settingsActive} compact />
 
@@ -116,7 +120,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
             <button
               onClick={() => setMenu((m) => !m)}
               aria-expanded={menu}
-              aria-label="החשבון שלי"
+              aria-label={t("החשבון שלי")}
               className="has-tip relative flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-[15px] font-normal text-ink-2 transition-colors hover:text-ink"
             >
               {initial}
@@ -133,13 +137,14 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
                 <div className="my-1 border-t border-line" />
                 <UsageMenuItem />
                 <div className="my-1 border-t border-line" />
-                <MenuLink href="/account" icon={User} label="הפרופיל שלי" />
-                <MenuLink href="/settings" icon={Settings} label="הגדרות וחיבורים" />
+                <MenuLink href="/account" icon={User} label={t("הפרופיל שלי")} />
+                <MenuLink href="/settings" icon={Settings} label={t("הגדרות וחיבורים")} />
+                <LanguageMenu />
                 <div className="my-1 border-t border-line" />
                 <form action={logout}>
                   <button className="flex h-10 w-full items-center gap-3 rounded-[10px] px-2.5 text-start text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
                     <LogOut className="h-5 w-5" strokeWidth={1.5} />
-                    יציאה
+                    {t("יציאה")}
                   </button>
                 </form>
               </div>
@@ -151,7 +156,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
       {/* Mobile and tablet top bar (RTL): the menu on the right, where its sheet opens; the business in the middle; help and the conversations on the left. */}
       <header className="glass sticky top-0 z-40 grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-line px-3 lg:hidden" style={{ background: "color-mix(in srgb, var(--bg) 92%, transparent)" }}>
         <div className="flex items-center">
-          <button onClick={() => setSheet(true)} className="btn btn-ghost btn-sm h-10 w-10 px-0" aria-label="תפריט">
+          <button onClick={() => setSheet(true)} className="btn btn-ghost btn-sm h-10 w-10 px-0" aria-label={t("תפריט")}>
             <Menu className="h-[22px] w-[22px]" strokeWidth={1.5} />
           </button>
         </div>
@@ -159,7 +164,7 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
           <ConnectedAccount initial={assets} compact />
         </div>
         <div className="flex items-center justify-end gap-0.5">
-          <button onClick={() => setHelp(true)} className="btn btn-ghost btn-sm h-10 w-10 px-0" aria-label="עזרה">
+          <button onClick={() => setHelp(true)} className="btn btn-ghost btn-sm h-10 w-10 px-0" aria-label={t("עזרה")}>
             <LifeBuoy className="h-[22px] w-[22px]" strokeWidth={1.5} />
           </button>
           <ConversationsButton onMikee={path.startsWith("/mikee")} unread={unread} />
@@ -170,18 +175,18 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
         <div className={`absolute inset-0 bg-ink/30 transition-opacity duration-200 ${sheet ? "opacity-100" : "opacity-0"}`} onClick={() => setSheet(false)} />
         <div
           className={`absolute inset-y-0 start-0 flex w-[300px] flex-col bg-surface p-3 shadow-[var(--shadow-float)] transition-transform duration-300 ease-[var(--ease)] ${
-            sheet ? "visible translate-x-0" : "invisible translate-x-full"
+            sheet ? "visible translate-x-0" : "invisible rtl:translate-x-full ltr:-translate-x-full"
           }`}
         >
           <div className="mb-3 flex items-center justify-between px-1.5">
             <span className="flex items-center gap-2.5">
               <MikeeAvatar size={28} />
               <span className="leading-tight">
-                <span className="block text-[15px] font-medium">מייקי</span>
+                <span className="block text-[15px] font-medium">{t("מייקי")}</span>
                 <span className="meta block">{who.business}</span>
               </span>
             </span>
-            <button onClick={() => setSheet(false)} className="btn btn-ghost btn-sm px-2" aria-label="סגירה">
+            <button onClick={() => setSheet(false)} className="btn btn-ghost btn-sm px-2" aria-label={t("סגירה")}>
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -194,9 +199,10 @@ export function Nav({ who, support, waiting = {}, assets }: { who: Who; support:
             <UsageMenuItem />
             <NavLink href="/settings" label="הגדרות וחיבורים" icon={Settings} active={settingsActive} />
             <NavLink href="/account" label="הפרופיל שלי" icon={User} active={path.startsWith("/account")} />
+            <LanguageMenu className="h-[38px]" />
             <form action={logout}>
               <button className="flex h-[38px] w-full items-center gap-3 rounded-[10px] px-2.5 text-[15px] text-ink-2 hover:bg-surface-2">
-                <LogOut className="h-[22px] w-[22px]" strokeWidth={1.5} /> יציאה
+                <LogOut className="h-[22px] w-[22px]" strokeWidth={1.5} /> {t("יציאה")}
               </button>
             </form>
           </div>
@@ -220,7 +226,8 @@ function ChatsIcon({ className }: { className?: string }) {
 
 /** Opens the conversations list: in place on the conversations page, otherwise it goes there with the list open. */
 function ConversationsButton({ onMikee, unread }: { onMikee: boolean; unread: boolean }) {
-  const label = unread ? "שיחות, יש חדש" : "שיחות";
+  const t = useT();
+  const label = unread ? t("שיחות, יש חדש") : t("שיחות");
   const inner = (
     <>
       <ChatsIcon className="h-[22px] w-[22px]" />

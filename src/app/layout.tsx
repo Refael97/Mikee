@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { dirOf } from "@/lib/i18n";
+import { getLang } from "@/lib/i18n/server";
+import { LangProvider } from "@/components/Lang";
 import "./globals.css";
 
 // Every page gets its own script nonce (see middleware.ts), so nothing is prerendered.
@@ -18,15 +21,18 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
   return (
-    <html lang="he" dir="rtl">
+    <html lang={lang} dir={dirOf(lang)}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500&display=swap" rel="stylesheet" />
       </head>
-      <body className="min-h-dvh">{children}</body>
+      <body className="min-h-dvh">
+        <LangProvider lang={lang}>{children}</LangProvider>
+      </body>
     </html>
   );
 }
