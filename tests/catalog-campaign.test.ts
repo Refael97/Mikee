@@ -12,6 +12,9 @@ import { CampaignSpec } from "@/lib/specs";
 import { metaContext } from "@/lib/meta/context";
 import { verifyBuild } from "@/lib/meta/actions";
 import { resolveCatalog } from "@/lib/meta/catalog";
+import { CATALOG_GUIDANCE } from "@/lib/agent/catalog-guidance";
+import { MIKEE_CONSTITUTION } from "@/lib/agent/prompt";
+import { SPECIALISTS } from "@/lib/agent/specialists";
 import { FakeMeta } from "./support/fake-meta";
 import { campaignSpec, createBusiness, drainJobs, fakeTeam, NOW, proposal, setBudget, toolUse, TZ } from "./support/setup";
 
@@ -21,7 +24,7 @@ beforeAll(() => vi.useFakeTimers({ toFake: ["Date"], now: NOW }));
 afterAll(() => { uninstall?.(); vi.useRealTimers(); });
 beforeEach(() => {
   uninstall?.(); meta = new FakeMeta(); uninstall = meta.install();
-  meta.add("catalog", { id: "9001", name: "המוצרים שלנו" });
+  meta.add("catalog", { id: "9001", name: "המוצרים שלנו", vertical: "commerce", product_count: 7 });
   meta.add("productset", { id: "9002", name: "כל המוצרים", product_catalog: { id: "9001" }, product_count: 7 });
 });
 
@@ -214,5 +217,83 @@ describe("catalog campaigns, from the agent's tool to the Meta build", () => {
     expect(CampaignSpec.safeParse(input({ goal: "traffic" })).success).toBe(false);
     expect(CampaignSpec.safeParse(input({ ads: campaignSpec().ads })).success).toBe(false);
     expect(CampaignSpec.safeParse(campaignSpec()).success).toBe(true);
+  });
+
+  it.each(["commerce", "services"])("builds a %s catalog using the Page's real Instagram identity, even if the saved IG selection is empty", async (vertical) => {
+    const ws = await business();
+    meta.nodes.get("9001")!.vertical = vertical;
+    const conn = (await getConnection<MetaConfig>(ws, "meta"))!;
+    await saveConnection(ws, "meta", { ...conn.config, igUserId: undefined }, conn.secret!);
+    const spec = input({ ads: [{ primaryText: "בדיקת קטלוג", link: "https://studio.example/", cta: vertical === "services" ? "LEARN_MORE" : "SHOP_NOW" }] });
+    const { proposalId } = await propose(ws, spec);
+    const p = await proposal(proposalId);
+    expect(p.action.catalog).toMatchObject({ vertical, instagramUserId: "ig_1" });
+    const built = await approve(ws, proposalId);
+    expect(built.status, JSON.stringify(built.result)).toBe("done");
+    expect(meta.list("creative")[0].object_story_spec).toMatchObject({ page_id: "page_1", instagram_user_id: "ig_1", template_data: { name: vertical === "services" ? "השירותים שלנו" : "{{product.name}}" } });
+    expect(meta.list("ad")).toHaveLength(1);
+    expect(meta.writes(/adimages|advideos/)).toHaveLength(0);
+    expect(meta.writes().some((c) => c.params.status === "ACTIVE")).toBe(false);
+  });
+
+  it.each([["commerce", "products"], ["services", "professional_services"]])("checks unknown item count for %s through /%s", async (vertical, edge) => {
+    const ws = await business(); meta.nodes.get("9001")!.vertical = vertical;
+    meta.nodes.get("9002")!.product_count = null;
+    meta.nodes.get("9002")!.products = [{ id: "9003" }];
+    const { proposalId } = await propose(ws);
+    expect(proposalId).toBeTruthy();
+    expect(meta.calls.some((c) => c.path === `/9002/${edge}`)).toBe(true);
+    expect(meta.calls.some((c) => c.path === `/9002/${edge === "products" ? "professional_services" : "products"}`)).toBe(false);
+  });
+
+  it("uses Facebook-only placements when the business has no Instagram, and says so on the card", async () => {
+    const ws = await business(); const conn = (await getConnection<MetaConfig>(ws, "meta"))!;
+    await saveConnection(ws, "meta", { ...conn.config, igUserId: undefined }, conn.secret!);
+    delete meta.nodes.get("page_1")!.instagram_business_account;
+    const { proposalId } = await propose(ws);
+    expect(JSON.stringify((await proposal(proposalId)).card)).toContain("פייסבוק בלבד");
+    const built = await approve(ws, proposalId);
+    expect(built.status, JSON.stringify(built.result)).toBe("done");
+    expect(meta.list("adset")[0].targeting.publisher_platforms).toEqual(["facebook"]);
+    expect(meta.list("creative")[0].object_story_spec).not.toHaveProperty("instagram_user_id");
+  });
+
+  it("blocks a stored Instagram belonging to another Page before creating a card", async () => {
+    const ws = await business();
+    meta.nodes.get("page_1")!.instagram_business_account = { id: "foreign_ig" };
+    expect((await propose(ws)).error).toMatch(/אינסטגרם/);
+    expect(meta.writes()).toHaveLength(0);
+  });
+
+  it("blocks an Instagram identity change between approval and execution before writes", async () => {
+    const ws = await business(); const { proposalId } = await propose(ws);
+    const conn = (await getConnection<MetaConfig>(ws, "meta"))!;
+    await saveConnection(ws, "meta", { ...conn.config, igUserId: undefined }, conn.secret!);
+    meta.nodes.get("page_1")!.instagram_business_account = { id: "new_ig" };
+    expect((await approve(ws, proposalId)).status).toBe("failed");
+    expect(meta.writes()).toHaveLength(0);
+  });
+
+  it("reports an unsupported vertical instead of treating it as commerce", async () => {
+    const ws = await business(); meta.nodes.get("9001")!.vertical = "hotels";
+    expect((await propose(ws)).error).toMatch(/hotels/);
+    expect(meta.writes()).toHaveLength(0);
+  });
+
+  it("verifies the actual Instagram identity in Meta readback", async () => {
+    const ws = await business(); const { proposalId } = await propose(ws);
+    const built = await approve(ws, proposalId);
+    meta.list("ad")[0].creative.object_story_spec.instagram_user_id = "foreign_ig";
+    const checked = await verifyBuild(await metaContext(ws), CampaignSpec.parse((await proposal(proposalId)).action), built.result as any);
+    expect(checked.ok).toBe(false);
+    expect(checked.mismatches.join(" ")).toContain("identity");
+  });
+
+  it("shares the same services/ecommerce instructions between Mikee and the media buyer", () => {
+    expect(MIKEE_CONSTITUTION).toContain(CATALOG_GUIDANCE);
+    expect(SPECIALISTS.find((s) => s.id === "media_buyer")!.instructions).toContain(CATALOG_GUIDANCE);
+    expect(CATALOG_GUIDANCE).toContain("vertical=services");
+    expect(CATALOG_GUIDANCE).toContain("vertical=commerce");
+    expect(CATALOG_GUIDANCE).toContain("1772103");
   });
 });

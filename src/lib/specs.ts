@@ -38,6 +38,8 @@ export const CatalogSpec = z.object({
   catalogId: z.string().regex(/^\d+$/),
   productSetId: z.string().regex(/^\d+$/),
   format: z.enum(["carousel", "single_image"]).default("carousel"),
+  vertical: z.enum(["commerce", "services"]).optional().describe("Resolved from Meta, never inferred from the catalog name"),
+  instagramUserId: z.string().optional().describe("Resolved from this business's connected Facebook Page; never supplied from another business"),
   catalogName: z.string().optional().describe("Resolved by the server from the connected catalog"),
   productSetName: z.string().optional().describe("Resolved by the server from Meta"),
 });

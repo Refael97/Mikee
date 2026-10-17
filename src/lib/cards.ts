@@ -60,8 +60,10 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
           { label: "המטרה", value: s.catalog ? "מכירות מהקטלוג" : GOAL_HE[s.goal] },
           ...(s.catalog ? [
             { label: "המוצרים", value: `${s.catalog.catalogName ?? "הקטלוג המחובר"} · ${s.catalog.productSetName ?? "סט המוצרים שנבחר"}` },
+            { label: "סוג הקטלוג", value: s.catalog.vertical === "services" ? "שירותים מקצועיים" : "מוצרי חנות" },
+            { label: "איפה יוצג", value: s.catalog.instagramUserId ? "פייסבוק ואינסטגרם" : "פייסבוק בלבד" },
             { label: "איך המודעה תיראה", value: `${s.catalog.format === "single_image" ? "מוצר אחד בכל מודעה" : "קרוסלת מוצרים"}. התמונות והמחירים מגיעים מהקטלוג ועשויים להתעדכן.` },
-            ...allAds.map((a, i) => ({ label: `מודעה ${i + 1}`, value: `${a.primaryText} · ${a.headline ?? "{{product.name}}"} · ${CTA_HE[a.cta]}` })),
+            ...allAds.map((a, i) => ({ label: `מודעה ${i + 1}`, value: `${a.primaryText} · ${a.headline ?? (s.catalog?.vertical === "services" ? "השירותים שלנו" : "שם המוצר מהקטלוג")} · ${CTA_HE[a.cta]}` })),
           ] : []),
           { label: "תקציב", value: `${money(totalDaily(s), currency)} ביום בממוצע${several ? `, לכל הסדרות יחד` : ""}` },
           ...(several
@@ -109,6 +111,7 @@ export function renderCard(kind: ProposalKind, action: any, currency = "ILS", ex
           { label: "מתי", value: when },
           { label: "בדיקת מטא", value: s.review },
           ...(s.catalog ? [{ label: "המוצרים", value: `${s.catalog.catalogName ?? "הקטלוג המחובר"} · ${s.catalog.productSetName ?? "סט המוצרים שנבחר"}. התמונות והמחירים מתעדכנים מהקטלוג.` }] : []),
+          ...(s.catalog ? [{ label: "איפה יוצג", value: s.catalog.instagramUserId ? "פייסבוק ואינסטגרם" : "פייסבוק בלבד" }] : []),
         ],
         media: s.media,
         approveLabel: adsets ? "להפעיל את הסדרה" : "להפעיל עכשיו",

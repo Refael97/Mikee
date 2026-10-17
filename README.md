@@ -374,3 +374,36 @@ Meta reference: [Advantage+ catalog ads setup](https://developers.facebook.com/d
 Acceptance coverage: `tests/catalog-campaign.test.ts`, with simulated Meta and
 embedded PostgreSQL. A live paused build in the client's actual catalog is still
 required to confirm account eligibility, feed/event-source setup and API acceptance.
+
+#### Services and ecommerce catalog handling
+
+The server reads the actual catalog `vertical`, names and counts from Meta.
+The supported paths are `commerce` (store products) and `services` (professional
+services). Other verticals are reported explicitly rather than guessed from the
+catalog name. When a set has no count, existence is checked through `/products`
+for commerce or `/professional_services` for services. The approved spec stores
+the resolved vertical, and execution checks it again.
+
+The Instagram identity is resolved from the connected Page using
+`instagram_business_account{id}`. A conflicting saved Instagram selection stops
+the build before writes. The resolved id is included as `instagram_user_id` in
+the creative's `object_story_spec`, and identity is verified on readback. A Page
+without Instagram, when none is selected, uses Facebook-only placements and the
+card states this. A changed identity after approval requires a new card.
+
+Mikee and the media buyer share `src/lib/agent/catalog-guidance.ts`: discovery,
+both verticals, static service copy versus documented ecommerce product tokens,
+existing feed media, approved spending, paused tests and continuing the existing
+card after partial failures. Service catalog ads do not require a store connector.
+The builder defaults a missing services headline to static text; it never invents
+a service template token. Existing catalog ids and client identities are never
+hardcoded as application-wide defaults.
+
+Live evidence supplied during the Graph v26 test: a `services` catalog and its
+six-item product set were accepted for campaign, ad set and template creative
+creation. Ad creation first returned 100/1772103 (missing Instagram identity),
+then succeeded after resolving the Page-linked Instagram and including it in the
+creative. This proves creation acceptance for that account, not review or delivery.
+The ecommerce path and both paths' failure/retry/isolation/approval scenarios are
+covered with simulated Meta in `tests/catalog-campaign.test.ts`; no new live Meta
+calls or client campaigns are made by the automated tests.

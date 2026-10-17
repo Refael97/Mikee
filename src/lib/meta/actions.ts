@@ -152,6 +152,9 @@ function optimization(ctx: MetaContext, spec: CampaignSpec) {
   }
 }
 
+const catalogHeadline = (ad: CampaignSpec["ads"][number], catalog: NonNullable<CampaignSpec["catalog"]>) =>
+  ad.headline ?? (catalog.vertical === "services" ? "השירותים שלנו" : "{{product.name}}");
+
 async function createCreative(ctx: MetaContext, leadFormId: string | undefined, ad: CampaignSpec["ads"][number], name: string, catalog?: CampaignSpec["catalog"]) {
   const account = requireAdAccount(ctx);
   if (!ctx.pageId) throw new Error("No Facebook page connected");
@@ -167,7 +170,7 @@ async function createCreative(ctx: MetaContext, leadFormId: string | undefined, 
   if (catalog) {
     // Feed chooses the products and media. CTA value must be omitted for catalog templates.
     base.template_data = {
-      link: ad.link, message: ad.primaryText, name: ad.headline ?? "{{product.name}}",
+      link: ad.link, message: ad.primaryText, name: catalogHeadline(ad, catalog),
       description: ad.description, call_to_action: { type: ad.cta },
       ...(catalog.format === "single_image" ? { force_single_link: true } : {}),
     };
@@ -287,7 +290,7 @@ async function buildAdsetIn(
       ...(o.dailyBudget != null ? { daily_budget: toMinor(o.dailyBudget, currency) } : {}),
       billing_event: "IMPRESSIONS",
       bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-      targeting: targetingFor(o.audience),
+      targeting: { ...targetingFor(o.audience), ...(o.catalog && !o.catalog.instagramUserId ? { publisher_platforms: ["facebook"] } : {}) },
       start_time: o.startTime,
       end_time: o.endTime,
       status: "PAUSED",
@@ -339,7 +342,12 @@ async function buildAdsetIn(
 export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint, identities?: AdsetIdentities): Promise<LaunchResult> {
   spec = CampaignSpec.parse(spec);
   if (!ctx.pageId) throw new Error("לא נבחר עמוד פייסבוק לעסק. צריך לבחור עמוד בהגדרות לפני בניית קמפיין.");
-  if (spec.catalog) await resolveCatalog(ctx, spec.catalog); // fresh ownership check before any write, also on retry
+  if (spec.catalog) {
+    const resolved = await resolveCatalog(ctx, spec.catalog); // fresh checks before any write, also on retry
+    if (spec.catalog.vertical && spec.catalog.instagramUserId !== resolved.instagramUserId) throw new Error("זהות האינסטגרם השתנתה מאז אישור הכרטיס. צריך להכין כרטיס מעודכן.");
+    spec.catalog = resolved;
+    ctx = { ...ctx, igUserId: resolved.instagramUserId };
+  }
   const opt = optimization(ctx, spec); // prerequisites must fail before creating a partial campaign
   const account = requireAdAccount(ctx);
   const name = `Mikee · ${spec.title.replace(/[^\p{L}\p{N} ]/gu, "").trim()} · ${tag}`;
@@ -646,14 +654,15 @@ export async function verifyBuild(ctx: MetaContext, spec: CampaignSpec, ids: Lau
       if (!adset.status || !allowedStatuses.includes(adset.status)) mismatches.push(`catalog ad set ${i + 1} has an unexpected status`);
       if (adset.promoted_object?.product_set_id !== spec.catalog.productSetId) mismatches.push(`product set of ad set ${i + 1} differs from the approved set`);
       for (const [j, id] of b.adIds.entries()) {
-        const ad = await ctx.graph.get<{ status?: string; creative?: { product_set_id?: string; object_story_spec?: { template_data?: Record<string, unknown> } } }>(`/${id}`, { fields: "status,creative{product_set_id,object_story_spec}" });
+        const ad = await ctx.graph.get<{ status?: string; creative?: { product_set_id?: string; object_story_spec?: { page_id?: string; instagram_user_id?: string; template_data?: Record<string, unknown> } } }>(`/${id}`, { fields: "status,creative{product_set_id,object_story_spec}" });
         if (!ad.status || !allowedStatuses.includes(ad.status)) mismatches.push(`catalog ad ${id} has an unexpected status`);
         if (ad.creative?.product_set_id !== spec.catalog.productSetId || !ad.creative.object_story_spec?.template_data) mismatches.push(`catalog creative of ad ${id} differs from the approved set/template`);
+        if (ad.creative?.object_story_spec?.page_id !== ctx.pageId || (spec.catalog.instagramUserId && ad.creative?.object_story_spec?.instagram_user_id !== spec.catalog.instagramUserId)) mismatches.push(`catalog identity of ad ${id} differs from the connected Page/Instagram`);
         const template = ad.creative?.object_story_spec?.template_data;
         const approved = sets[i]?.ads[j];
         if (template && approved) {
           const cta = template.call_to_action as { type?: string } | undefined;
-          if (template.link !== approved.link || template.message !== approved.primaryText || template.name !== (approved.headline ?? "{{product.name}}") || (template.description ?? "") !== (approved.description ?? "") || cta?.type !== approved.cta || !!template.force_single_link !== (spec.catalog.format === "single_image")) {
+          if (template.link !== approved.link || template.message !== approved.primaryText || template.name !== catalogHeadline(approved, spec.catalog) || (template.description ?? "") !== (approved.description ?? "") || cta?.type !== approved.cta || !!template.force_single_link !== (spec.catalog.format === "single_image")) {
             mismatches.push(`catalog template copy, link or format of ad ${id} differs from approval`);
           }
         }

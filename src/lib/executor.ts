@@ -108,7 +108,8 @@ export async function executeProposal(proposalId: string, opts: { cleanup?: bool
           if (!source || source.kind !== "campaign") throw new NotRetryable("לא נמצא כרטיס הקטלוג המקורי שאושר.");
           const approved = CampaignSpec.parse(source.action);
           if (approved.buildOnly || !approved.catalog) throw new NotRetryable("קמפיין מבחן נשאר מושהה. נדרש כרטיס חדש להפעלה.");
-          await resolveCatalog(ctx, approved.catalog);
+          const catalog = await resolveCatalog(ctx, approved.catalog);
+          if (approved.catalog.vertical && catalog.instagramUserId !== approved.catalog.instagramUserId) throw new NotRetryable("זהות האינסטגרם השתנתה מאז האישור. צריך להכין כרטיס מעודכן.");
           // Re-read before spending: an operator may have changed the paused build since its first check.
           const built = source.result as unknown as Parameters<typeof verifyBuild>[2];
           if (built.campaignId !== spec.campaignId) throw new NotRetryable("הקמפיין להפעלה אינו הקמפיין שנבנה מהכרטיס המקורי.");
