@@ -1,8 +1,9 @@
 import "server-only";
 import { socialImageUrl, type Target } from "./images";
-import { adsetsOf, type AdsetAddSpec, type AdsetCopySpec, type Audience, type CampaignSpec, type ChangeSpec, LEAD_CTAS, type PostSpec } from "../specs";
+import { adsetsOf, type AdsetAddSpec, type AdsetCopySpec, type Audience, CampaignSpec, type ChangeSpec, LEAD_CTAS, type PostSpec } from "../specs";
 import { type MetaContext, requireAdAccount, toMajor, toMinor } from "./context";
 import { MetaError } from "./graph";
+import { resolveCatalog } from "./catalog";
 import { bytesFromOwnUrl } from "../media";
 import { safeFetch } from "../net";
 
@@ -122,6 +123,10 @@ function places(list: NonNullable<Audience["cities"]>) {
 }
 
 function optimization(ctx: MetaContext, spec: CampaignSpec) {
+  if (spec.catalog) return {
+    optimization_goal: "OFFSITE_CONVERSIONS",
+    promoted_object: { product_set_id: spec.catalog.productSetId, custom_event_type: spec.conversionEvent ?? "PURCHASE" },
+  };
   switch (spec.goal) {
     case "sales":
       if (!ctx.pixelId) throw new Error("A sales campaign needs the website pixel. Connect it in Settings or choose traffic.");
@@ -147,7 +152,10 @@ function optimization(ctx: MetaContext, spec: CampaignSpec) {
   }
 }
 
-async function createCreative(ctx: MetaContext, leadFormId: string | undefined, ad: CampaignSpec["ads"][number], name: string) {
+const catalogHeadline = (ad: CampaignSpec["ads"][number], catalog: NonNullable<CampaignSpec["catalog"]>) =>
+  ad.headline ?? (catalog.vertical === "services" ? "השירותים שלנו" : "{{product.name}}");
+
+async function createCreative(ctx: MetaContext, leadFormId: string | undefined, ad: CampaignSpec["ads"][number], name: string, catalog?: CampaignSpec["catalog"]) {
   const account = requireAdAccount(ctx);
   if (!ctx.pageId) throw new Error("No Facebook page connected");
   // Instant-form ads: the link must be https://fb.me/ and only a few buttons are allowed (docs: lead-ads/create).
@@ -159,6 +167,17 @@ async function createCreative(ctx: MetaContext, leadFormId: string | undefined, 
   const base: Record<string, unknown> = { page_id: ctx.pageId };
   if (ctx.igUserId) base.instagram_user_id = ctx.igUserId;
 
+  if (catalog) {
+    // Feed chooses the products and media. CTA value must be omitted for catalog templates.
+    base.template_data = {
+      link: ad.link, message: ad.primaryText, name: catalogHeadline(ad, catalog),
+      description: ad.description, call_to_action: { type: ad.cta },
+      ...(catalog.format === "single_image" ? { force_single_link: true } : {}),
+    };
+    const { id } = await ctx.graph.post<{ id: string }>(`/${account}/adcreatives`, { name, product_set_id: catalog.productSetId, object_story_spec: base });
+    return id;
+  }
+  if (!ad.media) throw new Error("מודעה רגילה צריכה תמונה או סרטון. קמפיין קטלוג צריך קטלוג וסט מוצרים.");
   if (ad.media.type === "image") {
     const image_hash = ad.media.metaImageHash ? await existingImage(ctx, ad.media.metaImageHash) : await uploadImage(ctx, ad.media.url);
     base.link_data = {
@@ -252,6 +271,7 @@ async function buildAdsetIn(
     ads: CampaignSpec["ads"];
     optimization: Record<string, unknown>;
     leadFormId?: string;
+    catalog?: CampaignSpec["catalog"];
     startTime?: string;
     endTime?: string;
     identities?: AdsetIdentities;
@@ -270,7 +290,7 @@ async function buildAdsetIn(
       ...(o.dailyBudget != null ? { daily_budget: toMinor(o.dailyBudget, currency) } : {}),
       billing_event: "IMPRESSIONS",
       bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-      targeting: targetingFor(o.audience),
+      targeting: { ...targetingFor(o.audience), ...(o.catalog && !o.catalog.instagramUserId ? { publisher_platforms: ["facebook"] } : {}) },
       start_time: o.startTime,
       end_time: o.endTime,
       status: "PAUSED",
@@ -299,7 +319,7 @@ async function buildAdsetIn(
     if (found) {
       ads[i] = found;
     } else {
-      const creativeId = await createCreative(ctx, o.leadFormId, ad, adName);
+      const creativeId = await createCreative(ctx, o.leadFormId, ad, adName, o.catalog);
       const { id } = await ctx.graph.post<{ id: string }>(`/${account}/ads`, {
         name: adName,
         adset_id: adsetId,
@@ -320,6 +340,15 @@ async function buildAdsetIn(
  * proposal's tag, so it never creates a second campaign or a second copy of an ad set or an ad.
  */
 export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: string, cp: Checkpoint, identities?: AdsetIdentities): Promise<LaunchResult> {
+  spec = CampaignSpec.parse(spec);
+  if (!ctx.pageId) throw new Error("לא נבחר עמוד פייסבוק לעסק. צריך לבחור עמוד בהגדרות לפני בניית קמפיין.");
+  if (spec.catalog) {
+    const resolved = await resolveCatalog(ctx, spec.catalog); // fresh checks before any write, also on retry
+    if (spec.catalog.vertical && spec.catalog.instagramUserId !== resolved.instagramUserId) throw new Error("זהות האינסטגרם השתנתה מאז אישור הכרטיס. צריך להכין כרטיס מעודכן.");
+    spec.catalog = resolved;
+    ctx = { ...ctx, igUserId: resolved.instagramUserId };
+  }
+  const opt = optimization(ctx, spec); // prerequisites must fail before creating a partial campaign
   const account = requireAdAccount(ctx);
   const name = `Mikee · ${spec.title.replace(/[^\p{L}\p{N} ]/gu, "").trim()} · ${tag}`;
 
@@ -329,6 +358,7 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
     ({ id: campaignId } = await ctx.graph.post<{ id: string }>(`/${account}/campaigns`, {
       name,
       objective: OBJECTIVE[spec.goal],
+      ...(spec.catalog ? { promoted_object: { product_catalog_id: spec.catalog.catalogId } } : {}),
       status: "PAUSED",
       special_ad_categories: [],
       is_adset_budget_sharing_enabled: false,
@@ -336,7 +366,6 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
   }
   if (campaignId !== cp.data.campaignId) await cp.save({ campaignId, adsetId: null, ads: {}, more: {} });
 
-  const opt = optimization(ctx, spec);
   const built: { adsetId: string; adIds: string[] }[] = [];
   for (const [i, set] of adsetsOf(spec).entries()) {
     // The first ad set keeps the original checkpoint keys (adsetId, ads); the others live under "more".
@@ -356,6 +385,7 @@ export async function buildCampaign(ctx: MetaContext, spec: CampaignSpec, tag: s
           ads: set.ads,
           optimization: opt,
           leadFormId: spec.leadFormId,
+          catalog: spec.catalog,
           startTime: spec.startTime,
           endTime: spec.endTime,
           identities,
@@ -607,17 +637,37 @@ const REVIEW_HE: Record<string, string> = {
  * that nothing is live, and every ad present. Also reports Meta's review state in plain words, with the
  * reason for any rejected ad. Meta's review is not guaranteed to pass, so this is said, never assumed.
  */
-export async function verifyBuild(ctx: MetaContext, spec: CampaignSpec, ids: LaunchResult): Promise<BuildCheck> {
+export async function verifyBuild(ctx: MetaContext, spec: CampaignSpec, ids: LaunchResult, options: { activationRetry?: boolean } = {}): Promise<BuildCheck> {
   const currency = ctx.currency ?? "ILS";
   const mismatches: string[] = [];
   const blockers: string[] = [];
-  const campaign = await ctx.graph.get<{ status?: string; effective_status?: string }>(`/${ids.campaignId}`, { fields: "status,effective_status" });
-  if (campaign.status && campaign.status !== "PAUSED") mismatches.push(`campaign status is ${campaign.status}, expected PAUSED`);
+  const campaign = await ctx.graph.get<{ status?: string; effective_status?: string; promoted_object?: { product_catalog_id?: string } }>(`/${ids.campaignId}`, { fields: spec.catalog ? "status,effective_status,promoted_object" : "status,effective_status" });
+  if (spec.catalog && campaign.promoted_object?.product_catalog_id !== spec.catalog.catalogId) mismatches.push("campaign catalog differs from the approved catalog");
+  const allowedStatuses = options.activationRetry ? ["PAUSED", "ACTIVE"] : ["PAUSED"];
+  if (campaign.status && !allowedStatuses.includes(campaign.status)) mismatches.push(`campaign status is ${campaign.status}, expected ${allowedStatuses.join("/")}`);
   const sets = adsetsOf(spec);
   const built = ids.adsets ?? [{ adsetId: ids.adsetId, adIds: ids.adIds }];
   if (built.length !== sets.length) mismatches.push(`${built.length} ad sets exist, ${sets.length} were approved`);
   for (const [i, b] of built.entries()) {
-    const adset = await ctx.graph.get<{ daily_budget?: string; end_time?: string; status?: string }>(`/${b.adsetId}`, { fields: "daily_budget,end_time,status" });
+    const adset = await ctx.graph.get<{ daily_budget?: string; end_time?: string; status?: string; promoted_object?: { product_set_id?: string } }>(`/${b.adsetId}`, { fields: spec.catalog ? "daily_budget,end_time,status,promoted_object" : "daily_budget,end_time,status" });
+    if (spec.catalog) {
+      if (!adset.status || !allowedStatuses.includes(adset.status)) mismatches.push(`catalog ad set ${i + 1} has an unexpected status`);
+      if (adset.promoted_object?.product_set_id !== spec.catalog.productSetId) mismatches.push(`product set of ad set ${i + 1} differs from the approved set`);
+      for (const [j, id] of b.adIds.entries()) {
+        const ad = await ctx.graph.get<{ status?: string; creative?: { product_set_id?: string; object_story_spec?: { page_id?: string; instagram_user_id?: string; template_data?: Record<string, unknown> } } }>(`/${id}`, { fields: "status,creative{product_set_id,object_story_spec}" });
+        if (!ad.status || !allowedStatuses.includes(ad.status)) mismatches.push(`catalog ad ${id} has an unexpected status`);
+        if (ad.creative?.product_set_id !== spec.catalog.productSetId || !ad.creative.object_story_spec?.template_data) mismatches.push(`catalog creative of ad ${id} differs from the approved set/template`);
+        if (ad.creative?.object_story_spec?.page_id !== ctx.pageId || (spec.catalog.instagramUserId && ad.creative?.object_story_spec?.instagram_user_id !== spec.catalog.instagramUserId)) mismatches.push(`catalog identity of ad ${id} differs from the connected Page/Instagram`);
+        const template = ad.creative?.object_story_spec?.template_data;
+        const approved = sets[i]?.ads[j];
+        if (template && approved) {
+          const cta = template.call_to_action as { type?: string } | undefined;
+          if (template.link !== approved.link || template.message !== approved.primaryText || template.name !== catalogHeadline(approved, spec.catalog) || (template.description ?? "") !== (approved.description ?? "") || cta?.type !== approved.cta || !!template.force_single_link !== (spec.catalog.format === "single_image")) {
+            mismatches.push(`catalog template copy, link or format of ad ${id} differs from approval`);
+          }
+        }
+      }
+    }
     const plan = sets[i];
     if (plan && adset.daily_budget != null && Number(adset.daily_budget) !== toMinor(plan.dailyBudget, currency)) {
       mismatches.push(`daily budget of ad set ${i + 1} is ${toMajor(adset.daily_budget, currency)}, approved ${plan.dailyBudget}`);

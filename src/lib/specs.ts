@@ -33,6 +33,19 @@ export const AdSpec = z.object({
   media: Media,
 });
 
+/** Catalog ads use the product feed instead of requiring an uploaded image/video. */
+export const CatalogSpec = z.object({
+  catalogId: z.string().regex(/^\d+$/),
+  productSetId: z.string().regex(/^\d+$/),
+  format: z.enum(["carousel", "single_image"]).default("carousel"),
+  vertical: z.enum(["commerce", "services"]).optional().describe("Resolved from Meta, never inferred from the catalog name"),
+  instagramUserId: z.string().optional().describe("Resolved from this business's connected Facebook Page; never supplied from another business"),
+  catalogName: z.string().optional().describe("Resolved by the server from the connected catalog"),
+  productSetName: z.string().optional().describe("Resolved by the server from Meta"),
+});
+export type CatalogSpec = z.infer<typeof CatalogSpec>;
+const CampaignAdSpec = AdSpec.extend({ media: Media.optional().describe("Omit for catalog ads: images come from the approved product set") });
+
 /** Who an ad set reaches. */
 export const Audience = z.object({
     description: z.string().describe("Plain-language summary for the card, e.g. 'קהל חדש בישראל, עם התאמה אוטומטית'"),
@@ -84,12 +97,23 @@ export const CampaignSpec = z.object({
     .enum(["PURCHASE", "LEAD", "COMPLETE_REGISTRATION", "ADD_TO_CART", "INITIATED_CHECKOUT", "CONTACT", "SCHEDULE"])
     .optional()
     .describe("Website event to optimize for (sales defaults to PURCHASE, website leads to LEAD)"),
-  ads: z.array(AdSpec).min(1).max(6),
+  catalog: CatalogSpec.optional().describe("For catalog sales: connected catalog and a product set returned by get_campaign_context. Never replace a catalog request with ordinary traffic ads."),
+  buildOnly: z.boolean().default(false).describe("True when the client asks for a paused test or build only. Never auto-activate, even at final autonomy."),
+  ads: z.array(CampaignAdSpec).min(1).max(6),
   moreAdsets: z
-    .array(AdsetPlan)
+    .array(AdsetPlan.extend({ ads: z.array(CampaignAdSpec).min(1).max(6) }))
     .max(4)
     .optional()
     .describe("More ad sets in the same new campaign (the top-level audience, dailyBudget and ads are the first ad set). Each has its own budget."),
+}).superRefine((s, ctx) => {
+  if (s.catalog && (s.goal !== "sales" || s.leadFormId)) ctx.addIssue({ code: "custom", path: ["catalog"], message: "Catalog campaigns require goal=sales and cannot use a lead form." });
+  for (const [i, set] of [{ ads: s.ads }, ...(s.moreAdsets ?? [])].entries()) {
+    for (const [j, ad] of set.ads.entries()) {
+      const path = i === 0 ? ["ads", j] : ["moreAdsets", i - 1, "ads", j];
+      if (!s.catalog && !ad.media) ctx.addIssue({ code: "custom", path: [...path, "media"], message: "An ordinary ad needs an image or video; catalog ads need catalog and productSetId instead." });
+      if (s.catalog && ad.media) ctx.addIssue({ code: "custom", path: [...path, "media"], message: "Catalog ads use product feed media; omit media rather than silently ignoring it." });
+    }
+  }
 });
 export type CampaignSpec = z.infer<typeof CampaignSpec>;
 
@@ -194,6 +218,7 @@ export type BudgetRequestSpec = z.infer<typeof BudgetRequestSpec>;
  * approved, built paused, and read back from Meta; spending starts only when this card is approved.
  */
 export const ActivateSpec = z.object({
+  catalog: CatalogSpec.optional(),
   fromProposal: z.string().uuid(),
   title: z.string(),
   campaignId: z.string(),

@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogContext } from "./catalog";
 import { budgetStatus } from "../budget";
 import { listLibrary } from "../library";
 import { describeError } from "./actions";
@@ -23,7 +24,7 @@ export async function campaignContext(workspaceId: string, tz: string) {
       return { status: "error" as const, error: describeError(err).slice(0, 300) };
     }
   };
-  const [budget, forms, images, videos, library, identities] = await Promise.all([
+  const [budget, forms, images, videos, library, identities, catalog] = await Promise.all([
     part(async () => {
       const b = await budgetStatus(workspaceId, tz, meta);
       return {
@@ -51,6 +52,7 @@ export async function campaignContext(workspaceId: string, tz: string) {
       const here = rows.filter((r) => r.scope === "workspace" || (r.scope === "ad_account" && r.adAccountId === meta.adAccountId));
       return { status: here.length ? ("ok" as const) : ("empty" as const), chosen: here.map((r) => ({ scope: r.scope, advertiser: r.beneficiaryName, payer: r.payerName })) };
     }),
+    part(() => catalogContext(meta)),
   ]);
 
   // Lists come back short: what a campaign spec needs from each item, no more.
@@ -59,6 +61,7 @@ export async function campaignContext(workspaceId: string, tz: string) {
     status: "ok" as const,
     assets: { adAccountId: meta.adAccountId, adAccountName: meta.adAccountName, currency: meta.currency, pageId: meta.pageId, pageName: meta.pageName, instagram: meta.igUsername, pixelId: meta.pixelId },
     budget,
+    catalog,
     leadForms: slim(forms, (f) => ({ id: f.id, name: f.name, status: f.status })),
     adImages: slim(images, (i) => ({ hash: i.hash, url: i.url, name: i.name, width: i.width, height: i.height })),
     adVideos: slim(videos, (v) => ({ id: v.id, title: v.title, picture: v.picture, length: v.length })),

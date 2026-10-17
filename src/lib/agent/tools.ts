@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveCatalog } from "../meta/catalog";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -513,7 +514,7 @@ export const TOOLS = [
     untrusted: "meta",
     description:
       "Everything needed to prepare a campaign, in one call: connected assets (ad account, page, Instagram, pixel, currency), this month's budget room, the page's lead forms, " +
-      "images and videos already in the ad account (with hash or id to reuse), recent items from Mikee's library, and the chosen advertiser/payer. Each part is ok, empty or error on its own. " +
+      "images and videos already in the ad account (with hash or id to reuse), the connected catalog with its real vertical, item count, product sets and Page-linked Instagram identity, recent items from Mikee's library, and the chosen advertiser/payer. Each part is ok, empty or error on its own. " +
       "Call it once before propose_campaign instead of separate budget, media and form reads.",
     input: z.object({}),
     run: async (ctx) => stripTokens(await campaignContext(ctx.workspaceId, ctx.tz)),
@@ -641,11 +642,13 @@ export const TOOLS = [
     effect: "proposal",
     description:
       "Prepare a NEW campaign (one or more ad sets: moreAdsets adds ad sets with their own audience, budget and ads) and show the client a card. Only for a new campaign: an ad set in an existing campaign is propose_adset or propose_adset_copy. " +
+      "Catalog sales are supported for ecommerce (commerce) AND professional services (services): goal=sales, catalog={catalogId,productSetId,format}, ads with template text/link/CTA and NO media. Resolve product sets from get_campaign_context; never invent ids. buildOnly=true for paused tests (cannot auto-activate). " +
       "Nothing runs until she approves that exact card; the platform then builds it exactly as specified. " +
       "Checks the monthly budget (including other waiting cards) first. If she asks for a change, send a new card with replaces.",
-    input: CampaignSpec.extend(proposalOptions),
+    input: CampaignSpec.safeExtend(proposalOptions),
     run: async (ctx, { replaces, clientAsked, ...spec }) => {
       const meta = await metaContext(ctx.workspaceId);
+      if (spec.catalog) spec.catalog = await resolveCatalog(meta, spec.catalog);
       // The form must be one of this page's forms; the card shows it by its name in Meta.
       if (spec.leadFormId) {
         const forms = await metaMedia(ctx.workspaceId, "lead_forms", 50);

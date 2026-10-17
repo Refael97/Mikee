@@ -115,7 +115,7 @@ export class FakeMeta {
       }
       switch (edge) {
         case "campaigns":
-          return { id: this.add("campaign", { name: params.name, status: params.status, objective: params.objective, account_id: "1" }).id };
+          return { id: this.add("campaign", { name: params.name, status: params.status, objective: params.objective, account_id: "1", promoted_object: params.promoted_object ? JSON.parse(params.promoted_object) : undefined }).id };
         case "adsets":
           return {
             id: this.add("adset", {
@@ -125,6 +125,7 @@ export class FakeMeta {
               status: params.status,
               daily_budget: params.daily_budget,
               optimization_goal: params.optimization_goal,
+              promoted_object: params.promoted_object ? JSON.parse(params.promoted_object) : undefined,
               destination_type: params.destination_type,
               start_time: params.start_time,
               end_time: params.end_time,
@@ -133,9 +134,16 @@ export class FakeMeta {
             }).id,
           };
         case "adcreatives":
-          return { id: this.add("creative", { name: params.name }).id };
+          return { id: this.add("creative", { name: params.name, product_set_id: params.product_set_id, object_story_spec: params.object_story_spec ? JSON.parse(params.object_story_spec) : undefined }).id };
         case "ads":
-          return { id: this.add("ad", { name: params.name, adset_id: params.adset_id, status: params.status, account_id: "1" }).id };
+          {
+            const creative = params.creative ? this.nodes.get(JSON.parse(params.creative).creative_id) : undefined;
+            const set = this.nodes.get(params.adset_id);
+            const instagramPlacement = !set?.targeting?.publisher_platforms || set.targeting.publisher_platforms.includes("instagram");
+            // Reproduce the real catalog test: creative creation succeeds, ad creation rejects missing IG identity.
+            if (creative?.product_set_id && instagramPlacement && !creative.object_story_spec?.instagram_user_id) return { __error: { message: "Missing Instagram account", code: 100, error_subcode: 1772103 } };
+          }
+          return { id: this.add("ad", { name: params.name, adset_id: params.adset_id, status: params.status, account_id: "1", creative: params.creative ? { ...this.nodes.get(JSON.parse(params.creative).creative_id) } : undefined }).id };
         case "adimages":
           return { images: { img: { hash: `hash_${this.seq++}` } } };
         case "customaudiences":
@@ -215,6 +223,8 @@ export class FakeMeta {
     }
 
     const node = this.nodes.get(root);
+    if (node?.type === "catalog" && edge === "product_sets" && method === "GET") return this.filter(this.list("productset").filter((s) => s.product_catalog?.id === root), params);
+    if (node?.type === "productset" && (edge === "products" || edge === "professional_services") && method === "GET") return { data: node.products ?? [], paging: {} };
     // Ad set copies, answered like Meta's real /copies (copied_adset_id, then ad_object_ids with the ad set and each ad).
     if (node && node.type === "adset" && edge === "copies" && method === "POST") {
       const deep = params.deep_copy === "true";
