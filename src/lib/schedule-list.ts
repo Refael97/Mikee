@@ -15,12 +15,12 @@ export function scheduleJobTitle(action: Record<string, unknown>): string {
 }
 
 /** Date and time in the business clock, the same way the approval card says them. */
-export function scheduleWhen(iso: unknown, timeZone = "Asia/Jerusalem"): string {
+export function scheduleWhen(iso: unknown, timeZone = "Asia/Jerusalem", locale = "he-IL"): string {
   if (typeof iso !== "string") return "";
   const date = new Date(iso);
   if (!Number.isFinite(date.getTime())) return "";
-  const when = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone }).format(date);
-  const zone = new Intl.DateTimeFormat("he-IL", { timeZone, timeZoneName: "long" }).formatToParts(date).find((p) => p.type === "timeZoneName")?.value;
+  const when = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone }).format(date);
+  const zone = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: "long" }).formatToParts(date).find((p) => p.type === "timeZoneName")?.value;
   return zone ? `${when} (${zone})` : when;
 }
 
@@ -32,7 +32,7 @@ export type ScheduledTask = {
 };
 
 /** Approved future publications for this business, soonest first. Another business's rows never appear. */
-export async function listScheduledTasks(workspaceId: string, timeZone = "Asia/Jerusalem"): Promise<ScheduledTask[]> {
+export async function listScheduledTasks(workspaceId: string, timeZone = "Asia/Jerusalem", locale = "he-IL"): Promise<ScheduledTask[]> {
   const d = await db();
   const rows = await d
     .select()
@@ -42,7 +42,7 @@ export async function listScheduledTasks(workspaceId: string, timeZone = "Asia/J
   return rows.map((p) => ({
     id: p.id,
     title: scheduleJobTitle(p.action),
-    when: scheduleWhen(p.action.scheduleAt, timeZone),
+    when: scheduleWhen(p.action.scheduleAt, timeZone, locale),
     conversationId: p.conversationId,
   }));
 }

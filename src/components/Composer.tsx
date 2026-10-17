@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "@/components/Lang";
+import { useLang, useT } from "@/components/Lang";
 import { useEffect, useRef, useState } from "react";
 import { sendFile } from "@/lib/upload-client";
 import type { Autonomy } from "@/lib/autonomy";
@@ -44,6 +44,7 @@ export function Composer({
   autonomy?: { value: Autonomy; onChange: (a: Autonomy) => void };
 }) {
   const t = useT();
+  const lang = useLang();
   const [text, setText] = useState(initialText ?? "");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [menu, setMenu] = useState(false);
@@ -90,7 +91,7 @@ export function Composer({
     const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!Ctor) return;
     const r: SpeechRec = new Ctor();
-    r.lang = "he-IL";
+    r.lang = lang === "he" ? "he-IL" : "en-US";
     r.interimResults = true;
     r.continuous = true;
     baseText.current = text ? `${text.trimEnd()} ` : "";

@@ -120,7 +120,7 @@ function FeedPreview({ m, brand, sponsored }: { m: Media; brand: Brand; sponsore
           {m.cta && (
             <span className="flex shrink-0 items-center gap-0.5 text-[0.82rem] font-semibold text-[#0095f6]">
               {m.cta}
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4 ltr:-scale-x-100" />
             </span>
           )}
         </div>
@@ -308,7 +308,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
             disabled={index === 0}
             className="absolute start-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-[var(--shadow)] transition-opacity disabled:pointer-events-none disabled:opacity-0 sm:flex"
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-5 w-5 ltr:-scale-x-100" />
           </button>
           <button
             type="button"
@@ -317,7 +317,7 @@ function Previews({ card, brand }: { card: Card; brand: Brand }) {
             disabled={index >= media.length - 1}
             className="absolute end-1 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface shadow-[var(--shadow)] transition-opacity disabled:pointer-events-none disabled:opacity-0 sm:flex"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5 ltr:-scale-x-100" />
           </button>
           <div className="mt-3 flex justify-center gap-1">
             {media.map((_, i) => (
@@ -427,7 +427,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
       <dl className="mx-4 mt-3 divide-y divide-line rounded-[12px] border border-line">
         {card.rows.map((r) => (
           <div key={r.label} className="flex items-baseline justify-between gap-6 px-3 py-2">
-            <dt className="shrink-0 text-[14px] text-ink-2">{r.label}</dt>
+            <dt className="shrink-0 text-[14px] text-ink-2">{t(r.label)}</dt>
             <dd className="text-end text-[14.5px] font-medium leading-snug">{r.value}</dd>
           </div>
         ))}
@@ -438,10 +438,10 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
           <div className="flex flex-col gap-2 sm:flex-row">
             <button className="btn btn-primary btn-lg sm:flex-1" disabled={busy} onClick={() => decide("approve")}>
               <Check className="h-4 w-4" strokeWidth={2.4} />
-              {finalOnly ? t("לבנות ולהעלות לאוויר") : card.approveLabel}
+              {finalOnly ? t("לבנות ולהעלות לאוויר") : t(card.approveLabel)}
             </button>
             <button className="btn btn-quiet btn-lg" disabled={busy} onClick={() => decide("decline")}>
-              {card.changeLabel}
+              {t(card.changeLabel)}
             </button>
           </div>
         )}
@@ -497,7 +497,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
         )}
         {view.status === "failed" && (
           <div className="space-y-3">
-            <p className="note note-bad text-[15px] leading-relaxed">{view.error}</p>
+            <p className="note note-bad text-[15px] leading-relaxed">{view.error && t(view.error)}</p>
             {view.needsIdentity && !identitySaved && (
               <div className="rounded-[12px] border border-line p-3">
                 <IdentityPicker
@@ -516,7 +516,7 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
                 <dl className="mt-2 space-y-1">
                   {view.technical.lines.map((l) => (
                     <div key={l.label} className="flex gap-2">
-                      <dt className="shrink-0 text-ink-3">{l.label}:</dt>
+                      <dt className="shrink-0 text-ink-3">{t(l.label)}:</dt>
                       <dd className="min-w-0 select-all break-words font-mono text-[12.5px]" dir="auto">
                         {l.value}
                       </dd>

@@ -24,7 +24,7 @@ const DELEGATIONS: Record<string, string> = {
 };
 
 /** What a step does, without its subject (Mikee or a specialist is put in front). */
-const ACTIONS: Record<string, string> = {
+export const ACTIONS: Record<string, string> = {
   remember: "רושם לעצמו פרט חשוב",
   forget: "מעדכן את מה שהוא יודע",
   update_playbook: "רושם מה את אוהבת, כדי שבפעם הבאה זה יהיה מדויק יותר",
@@ -76,4 +76,23 @@ export function stepLabel(tool: string, agent?: string): string {
     return `מייקי ${ACTIONS[tool] ?? "בודק עוד פרט"}`;
   }
   return `${AGENT_NAMES[agent] ?? "הצוות"} ${ACTIONS[tool] ?? "עובד על החלק שלו"}`;
+}
+
+const ACTORS = ["מייקי", "הצוות", ...Object.values(AGENT_NAMES)];
+
+/**
+ * A step label in the interface language. Labels are composed as "<who> <what>" ("מייקי קורא את האתר"), so when
+ * the whole sentence has no English, the actor and the action are translated apart: "Mikee is reading the website".
+ * In Hebrew `t` returns its key, and the label comes back as it is.
+ */
+export function stepText(label: string, t: (key: string) => string): string {
+  const whole = t(label);
+  if (whole !== label) return whole;
+  for (const who of ACTORS) {
+    if (!label.startsWith(`${who} `)) continue;
+    const action = label.slice(who.length + 1);
+    const done = t(action);
+    if (done !== action) return `${t(who)} is ${done.charAt(0).toLowerCase()}${done.slice(1)}`;
+  }
+  return label;
 }

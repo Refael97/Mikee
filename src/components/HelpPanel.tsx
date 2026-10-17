@@ -80,8 +80,8 @@ export function HelpPanel({ open, onClose, support }: { open: boolean; onClose: 
                 ]}
               />
               <textarea name="body" rows={4} maxLength={4000} required placeholder={t("מה קרה? כמה שיותר פרטים עוזרים לנו")} className="field resize-none" />
-              {state?.error && <p className="note note-bad text-[15px]">{state.error}</p>}
-              {state?.ok && <p className="note text-[15px]">{state.ok}</p>}
+              {state?.error && <p className="note note-bad text-[15px]">{t(state.error)}</p>}
+              {state?.ok && <p className="note text-[15px]">{t(state.ok)}</p>}
               <button className="btn btn-primary w-full" disabled={pending}>
                 {pending ? t("שולח…") : t("שליחה לצוות")}
               </button>

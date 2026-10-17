@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { useT } from "@/components/Lang";
+import { useLang, useT } from "@/components/Lang";
 import {
   type DateRange,
   type RangePreset,
-  MONTHS,
+  monthName,
   RANGE_PRESETS,
   longDate,
   monthGrid,
@@ -34,6 +34,7 @@ const monthOf = (d: string): [number, number] => [Number(d.slice(0, 4)), Number(
  */
 export function DateRangePicker({ value, today, tz, path, extra = "" }: { value: DateRange; today: string; tz: string; path: string; extra?: string }) {
   const t = useT();
+  const lang = useLang();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
@@ -112,7 +113,7 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
         className={`field flex h-10 max-w-full items-center gap-2 !py-0 text-[14.5px] ${pending ? "opacity-70" : ""}`}
       >
         <CalendarDays className="h-4 w-4 shrink-0 text-ink-2" strokeWidth={1.5} />
-        <span className="min-w-0 truncate">{rangeLabel(value)}</span>
+        <span className="min-w-0 truncate">{rangeLabel(value, lang)}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-ink-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} strokeWidth={1.5} />
       </button>
 
@@ -138,7 +139,7 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${on ? "border-ink" : "border-line-strong"}`}>
                       {on && <span className="h-2 w-2 rounded-full bg-ink" />}
                     </span>
-                    <span className="whitespace-nowrap">{p.label}</span>
+                    <span className="whitespace-nowrap">{t(p.label)}</span>
                   </button>
                 );
               })}
@@ -147,10 +148,12 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
             <div className="min-w-0 flex-1 p-4">
               <div className="flex items-center justify-between">
                 <button type="button" aria-label={t("החודש הקודם")} onClick={() => setView((v) => shift(v, -1))} className="btn btn-quiet btn-sm !px-2">
-                  <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+                  <ChevronRight className="h-4 w-4 ltr:hidden" strokeWidth={1.5} />
+                  <ChevronLeft className="h-4 w-4 rtl:hidden" strokeWidth={1.5} />
                 </button>
                 <button type="button" aria-label={t("החודש הבא")} disabled={!canNext} onClick={() => setView((v) => shift(v, 1))} className="btn btn-quiet btn-sm !px-2 disabled:opacity-30">
-                  <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+                  <ChevronLeft className="h-4 w-4 ltr:hidden" strokeWidth={1.5} />
+                  <ChevronRight className="h-4 w-4 rtl:hidden" strokeWidth={1.5} />
                 </button>
               </div>
 
@@ -158,7 +161,7 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
                 {months.map(([y, m], i) => (
                   <div key={`${y}-${m}`} className={i === 0 ? "hidden sm:block" : ""}>
                     <p className="mb-3 text-center text-[15px] font-medium">
-                      {MONTHS[m]} {y}
+                      {monthName(m, lang)} {y}
                     </p>
                     <div className="grid grid-cols-7 text-center text-[12.5px] text-ink-3">
                       {WEEKDAYS.map((w, k) => (
@@ -178,7 +181,7 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
                             key={d}
                             type="button"
                             disabled={future}
-                            aria-label={longDate(d)}
+                            aria-label={longDate(d, lang)}
                             aria-pressed={edge}
                             onClick={() => chooseDay(d)}
                             onMouseEnter={() => anchor && setHover(d)}
@@ -201,11 +204,11 @@ export function DateRangePicker({ value, today, tz, path, extra = "" }: { value:
 
               <div className="mt-5 flex flex-wrap items-center gap-2 text-[14px]">
                 <span className="field !h-9 !w-auto flex-1 !py-0 leading-9" aria-label={t("מתאריך")}>
-                  {draft.preset === "maximum" && !anchor ? t("כל התקופה") : shortDate(lo)}
+                  {draft.preset === "maximum" && !anchor ? t("כל התקופה") : shortDate(lo, lang)}
                 </span>
                 <span className="text-ink-3">{t("עד")}</span>
                 <span className="field !h-9 !w-auto flex-1 !py-0 leading-9" aria-label={t("עד תאריך")}>
-                  {draft.preset === "maximum" && !anchor ? t("היום") : shortDate(hi)}
+                  {draft.preset === "maximum" && !anchor ? t("היום") : shortDate(hi, lang)}
                 </span>
               </div>
 

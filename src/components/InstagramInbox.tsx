@@ -3,7 +3,7 @@
 import { Picker } from "@/components/Picker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
-import { useT } from "@/components/Lang";
+import { useLocale, useT } from "@/components/Lang";
 import type { T } from "@/lib/i18n";
 
 type Topic = "address" | "hours" | "phone" | "website" | "other";
@@ -40,10 +40,11 @@ function why(m: Msg, t: T): string {
   return t("אין לשאלה הזאת תשובה ברורה במידע שאישרת.");
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+const when = (iso: string, locale: string) => new Date(iso).toLocaleString(locale, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export function InstagramInbox({ connected }: { connected: boolean }) {
   const t = useT();
+  const locale = useLocale();
   const [data, setData] = useState<Data | null>(null);
   const [facts, setFacts] = useState<Fact[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -211,7 +212,7 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
           <div className="card divide-y divide-line">
             {answered.map((m) => (
               <div key={m.id} className="space-y-1 p-4">
-                <p className="meta">{when(m.sentAt)}</p>
+                <p className="meta">{when(m.sentAt, locale)}</p>
                 <p>{m.text}</p>
                 <p className="text-[15px] text-ink-2">{t("התשובה:")} {m.reply}</p>
               </div>
@@ -228,7 +229,7 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
             {mine.map((m) => (
               <div key={m.id} className="flex items-start justify-between gap-3 p-4">
                 <div className="min-w-0 space-y-1">
-                  <p className="meta">{when(m.sentAt)}</p>
+                  <p className="meta">{when(m.sentAt, locale)}</p>
                   <p>{m.text ?? t("תמונה או קובץ")}</p>
                   {m.reply && <p className="text-[15px] text-ink-2">{t("ענית:")} {m.reply}</p>}
                 </div>
@@ -249,11 +250,12 @@ export function InstagramInbox({ connected }: { connected: boolean }) {
 
 function Waiting({ m, busy, run }: { m: Msg; busy: boolean; run: (body: unknown, done?: string) => Promise<void> }) {
   const t = useT();
+  const locale = useLocale();
   const [text, setText] = useState("");
   return (
     <div className="card space-y-3 p-5">
       <div className="flex items-center justify-between gap-3">
-        <span className="meta">{when(m.sentAt)}</span>
+        <span className="meta">{when(m.sentAt, locale)}</span>
         <span className="tag tag-warn">{t("מחכה לך")}</span>
       </div>
       <p className="whitespace-pre-line">{m.text ?? t("תמונה או קובץ בלי טקסט")}</p>

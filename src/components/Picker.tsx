@@ -79,9 +79,9 @@ export function Picker({
         aria-haspopup="listbox"
         onClick={() => (open ? setOpen(false) : show())}
         onKeyDown={onKey}
-        className={`field flex items-center gap-2 text-right ${open ? "!rounded-b-none !border-blue !shadow-none" : ""}`}
+        className={`field flex items-center gap-2 text-start ${open ? "!rounded-b-none !border-blue !shadow-none" : ""}`}
       >
-        <span dir="auto" className="min-w-0 flex-1 truncate text-right">
+        <span dir="auto" className="min-w-0 flex-1 truncate text-start">
           {chosen?.[1] ?? ""}
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-ink-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} strokeWidth={1.5} />
@@ -102,7 +102,7 @@ export function Picker({
               onClick={() => pick(v)}
               className={`flex h-10 cursor-pointer items-center gap-2 px-3.5 text-[15px] ${i === active ? "bg-surface-2" : ""}`}
             >
-              <span dir="auto" className="min-w-0 flex-1 truncate text-right">
+              <span dir="auto" className="min-w-0 flex-1 truncate text-start">
                 {l}
               </span>
               {v === current && <Check className="h-4 w-4 shrink-0 text-ink-2" strokeWidth={1.5} />}

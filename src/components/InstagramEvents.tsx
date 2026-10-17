@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { useT } from "@/components/Lang";
+import { useLocale, useT } from "@/components/Lang";
 
 type Ev = { id: string; title: string; startTime: string; endTime?: string };
 type Details = Ev & { notification_subtypes?: string[]; notification_target_time?: string };
 
-const when = (iso?: string) => (iso ? new Date(iso).toLocaleString("he-IL", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
+const when = (iso: string | undefined, locale: string) => (iso ? new Date(iso).toLocaleString(locale, { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 
 /** The local date and time as ISO 8601 with this browser's offset, the way Meta takes a start time. */
 function isoWithOffset(date: string, time: string): string {
@@ -25,6 +25,7 @@ function isoWithOffset(date: string, time: string): string {
  */
 export function InstagramEvents({ connected }: { connected: boolean }) {
   const t = useT();
+  const locale = useLocale();
   const [events, setEvents] = useState<Ev[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, Details>>({});
@@ -84,16 +85,16 @@ export function InstagramEvents({ connected }: { connected: boolean }) {
         {events?.length === 0 && <p className="p-5 text-ink-3">{t("אין אירועים קרובים.")}</p>}
         {events?.map((ev) => (
           <div key={ev.id}>
-            <button type="button" className="flex w-full items-center gap-3 px-5 py-3 text-right" aria-expanded={open === ev.id} onClick={() => void toggle(ev.id)}>
+            <button type="button" className="flex w-full items-center gap-3 px-5 py-3 text-start" aria-expanded={open === ev.id} onClick={() => void toggle(ev.id)}>
               <span dir="auto" className="min-w-0 flex-1 truncate">{ev.title}</span>
-              <span className="text-[14px] text-ink-3">{when(ev.startTime)}</span>
+              <span className="text-[14px] text-ink-3">{when(ev.startTime, locale)}</span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-ink-3 transition-transform ${open === ev.id ? "rotate-180" : ""}`} strokeWidth={1.5} />
             </button>
             {open === ev.id && (
               <dl className="space-y-1 px-5 pb-4 text-[14.5px]">
                 <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("שם")}</dt><dd dir="auto">{ev.title}</dd></div>
-                <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("מתחיל")}</dt><dd>{when(ev.startTime)}</dd></div>
-                {(details[ev.id]?.endTime ?? ev.endTime) && <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("נגמר")}</dt><dd>{when(details[ev.id]?.endTime ?? ev.endTime)}</dd></div>}
+                <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("מתחיל")}</dt><dd>{when(ev.startTime, locale)}</dd></div>
+                {(details[ev.id]?.endTime ?? ev.endTime) && <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("נגמר")}</dt><dd>{when(details[ev.id]?.endTime ?? ev.endTime, locale)}</dd></div>}
                 <div className="flex gap-2"><dt className="w-24 text-ink-3">{t("מזהה")}</dt><dd dir="ltr" className="num text-ink-2">{ev.id}</dd></div>
               </dl>
             )}

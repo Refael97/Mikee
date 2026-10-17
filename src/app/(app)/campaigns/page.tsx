@@ -10,7 +10,7 @@ import { remember, rememberedAge } from "@/lib/ttl";
 import { Freshness } from "@/components/Freshness";
 import { RetryButton } from "@/components/RetryButton";
 import { CampaignsShell } from "./shell";
-import { getT } from "@/lib/i18n/server";
+import { getLocale, getT } from "@/lib/i18n/server";
 
 const VERDICT = {
   star: { label: "מוביל", cls: "tag-good" },
@@ -20,11 +20,12 @@ const VERDICT = {
 };
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
-const dateHe = (iso?: string) => (iso ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short" }).format(new Date(iso)) : null);
+const dateHe = (iso: string | undefined, locale: string) => (iso ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(new Date(iso)) : null);
 const cleanName = (n: string) => n.replace(/^Mikee · /, "").replace(/ · (mk-\w+|\d{4}-\d{2}-\d{2})$/, "");
 
 async function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
   const t = await getT();
+  const locale = await getLocale();
   const g = GOAL_LABEL[c.goal];
   const n = c.numbers;
   const status = { t: DELIVERY_LABEL[c.delivery], cls: ({ live: "tag-good", paused: "tag-warn", review: "tag-warn", issue: "tag-bad", ended: "tag-quiet" } as const)[c.delivery] };
@@ -34,7 +35,7 @@ async function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
         <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] items-center gap-x-6 px-4 py-3 hover:bg-surface-2 sm:grid-cols-[minmax(0,1fr)_110px_110px_130px] [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <ChevronLeft className="h-4 w-4 shrink-0 text-ink-3 transition-transform group-open:-rotate-90" strokeWidth={1.75} />
+              <ChevronLeft className="h-4 w-4 shrink-0 text-ink-3 transition-transform group-open:-rotate-90 ltr:-scale-x-100 ltr:group-open:rotate-90" strokeWidth={1.75} />
               <span className="truncate font-medium">{cleanName(c.name)}</span>
               <span className={`tag ${status.cls}`}>{t(status.t)}</span>
             </div>
@@ -83,7 +84,7 @@ async function Row({ c, currency }: { c: PlatformCampaign; currency: string }) {
               [t("תדירות"), n.frequency.toFixed(1)],
               [t(g.plural), fmt(n.results)],
               [t("הכנסות"), n.revenue ? money(n.revenue, currency) : "—"],
-              [t("תאריכים"), `${dateHe(c.starts) ?? "—"}${dateHe(c.ends) ? ` ${t("עד")} ${dateHe(c.ends)}` : ""}`],
+              [t("תאריכים"), `${dateHe(c.starts, locale) ?? "—"}${dateHe(c.ends, locale) ? ` ${t("עד")} ${dateHe(c.ends, locale)}` : ""}`],
             ].map(([k, v]) => (
               <div key={k}>
                 <dt className="text-[12.5px] text-ink-3">{k}</dt>

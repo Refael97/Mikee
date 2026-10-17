@@ -246,7 +246,7 @@ export function Intake() {
           </div>
           {i > 0 && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setI(i - 1)} disabled={pending}>
-              <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+              <ArrowRight className="h-4 w-4 ltr:-scale-x-100" strokeWidth={1.5} />
               {t("חזרה")}
             </button>
           )}

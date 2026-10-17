@@ -18,7 +18,7 @@ export function ForgotForm() {
         <input name="password" type="password" required minLength={10} maxLength={200} autoComplete="new-password" className="field" dir="ltr" />
         <span className="block text-[13px] text-ink-3">{t("10 תווים לפחות")}</span>
       </label>
-      {error && <p className="note note-bad text-[14px]">{error}</p>}
+      {error && <p className="note note-bad text-[14px]">{t(error)}</p>}
       <button className="btn btn-primary btn-lg w-full" disabled={pending}>
         {pending ? t("שומרים…") : t("שמירה וכניסה")}
       </button>

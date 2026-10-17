@@ -52,7 +52,7 @@ export default async function BrandPage() {
               const pct = p.total ? (p.done / p.total) * 100 : 0;
               return (
                 <li key={p.id} className={`px-3 py-3.5 sm:px-4 ${i > 0 ? "border-s border-line" : ""}`}>
-                  <p className={`text-[13.5px] leading-tight sm:text-[14.5px] ${isCurrent ? "font-semibold text-ink" : i < currentIndex ? "text-ink-2" : "text-ink-3"}`}>{p.title}</p>
+                  <p className={`text-[13.5px] leading-tight sm:text-[14.5px] ${isCurrent ? "font-semibold text-ink" : i < currentIndex ? "text-ink-2" : "text-ink-3"}`}>{t(p.title)}</p>
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-2">
                     <div className={`h-full rounded-full ${i < currentIndex ? "bg-good" : "bg-brand"}`} style={{ width: `${pct}%` }} />
                   </div>
@@ -66,8 +66,8 @@ export default async function BrandPage() {
 
           <div className="grid lg:grid-cols-2">
             <div className="p-4 sm:p-5 lg:border-e lg:border-line">
-              <h3 className="font-semibold">{current?.title}</h3>
-              <p className="text-[14px] text-ink-3">{current?.hint}</p>
+              <h3 className="font-semibold">{current && t(current.title)}</h3>
+              <p className="text-[14px] text-ink-3">{current && t(current.hint)}</p>
               <ul className="mt-3 space-y-0.5">
                 {current?.items.map((it) => {
                   const st = STATUS[it.status];
@@ -75,7 +75,7 @@ export default async function BrandPage() {
                     <li key={it.id} className="flex items-start gap-2.5 py-1.5">
                       <st.icon className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${st.cls}`} strokeWidth={1.75} aria-label={t(st.label)} />
                       <div className="min-w-0">
-                        <p className={`text-[15px] ${it.status === "done" || it.status === "skipped" ? "text-ink-3" : "font-medium"}`}>{it.title}</p>
+                        <p className={`text-[15px] ${it.status === "done" || it.status === "skipped" ? "text-ink-3" : "font-medium"}`}>{t(it.title)}</p>
                         {it.note && <p className="text-[13.5px] text-ink-2">{it.note}</p>}
                       </div>
                     </li>
@@ -88,10 +88,10 @@ export default async function BrandPage() {
               <ul className="mt-2 divide-y divide-line">
                 {journey.nextUp.map((it) => (
                   <li key={it.id} className="py-3">
-                    <p className="font-medium">{it.title}</p>
-                    <p className="mt-0.5 text-[14.5px] text-ink-2">{it.why}</p>
+                    <p className="font-medium">{t(it.title)}</p>
+                    <p className="mt-0.5 text-[14.5px] text-ink-2">{t(it.why)}</p>
                     <Link href={`/mikee?q=${encodeURIComponent(`בוא נדבר על הצעד הבא: ${it.title}`)}`} className="link mt-1.5 inline-flex items-center gap-1 text-[14.5px]">
-                      {t("לדבר על זה עם מייקי")} <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                      {t("לדבר על זה עם מייקי")} <ArrowLeft className="h-4 w-4 ltr:-scale-x-100" strokeWidth={1.75} />
                     </Link>
                   </li>
                 ))}

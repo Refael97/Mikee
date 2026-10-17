@@ -60,8 +60,8 @@ export function AutonomyPicker({ value, onChange }: { value: Autonomy; onChange:
               >
                 <I className="h-3.5 w-3.5 shrink-0 text-ink-2" strokeWidth={1.5} />
                 <span className="min-w-0 flex-1 whitespace-nowrap leading-tight">
-                  <span className="block text-[12px] text-ink">{a.label}</span>
-                  <span className="block text-[11px] text-ink-3">{a.description}</span>
+                  <span className="block text-[12px] text-ink">{t(a.label)}</span>
+                  <span className="block text-[11px] text-ink-3">{t(a.description)}</span>
                 </span>
                 <Check className={`ms-2 h-3 w-3 shrink-0 text-ink ${on ? "" : "invisible"}`} strokeWidth={2} />
               </button>

@@ -370,10 +370,10 @@ export function Chat({
                     <li key={m.title}>
                       <button onClick={() => submit(`בוא נדבר על הצעד הבא: ${m.title}`)} className="group flex w-full items-center gap-3 px-4 py-3 text-start hover:bg-surface-2">
                         <span className="min-w-0 flex-1">
-                          <span className="block font-medium">{m.title}</span>
-                          <span className="mt-0.5 block text-[14.5px] text-ink-2">{m.why}</span>
+                          <span className="block font-medium">{t(m.title)}</span>
+                          <span className="mt-0.5 block text-[14.5px] text-ink-2">{t(m.why)}</span>
                         </span>
-                        <ArrowLeft className="h-4 w-4 shrink-0 text-ink-3 transition-transform group-hover:-translate-x-0.5 group-hover:text-brand" strokeWidth={1.75} />
+                        <ArrowLeft className="h-4 w-4 shrink-0 text-ink-3 transition-transform group-hover:text-brand rtl:group-hover:-translate-x-0.5 ltr:-scale-x-100 ltr:group-hover:translate-x-0.5" strokeWidth={1.75} />
                       </button>
                     </li>
                   ))}
@@ -445,7 +445,7 @@ export function Chat({
                     {prev?.type === "user" ? <MikeeMark active={item.id === activeMark} state={item.id === activeMark && typing ? "listening" : "idle"} /> : <span className="w-7 shrink-0" />}
                     <span className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-good" strokeWidth={2.6} />
-                      {item.label}
+                      {t(item.label)}
                     </span>
                   </div>
                 );

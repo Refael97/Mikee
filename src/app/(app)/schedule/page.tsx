@@ -4,12 +4,12 @@ import { Page, PageHeader } from "@/components/Page";
 import { ScheduleList } from "@/components/ScheduleList";
 import { InstagramEvents } from "@/components/InstagramEvents";
 import { getConnection, type MetaConfig } from "@/lib/connections";
-import { getT } from "@/lib/i18n/server";
+import { getLocale, getT } from "@/lib/i18n/server";
 
 export default async function SchedulePage() {
   const t = await getT();
   const { workspace } = await requireSession();
-  const [tasks, meta] = await Promise.all([listScheduledTasks(workspace.id, workspace.timezone), getConnection<MetaConfig>(workspace.id, "meta")]);
+  const [tasks, meta] = await Promise.all([listScheduledTasks(workspace.id, workspace.timezone, await getLocale()), getConnection<MetaConfig>(workspace.id, "meta")]);
   return (
     <Page narrow>
       <PageHeader title={t("תזמון")} lead={t("הפרסומים שמייקי יעלה במועד שאישרת. אפשר לבטל כל עוד הפרסום לא התחיל.")} />

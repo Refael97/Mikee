@@ -16,7 +16,7 @@ import { MikeeAvatar } from "@/components/MikeeAvatar";
 import { remember, rememberedAge } from "@/lib/ttl";
 import { Freshness } from "@/components/Freshness";
 import { RetryButton } from "@/components/RetryButton";
-import { getT } from "@/lib/i18n/server";
+import { getLocale, getT } from "@/lib/i18n/server";
 
 const fmt = (n: number) => new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 }).format(n);
 
@@ -56,7 +56,7 @@ async function Kpis({ data, workspaceId }: { data: Promise<Data>; workspaceId: s
     <section className="card grid grid-cols-2 lg:grid-cols-4" aria-label={t("המספרים העיקריים")}>
       {d.kpis.map((k, i) => (
         <div key={k.id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
-          <div className="label">{k.label}</div>
+          <div className="label">{t(k.label)}</div>
           <div className="num mt-1.5 text-[26px] font-semibold leading-tight">{show(k, d.currency)}</div>
           <div className="mt-2 flex items-center gap-2">
             <Change k={k} />
@@ -92,7 +92,7 @@ export default async function ResultsPage() {
         .where(and(eq(schema.proposals.workspaceId, workspace.id), eq(schema.proposals.status, "pending"))),
     ),
   ]);
-  const updated = spec?.updatedAt ? new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long" }).format(new Date(spec.updatedAt)) : null;
+  const updated = spec?.updatedAt ? new Intl.DateTimeFormat(await getLocale(), { day: "numeric", month: "long" }).format(new Date(spec.updatedAt)) : null;
   const next = journey?.nextUp[0];
 
   return (
@@ -121,9 +121,9 @@ export default async function ResultsPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4">
             {(await dashboardSpec(workspace.id)).kpis.map((id, i) => (
               <div key={id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
-                <div className="label">{KPIS[id].label}</div>
+                <div className="label">{t(KPIS[id].label)}</div>
                 <div className="num mt-1.5 text-[26px] font-semibold leading-tight text-ink-3">—</div>
-                <div className="mt-2 text-[13px] text-ink-3">{KPIS[id].hint}</div>
+                <div className="mt-2 text-[13px] text-ink-3">{t(KPIS[id].hint)}</div>
               </div>
             ))}
           </div>
@@ -135,7 +135,7 @@ export default async function ResultsPage() {
               <section className="card grid grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label={t("המספרים העיקריים")}>
                 {spec.kpis.map((id, i) => (
                   <div key={id} className={`p-5 ${i % 2 ? "border-s border-line" : ""} ${i >= 2 ? "border-t border-line lg:border-t-0" : ""} ${i === 2 ? "lg:border-s" : ""}`}>
-                    <div className="label">{KPIS[id].label}</div>
+                    <div className="label">{t(KPIS[id].label)}</div>
                     <div className="mt-2.5">
                       <Sk w="5.5rem" h="24px" />
                     </div>
@@ -175,7 +175,7 @@ export default async function ResultsPage() {
                 <li key={p.id}>
                   <Link href={p.conv ? `/mikee/${p.conv}` : "/mikee"} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-surface-2">
                     <span className="min-w-0 truncate font-medium">{plainTitle(String((p.card as { title?: string }).title ?? ""))}</span>
-                    <ArrowLeft className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.75} />
+                    <ArrowLeft className="h-4 w-4 shrink-0 text-ink-3 ltr:-scale-x-100" strokeWidth={1.75} />
                   </Link>
                 </li>
               ))}
@@ -189,10 +189,10 @@ export default async function ResultsPage() {
           <div className="card p-4">
             {next ? (
               <>
-                <p className="font-semibold">{next.title}</p>
-                <p className="mt-1 text-[15px] text-ink-2">{next.why}</p>
+                <p className="font-semibold">{t(next.title)}</p>
+                <p className="mt-1 text-[15px] text-ink-2">{t(next.why)}</p>
                 <Link href={`/mikee?q=${encodeURIComponent(`בוא נדבר על הצעד הבא: ${next.title}`)}`} className="link mt-3 inline-flex items-center gap-1 text-[15px]">
-                  {t("לדבר על זה עם מייקי")} <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                  {t("לדבר על זה עם מייקי")} <ArrowLeft className="h-4 w-4 ltr:-scale-x-100" strokeWidth={1.75} />
                 </Link>
               </>
             ) : (

@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useT } from "@/components/Lang";
+import { useLocale, useT } from "@/components/Lang";
 
 type Point = { date: string; value: number };
 
-const dayLabel = (iso: string) => new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short" }).format(new Date(iso));
+const dayLabel = (iso: string, locale: string) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(new Date(iso));
 
 /**
  * A plain line chart for a daily series, read right to left like the page: day one on the right edge,
@@ -13,6 +13,7 @@ const dayLabel = (iso: string) => new Intl.DateTimeFormat("he-IL", { day: "numer
  */
 export function LineChart({ points, unit, height = 180 }: { points: Point[]; unit: string; height?: number }) {
   const t = useT();
+  const locale = useLocale();
   const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const W = 600;
@@ -47,7 +48,7 @@ export function LineChart({ points, unit, height = 180 }: { points: Point[]; uni
       onTouchMove={(e) => onMove(e.touches[0].clientX)}
       onTouchEnd={() => setHover(null)}
     >
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block w-full" style={{ height }} role="img" aria-label={`${unit} ביום`}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block w-full" style={{ height }} role="img" aria-label={t("{unit} ביום", { unit })}>
         <defs>
           <linearGradient id="lc-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="var(--brand)" stopOpacity="0.14" />
@@ -68,13 +69,13 @@ export function LineChart({ points, unit, height = 180 }: { points: Point[]; uni
             className="pop-over pointer-events-none absolute top-0 z-10 -translate-x-1/2 px-2.5 py-1.5 text-[13px] whitespace-nowrap"
             style={{ left: `${Math.min(88, Math.max(12, (x(hover) / W) * 100))}%` }}
           >
-            <span className="text-ink-3">{dayLabel(h.date)}</span> · <span className="num font-semibold">{new Intl.NumberFormat("he-IL").format(h.value)}</span> {unit}
+            <span className="text-ink-3">{dayLabel(h.date, locale)}</span> · <span className="num font-semibold">{new Intl.NumberFormat("he-IL").format(h.value)}</span> {unit}
           </div>
         </>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between text-[12px] text-ink-3">
-        <span>{dayLabel(points[0].date)}</span>
-        <span>{dayLabel(points[points.length - 1].date)}</span>
+        <span>{dayLabel(points[0].date, locale)}</span>
+        <span>{dayLabel(points[points.length - 1].date, locale)}</span>
       </div>
       <span className="num pointer-events-none absolute end-0 top-0 text-[12px] text-ink-3">{new Intl.NumberFormat("he-IL").format(nice)}</span>
     </div>

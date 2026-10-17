@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlatformLogo } from "./PlatformLogo";
 import { EyeOff, Eye, Heart, Reply, Trash2, ExternalLink, Pencil } from "lucide-react";
-import { useT } from "@/components/Lang";
+import { useLocale, useT } from "@/components/Lang";
 
 type ReplyItem = { id: string; author: string; text: string; at: string; mine: boolean };
 type Comment = { id: string; author: string; text: string; at: string; hidden: boolean; likes: number; liked: boolean; replies: ReplyItem[] };
 type Post = { platform: "facebook" | "instagram"; postId: string; text: string; at: string; link?: string; image?: string; liked?: boolean; comments: Comment[] };
 
-const when = (iso: string) => new Date(iso).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+const when = (iso: string, locale: string) => new Date(iso).toLocaleString(locale, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /**
  * The comments on the latest Facebook and Instagram posts, in one list: the owner replies, hides, likes or
@@ -18,6 +18,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("he-IL", { day: "nume
  */
 export function CommentsInbox({ connected }: { connected: boolean }) {
   const t = useT();
+  const locale = useLocale();
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export function CommentsInbox({ connected }: { connected: boolean }) {
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-1.5 text-[13px] text-ink-3">
                 <PlatformLogo platform={p.platform} className="h-3.5 w-3.5 shrink-0" />
-                {p.platform === "instagram" ? t("אינסטגרם") : t("פייסבוק")} · {when(p.at)}
+                {p.platform === "instagram" ? t("אינסטגרם") : t("פייסבוק")} · {when(p.at, locale)}
               </p>
               <p dir="auto" className="truncate text-[15px]">{p.text || t("פוסט בלי טקסט")}</p>
             </div>
@@ -139,7 +140,7 @@ export function CommentsInbox({ connected }: { connected: boolean }) {
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] text-ink-3">
-                      <span dir="auto" className="text-ink-2">{c.author || t("משתמש")}</span> · {when(c.at)}
+                      <span dir="auto" className="text-ink-2">{c.author || t("משתמש")}</span> · {when(c.at, locale)}
                       {c.hidden && t(" · מוסתרת")}
                     </p>
                     <p dir="auto" className="mt-0.5 whitespace-pre-wrap text-[15px]">{c.text}</p>

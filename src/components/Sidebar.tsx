@@ -96,7 +96,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       />
       <aside
         className={`fixed inset-y-0 start-0 z-50 flex w-[300px] flex-col bg-surface p-3 transition-transform duration-300 ease-[var(--ease)] lg:sticky lg:top-[10px] lg:z-0 lg:h-[calc(100dvh-20px)] lg:translate-x-0 lg:rounded-[18px] lg:shadow-[var(--shadow)] ${
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "rtl:translate-x-full ltr:-translate-x-full"
         }`}
       >
         <div className="mb-3 flex items-center gap-2 lg:hidden">
@@ -145,7 +145,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                             }`}
                           >
                             {c.unread && !active && <span className="pop h-2 w-2 shrink-0 rounded-full bg-blue" aria-label={t("חדש")} />}
-                            <span className={`min-w-0 flex-1 truncate text-[16px] lg:text-[14.5px] ${c.unread && !active ? "font-medium" : ""}`}>{c.title}</span>
+                            <span className={`min-w-0 flex-1 truncate text-[16px] lg:text-[14.5px] ${c.unread && !active ? "font-medium" : ""}`}>{t(c.title)}</span>
                             <span className="num shrink-0 text-[12.5px] text-ink-3 transition-opacity group-hover:opacity-0">{when(c.updatedAt, t, lang)}</span>
                           </Link>
                           <button

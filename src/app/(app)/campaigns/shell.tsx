@@ -75,7 +75,7 @@ export async function CampaignsShell({ range, today, tz, all, connected, rows, c
       <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-line">
         {PLATFORMS.map((pl) => (
           <span key={pl.id} className={`-mb-px flex h-10 items-center gap-2 border-b-2 px-1 text-[14.5px] ${pl.id === "meta" ? "border-brand font-medium text-ink" : "border-transparent text-ink-3"}`}>
-            {pl.name}
+            {t(pl.name)}
             {!pl.ready && <span className="tag tag-quiet">{t("בקרוב")}</span>}
             {pl.ready && pl.id === "meta" && !connected && <span className="tag tag-warn">{t("לא מחובר")}</span>}
           </span>

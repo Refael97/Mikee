@@ -20,7 +20,7 @@ function UsernameField() {
         .then((x) => x.json())
         .catch(() => null);
       if (!r) return setCheck({ state: "idle" });
-      setCheck(r.available ? { state: "free", message: t("פנוי") } : { state: "taken", message: r.problem ?? r.error ?? t("תפוס") });
+      setCheck(r.available ? { state: "free", message: t("פנוי") } : { state: "taken", message: t(r.problem ?? r.error ?? "תפוס") });
     }, 350);
     return () => clearTimeout(timer);
   }, [value]);
@@ -76,7 +76,7 @@ export function SignupForm() {
           {t("קראתי ואני מסכימה ל")}<a href="/site/terms" target="_blank" className="underline underline-offset-2">{t("תנאי השימוש")}</a> {t("ול")}<a href="/site/privacy" target="_blank" className="underline underline-offset-2">{t("מדיניות הפרטיות")}</a>{t(", ובהם האחריות שלי לבדוק כל תוכן והמלצה של מייקי לפני שאני מאשרת.")}
         </span>
       </label>
-      {error && <p className="note note-bad text-[14px]">{error}</p>}
+      {error && <p className="note note-bad text-[14px]">{t(error)}</p>}
       <button className="btn btn-primary btn-lg w-full" disabled={pending}>
         {pending ? t("פותחים חשבון…") : t("פתיחת חשבון")}
       </button>

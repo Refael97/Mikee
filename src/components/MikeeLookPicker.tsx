@@ -51,7 +51,7 @@ export function MikeeLookPicker() {
               }`}
             >
               <MikeeAvatar size={72} look={l.id} />
-              <span className="text-[15px] text-ink">{l.name}</span>
+              <span className="text-[15px] text-ink">{t(l.name)}</span>
               {on && (
                 <span className="absolute end-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-surface" aria-hidden>
                   <Check className="h-3 w-3" strokeWidth={2} />

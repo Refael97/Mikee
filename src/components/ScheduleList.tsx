@@ -44,7 +44,7 @@ export function ScheduleList({ tasks }: { tasks: ScheduledTask[] }) {
       {rows.map((row) => (
         <li key={row.id} className="card flex items-center gap-4 px-4 py-4 sm:px-5">
           <div className="min-w-0 flex-1">
-            <p className="text-[17px] font-light leading-snug text-ink">{row.title}</p>
+            <p className="text-[17px] font-light leading-snug text-ink">{t(row.title)}</p>
             <p className="meta mt-1 tabular-nums">{row.when}</p>
             {errors[row.id] && <p className="mt-1.5 text-[13.5px] text-bad">{errors[row.id]}</p>}
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/Lang";
 
 /**
  * The page's sections as a list beside it: a click scrolls to one, and the section being read is the one
@@ -8,6 +9,7 @@ import { useEffect, useState } from "react";
  */
 export function SectionNav({ items }: { items: { id: string; label: string }[] }) {
   const [active, setActive] = useState(items[0]?.id);
+  const t = useT();
 
   useEffect(() => {
     const pick = () => {
@@ -40,7 +42,7 @@ export function SectionNav({ items }: { items: { id: string; label: string }[] }
   };
 
   return (
-    <nav aria-label="בעמוד הזה" className="sticky top-8 hidden lg:block">
+    <nav aria-label={t("בעמוד הזה")} className="sticky top-8 hidden lg:block">
       <ul className="space-y-1 border-s border-line">
         {items.map(({ id, label }) => {
           const on = id === active;

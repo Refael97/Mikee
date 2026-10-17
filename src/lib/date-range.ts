@@ -3,6 +3,8 @@
  * calendar. Dates are plain YYYY-MM-DD days in the business's time zone; "today" is passed in, so the same
  * code runs on the server and in the browser and both agree.
  */
+import { type Lang, translator } from "./i18n";
+
 export type RangePreset =
   | "today"
   | "yesterday"
@@ -105,25 +107,32 @@ export const rangeQuery = (r: DateRange) => (r.preset ? `p=${r.preset}` : `since
 
 const MONTHS_SHORT = ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"];
 export const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+const MONTHS_SHORT_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** The month's name in the interface language. */
+export const monthName = (m: number, lang: Lang = "he", short = false) =>
+  lang === "he" ? (short ? MONTHS_SHORT : MONTHS)[m] : (short ? MONTHS_SHORT_EN : MONTHS_EN)[m];
 
 const parts = (d: string) => ({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) - 1, day: Number(d.slice(8, 10)) });
-/** "17 בספט׳ 2026" */
-export const shortDate = (d: string) => {
+/** "17 בספט׳ 2026" / "17 Sep 2026" */
+export const shortDate = (d: string, lang: Lang = "he") => {
   const { y, m, day } = parts(d);
-  return `${day} ב${MONTHS_SHORT[m]} ${y}`;
+  return lang === "he" ? `${day} ב${MONTHS_SHORT[m]} ${y}` : `${day} ${MONTHS_SHORT_EN[m]} ${y}`;
 };
-/** "17 בספטמבר 2026" */
-export const longDate = (d: string) => {
+/** "17 בספטמבר 2026" / "17 September 2026" */
+export const longDate = (d: string, lang: Lang = "he") => {
   const { y, m, day } = parts(d);
-  return `${day} ב${MONTHS[m]} ${y}`;
+  return lang === "he" ? `${day} ב${MONTHS[m]} ${y}` : `${day} ${MONTHS_EN[m]} ${y}`;
 };
 
 /** What the button says: the preset's name and its days, or just the days. */
-export function rangeLabel(r: DateRange): string {
-  const days = r.since === r.until ? shortDate(r.since) : `${shortDate(r.since)} עד ${shortDate(r.until)}`;
-  if (r.preset === "maximum") return "כל התקופה";
+export function rangeLabel(r: DateRange, lang: Lang = "he"): string {
+  const t = translator(lang);
+  const days = r.since === r.until ? shortDate(r.since, lang) : `${shortDate(r.since, lang)} ${t("עד")} ${shortDate(r.until, lang)}`;
+  if (r.preset === "maximum") return t("כל התקופה");
   const name = RANGE_PRESETS.find((p) => p.key === r.preset)?.label;
-  return name ? `${name}: ${days}` : days;
+  return name ? `${t(name)}: ${days}` : days;
 }
 
 /** The days of one month laid out in weeks from Sunday, with blanks before the first. */

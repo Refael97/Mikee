@@ -83,7 +83,7 @@ export default async function AccountPage() {
       <Section id="usage" title={t("המנוי והשימוש")} hint={t("המכסה החודשית לכל מה שמייקי והצוות שלו עושים. תקציב הפרסום משולם ישירות למטא ולא נספר כאן.")}>
         <div className="max-w-xl space-y-5">
           <div>
-            <p className="font-medium">{plan.name}</p>
+            <p className="font-medium">{t(plan.name)}</p>
             {guidance && (
               <div className="mt-2 text-[15px] text-ink-2">
                 <p>
@@ -91,7 +91,7 @@ export default async function AccountPage() {
                 </p>
                 <ul className="mt-1 list-disc space-y-0.5 ps-5 text-[14px] text-ink-3">
                   {GUIDANCE_INCLUDES.map((x) => (
-                    <li key={x}>{x}</li>
+                    <li key={x}>{t(x)}</li>
                   ))}
                 </ul>
               </div>
@@ -130,8 +130,8 @@ export default async function AccountPage() {
             return (
               <li key={c.id} className="flex items-center justify-between gap-4 py-2.5">
                 <span>
-                  <span className="block font-medium">{c.name}</span>
-                  <span className="text-[14px] text-ink-3">{c.does}</span>
+                  <span className="block font-medium">{t(c.name)}</span>
+                  <span className="text-[14px] text-ink-3">{t(c.does)}</span>
                 </span>
                 <span className={`tag shrink-0 ${!conn ? "tag-quiet" : conn.status === "broken" ? "tag-bad" : "tag-good"}`}>{state}</span>
               </li>

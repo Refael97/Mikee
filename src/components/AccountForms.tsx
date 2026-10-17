@@ -25,8 +25,8 @@ export function ProfileForm({ name, email, username }: { name: string; email: st
         <button className="btn btn-primary" disabled={pending}>
           {t("שמירה")}
         </button>
-        {state?.ok && <span className="tag tag-good">{state.ok}</span>}
-        {state?.error && <span className="tag tag-bad">{state.error}</span>}
+        {state?.ok && <span className="tag tag-good">{t(state.ok)}</span>}
+        {state?.error && <span className="tag tag-bad">{t(state.error)}</span>}
       </div>
     </form>
   );
@@ -56,8 +56,8 @@ export function PasswordForm({ username }: { username?: string }) {
         <button className="btn btn-primary" disabled={pending}>
           {t("החלפת סיסמה")}
         </button>
-        {state?.ok && <span className="tag tag-good">{state.ok}</span>}
-        {state?.error && <span className="tag tag-bad">{state.error}</span>}
+        {state?.ok && <span className="tag tag-good">{t(state.ok)}</span>}
+        {state?.error && <span className="tag tag-bad">{t(state.error)}</span>}
       </div>
     </form>
   );

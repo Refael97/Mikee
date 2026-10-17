@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { splitReplies, stripReplies } from "@/lib/replies";
 import { useT } from "@/components/Lang";
+import { stepText } from "@/lib/progress";
 
 export { splitReplies, stripReplies };
 
@@ -52,7 +53,7 @@ const PHASES: Record<string, string[]> = {
 
 function Phrase({ base, className = "" }: { base: string; className?: string }) {
   const t = useT();
-  const phrase = useCycle((PHASES[base] ?? [base]).map((p) => t(p)), 2400);
+  const phrase = useCycle((PHASES[base] ?? [base]).map((p) => stepText(p, t)), 2400);
   return (
     <span key={phrase} className={`swap-in inline-block ${className}`}>
       <span className="shimmer">{phrase}…</span>
@@ -73,6 +74,7 @@ export type Step = { name: string; label: string; state: "running" | "done" | "e
 
 /** The steps of the current turn, each turning into a check as it completes. */
 export function Steps({ steps }: { steps: Step[] }) {
+  const t = useT();
   if (!steps.length) return null;
   return (
     <ul className="space-y-1.5">
@@ -85,7 +87,7 @@ export function Steps({ steps }: { steps: Step[] }) {
               <Check className="h-4 w-4" strokeWidth={2.6} />
             </span>
           )}
-          {s.state === "running" ? <Phrase base={s.label} className="font-medium" /> : <span className="text-ink-2">{s.label}</span>}
+          {s.state === "running" ? <Phrase base={s.label} className="font-medium" /> : <span className="text-ink-2">{stepText(s.label, t)}</span>}
         </li>
       ))}
     </ul>

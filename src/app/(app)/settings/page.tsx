@@ -98,7 +98,7 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
     <div className="space-y-6">
       <div>
         <h3 className="font-semibold">{t("פייסבוק ואינסטגרם")}</h3>
-        <p className="mb-4 text-[14px] text-ink-2">{live[0].does}</p>
+        <p className="mb-4 text-[14px] text-ink-2">{t(live[0].does)}</p>
         <div className="space-y-6">
           <MetaConnect workspaceId={workspaceId} />
           {meta?.secret && (
@@ -151,8 +151,8 @@ async function Connectors({ workspaceId, businessName }: { workspaceId: string; 
           {soon.map((c) => (
             <li key={c.id} className="flex items-baseline justify-between gap-4 border-b border-line py-3">
               <span>
-                <span className="block font-semibold">{c.name}</span>
-                <span className="text-[14px] text-ink-3">{c.does}</span>
+                <span className="block font-semibold">{t(c.name)}</span>
+                <span className="text-[14px] text-ink-3">{t(c.does)}</span>
               </span>
               <span className="tag tag-quiet shrink-0">{t("בקרוב")}</span>
             </li>

@@ -61,7 +61,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
     <li className="flex h-9 items-center gap-2.5 px-2.5 text-[14px]">
       <Icon className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.5} />
       <span className="w-[92px] shrink-0 text-[13px] text-ink-3">{title}</span>
-      <span dir={ltr ? "ltr" : "auto"} className={`min-w-0 flex-1 truncate text-right ${value ? "text-ink" : "text-ink-3"}`}>
+      <span dir={ltr ? "ltr" : "auto"} className={`min-w-0 flex-1 truncate text-start ${value ? "text-ink" : "text-ink-3"}`}>
         {value ?? empty}
       </span>
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${value ? "bg-mint" : "bg-line-strong"}`} aria-hidden />
@@ -89,7 +89,7 @@ export function ConnectedAccount({ initial, compact = false }: { initial: Connec
           className={`pop-over rise absolute top-full z-50 mt-2 flex max-h-[calc(100dvh-96px)] w-[min(340px,calc(100vw-32px))] flex-col !rounded-[16px] ${compact ? "max-lg:fixed max-lg:inset-x-4 max-lg:top-[60px] max-lg:w-auto lg:start-0" : "end-0"}`}
         >
           <div className="shrink-0 border-b border-line px-3.5 py-2.5">
-            <p dir="auto" className="truncate text-right text-[15px]">{label}</p>
+            <p dir="auto" className="truncate text-start text-[15px]">{label}</p>
             <p className={`text-[12.5px] ${broken ? "text-bad" : "text-ink-3"}`}>
               {!m.connected ? t("פייסבוק ואינסטגרם עוד לא מחוברים") : broken ? `${t("החיבור נותק")}${m.statusReason ? `: ${m.statusReason}` : ""}` : pending ? t("מצאתי את העסק, הוא ממתין לאישור שלך") : t("הנכסים שמייקי עובד איתם")}
             </p>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useT } from "@/components/Lang";
 
 /**
  * Tabs that move between views of one page (a period, a filter). The choice is marked the moment it is
@@ -14,6 +15,7 @@ export function Segmented({ items, active }: { items: { href: string; label: str
   const router = useRouter();
   const [chosen, setChosen] = useState(active);
   const [pending, start] = useTransition();
+  const t = useT();
   const lastClick = useRef<string | null>(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function Segmented({ items, active }: { items: { href: string; label: str
           aria-current={x.key === chosen ? "page" : undefined}
           className="tab"
         >
-          {x.label}
+          {t(x.label)}
         </Link>
       ))}
     </nav>

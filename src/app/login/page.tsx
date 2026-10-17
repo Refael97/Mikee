@@ -32,7 +32,7 @@ export default function LoginPage() {
             </span>
             <input name="password" type="password" required autoComplete="current-password" maxLength={256} className="field" dir="ltr" />
           </label>
-          {error && <p className="note note-bad text-[14px]">{error}</p>}
+          {error && <p className="note note-bad text-[14px]">{t(error)}</p>}
           <button className="btn btn-primary btn-lg w-full" disabled={pending}>
             {pending ? t("נכנסים…") : t("כניסה")}
           </button>
