@@ -175,7 +175,9 @@ export class FakeMeta {
       if (method === "GET" && edge === "posts") return { data: this.list("fbpost").map((p) => ({ id: p.id, message: p.message, created_time: p.created_time })) };
       if (method === "POST" && (edge === "photos" || edge === "feed" || edge === "videos")) {
         if (params.published === "false") return { id: this.add("fbphoto", {}).id };
-        return { id: this.add("fbpost", { message: params.message ?? params.description }).id };
+        const post = this.add("fbpost", { message: params.message ?? params.description });
+        post.permalink_url = `https://www.facebook.com/${post.id}`;
+        return { id: post.id };
       }
     }
     if (root === "ig_1") {
@@ -184,7 +186,9 @@ export class FakeMeta {
       if (method === "POST" && edge === "media") return { id: this.add("igcontainer", { caption: params.caption }).id };
       if (method === "POST" && edge === "media_publish") {
         const c = this.nodes.get(params.creation_id);
-        return { id: this.add("igpost", { caption: c?.caption }).id };
+        const post = this.add("igpost", { caption: c?.caption });
+        post.permalink = `https://www.instagram.com/p/${post.id}/`;
+        return { id: post.id };
       }
     }
 

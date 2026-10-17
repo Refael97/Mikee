@@ -91,3 +91,18 @@ it("creates a Story card without publishing and publishes only through approval"
   expect((await proposal(id)).status).toBe("done");
   expect(fake.writes(/media_publish/)).toHaveLength(1);
 });
+
+it("returns where a published feed post can be seen, and only Facebook or Instagram addresses", async () => {
+  const fake = new FakeMeta();
+  fake.install();
+  const ctx = { graph: new Graph("test"), igUserId: "ig_1", pageId: "page_1" };
+  const input = PostSpec.parse({ title: "Post", channels: ["facebook", "instagram"], text: "New collection", media: [{ type: "image", url: "https://example.com/a.jpg" }] });
+  vi.spyOn(await import("@/lib/meta/images"), "socialImageUrl").mockImplementation(async (_w, url) => url);
+  const result = await publishPost(ctx, input, checkpoint(), false);
+  expect(result.links?.instagram).toMatch(/^https:\/\/www\.instagram\.com\/p\//);
+  expect(result.links?.facebook).toMatch(/^https:\/\/www\.facebook\.com\//);
+  const { safePostLink } = await import("@/lib/meta/links");
+  expect(safePostLink("https://evil.example/x")).toBeUndefined();
+  expect(safePostLink("javascript:alert(1)")).toBeUndefined();
+  expect(safePostLink("/page/videos/1")).toBe("https://www.facebook.com/page/videos/1");
+});

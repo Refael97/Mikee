@@ -2,7 +2,7 @@
 
 import type { Autonomy } from "@/lib/autonomy";
 import { useEffect, useRef, useState } from "react";
-import { Bookmark, Check, ChevronLeft, ChevronRight, Clapperboard, Copy, Heart, ImageIcon, Layers, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
+import { Bookmark, Check, ChevronLeft, ChevronRight, Clapperboard, Copy, ExternalLink, Heart, ImageIcon, Layers, Megaphone, MessageCircle, MoreHorizontal, PenLine, Power, RotateCcw, Send, SlidersHorizontal, Wallet } from "lucide-react";
 import type { CardView } from "@/lib/conversation";
 import type { ProposalCard as Card } from "@/lib/specs";
 import { MediaGenerating } from "./Live";
@@ -469,6 +469,22 @@ export function ProposalCard({ proposal, brand, onChange, autonomy }: { proposal
                   : `${card.kind === "adset" ? "הסדרה נבנתה" : "הסדרה שוכפלה"} בתוך הקמפיין הקיים, מושהית ונבדקה. כרטיס ההפעלה מחכה לך למטה`
                 : `${kind.done}. מייקי עוקב אחרי זה מעכשיו`}
           </p>
+        )}
+        {view.status === "done" && view.links && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {view.links.instagram && (
+              <a href={view.links.instagram} target="_blank" rel="noreferrer noopener" className="btn btn-quiet btn-sm">
+                <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
+                לצפייה באינסטגרם
+              </a>
+            )}
+            {view.links.facebook && (
+              <a href={view.links.facebook} target="_blank" rel="noreferrer noopener" className="btn btn-quiet btn-sm">
+                <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
+                לצפייה בפייסבוק
+              </a>
+            )}
+          </div>
         )}
         {view.status === "failed" && (
           <div className="space-y-3">

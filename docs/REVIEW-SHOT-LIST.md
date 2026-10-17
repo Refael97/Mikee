@@ -43,7 +43,7 @@
 | 3. קמפיין | `ads_management`, `pages_manage_ads`, `catalog_management` | `20-campaign-chat.mov` | ב"שיחות" כותבים: *Create a test campaign with 10 ILS a day.* הכרטיס מופיע, קוראים אותו ולוחצים אישור. |
 | | | `21-campaign-ads-manager.mov` | פותחים את Ads Manager ומראים את הקמפיין שנוצר, ואז משהים אותו. |
 | 4. פוסטים | `pages_manage_posts`, `instagram_content_publish`, `instagram_basic` | `30-post-chat.mov` | ב"שיחות" כותבים: *Write an Instagram and Facebook post with this photo of our new collection* ומצרפים תמונה. הכרטיס מופיע ומאשרים. |
-| | | `31-post-live.mov` | מראים את הפוסט בדף פייסבוק ובפרופיל האינסטגרם. |
+| | | `31-post-live.mov` | בכרטיס שפורסם לוחצים "לצפייה באינסטגרם", והפוסט נפתח באינסטגרם. חוזרים ולוחצים "לצפייה בפייסבוק". |
 | | | `32-post-edit.mov` | "הודעות", ואז "הפוסטים והתגובות". עיפרון ליד הפוסט של פייסבוק, משנים את הטקסט, "לשמור בדף", ומראים את השינוי בפייסבוק. |
 | 5. תגובות | `pages_read_user_content`, `pages_manage_engagement`, `instagram_manage_comments`, `instagram_manage_engagement`, `instagram_manage_contents` | `40-comments-facebook.mov` | "הודעות", ואז "הפוסטים והתגובות". על תגובה בפייסבוק עונים, עושים לייק, מסתירים, ואז מוחקים (פח ואז "למחוק"). |
 | | | `41-comments-instagram.mov` | אותו דבר על תגובה באינסטגרם, ועוד לב לפוסט עצמו. |

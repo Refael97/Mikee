@@ -6,6 +6,7 @@ import { MetaError } from "./graph";
 import { resolveCatalog } from "./catalog";
 import { bytesFromOwnUrl } from "../media";
 import { safeFetch } from "../net";
+import { safePostLink } from "./links";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -966,7 +967,26 @@ export async function publishPost(ctx: MetaContext, spec: PostSpec, cp: Checkpoi
       }
     }
   }
-  return { facebook: cp.data.facebook, instagram: cp.data.instagram };
+  const links = await postLinks(ctx, cp.data.facebook, cp.data.instagram, story).catch(() => undefined);
+  return { facebook: cp.data.facebook, instagram: cp.data.instagram, ...(links ? { links } : {}) };
+}
+
+/**
+ * Where the published post can be seen, for the card's "view post" buttons. Best effort: a post that is
+ * published but whose address Meta does not return simply has no button. A Story has no lasting address.
+ */
+async function postLinks(ctx: MetaContext, facebookId?: string, instagramId?: string, story = false) {
+  const links: { facebook?: string; instagram?: string } = {};
+  if (facebookId && ctx.pageId) {
+    const page = await ctx.graph.forPage(ctx.pageId);
+    const node = await page.get<{ permalink_url?: string; link?: string }>(`/${facebookId}`, { fields: "permalink_url" }).catch(() => page.get<{ link?: string }>(`/${facebookId}`, { fields: "link" }).catch(() => ({}) as { link?: string }));
+    links.facebook = safePostLink((node as { permalink_url?: string }).permalink_url ?? (node as { link?: string }).link);
+  }
+  if (instagramId && !story) {
+    const node = await ctx.graph.get<{ permalink?: string }>(`/${instagramId}`, { fields: "permalink" }).catch(() => ({}) as { permalink?: string });
+    links.instagram = safePostLink(node.permalink);
+  }
+  return links.facebook || links.instagram ? links : undefined;
 }
 
 export function describeError(err: unknown): string {

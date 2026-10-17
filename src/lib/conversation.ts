@@ -6,6 +6,7 @@ import type { Attachment } from "./db/schema";
 import type { ProposalCard } from "./specs";
 import { getObject } from "./storage";
 import { untrusted } from "./agent/untrusted";
+import { safePostLink } from "./meta/links";
 
 type Block = Anthropic.Beta.BetaContentBlockParam;
 export type Kind = "chat" | "event" | "kickoff" | "state";
@@ -101,6 +102,8 @@ export type CardView = {
   needsIdentity?: boolean;
   /** A campaign approved at "final approval only" that went live right after its build checked out. */
   autoActivated?: boolean;
+  /** A published post: where to see it on Facebook and Instagram. */
+  links?: { facebook?: string; instagram?: string };
 };
 
 /** Meta's original error fields and the checked build state, as short labelled lines. */
@@ -136,6 +139,13 @@ function technical(r: Record<string, any>): CardView["technical"] {
   return { lines };
 }
 
+function postLinks(v: unknown): CardView["links"] {
+  if (!v || typeof v !== "object") return undefined;
+  const { facebook, instagram } = v as Record<string, unknown>;
+  const links = { facebook: safePostLink(facebook), instagram: safePostLink(instagram) };
+  return links.facebook || links.instagram ? links : undefined;
+}
+
 /** The client-facing view of one proposal row. */
 export function cardView(p: { id: string; status: string; versionHash: string; card: unknown; result: unknown; action?: unknown }): CardView {
   const r = (p.result ?? {}) as { error?: string; retryable?: boolean; media?: CardView["output"]; autoActivated?: boolean };
@@ -151,6 +161,7 @@ export function cardView(p: { id: string; status: string; versionHash: string; c
     technical: p.status === "failed" ? technical(r as Record<string, any>) : undefined,
     needsIdentity: p.status === "failed" && (r as Record<string, any>).meta?.error_subcode === 3858634,
     autoActivated: r.autoActivated || undefined,
+    links: postLinks((r as Record<string, any>).links),
   };
 }
 
